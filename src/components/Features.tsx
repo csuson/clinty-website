@@ -1,0 +1,108 @@
+const features = [
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+    ),
+    title: 'Smart Email Responses',
+    description:
+      'Your AI agent reads, understands, and replies to customer emails in your brand voice — handling inquiries, follow-ups, and FAQs without you lifting a finger.',
+    savings: 'Saves ~8 hrs/week',
+    color: 'teal',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+    title: 'Automated Scheduling',
+    description:
+      'Customers book appointments directly via email conversations. The agent checks your calendar, proposes times, confirms bookings, and sends reminders.',
+    savings: 'Saves ~5 hrs/week',
+    color: 'amber',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    title: 'Calendar Management',
+    description:
+      'Reschedules, cancellations, and buffer times are handled automatically. Syncs with Google Calendar, Outlook, and Apple Calendar in real time.',
+    savings: 'Saves ~3 hrs/week',
+    color: 'teal',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    ),
+    title: 'Customer Follow-ups',
+    description:
+      'Never let a lead go cold. The agent sends personalized follow-ups, collects feedback after appointments, and nurtures relationships on autopilot.',
+    savings: 'Recovers ~12% more leads',
+    color: 'amber',
+  },
+]
+
+const colorMap = {
+  teal: {
+    bg: 'bg-teal-400/10',
+    text: 'text-teal-500',
+    border: 'border-teal-400/20',
+  },
+  amber: {
+    bg: 'bg-amber-400/10',
+    text: 'text-amber-500',
+    border: 'border-amber-400/20',
+  },
+}
+
+export default function Features() {
+  return (
+    <section id="features" className="py-24 px-6 bg-white">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center max-w-2xl mx-auto mb-16">
+          <h2 className="font-serif text-4xl md:text-5xl text-navy-900 mb-4">
+            One agent. <em className="text-teal-500 not-italic">Every</em> customer touchpoint.
+          </h2>
+          <p className="text-navy-600 text-lg">
+            Clinty handles the repetitive communication that eats your day — so your team
+            can focus on delivering great service.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {features.map((feature) => {
+            const colors = colorMap[feature.color as keyof typeof colorMap]
+            return (
+              <div
+                key={feature.title}
+                className="group rounded-2xl border border-navy-900/5 p-8 hover:border-navy-900/10 hover:shadow-md transition-all"
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`${colors.bg} ${colors.text} p-3 rounded-xl shrink-0`}>
+                    {feature.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-navy-900 mb-2">{feature.title}</h3>
+                    <p className="text-navy-600 leading-relaxed mb-4">{feature.description}</p>
+                    <span
+                      className={`inline-block text-xs font-semibold ${colors.text} ${colors.bg} ${colors.border} border rounded-full px-3 py-1`}
+                    >
+                      {feature.savings}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
