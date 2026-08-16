@@ -48,6 +48,26 @@ In Supabase, go to **Authentication → Providers** and ensure **Email** is enab
 
 For local development, you can disable email confirmation under **Authentication → Settings → Enable email confirmations**.
 
+### 5. SSL for Supabase connections
+
+Direct Postgres and Supabase CLI connections verify TLS using Supabase's root CA certificate.
+
+1. Download `prod-ca-2021.crt` from your Supabase project (**Project Settings → Database → SSL Configuration**), or use the copy in `supabase/certs/prod-ca-2021.crt`
+2. Set the certificate path in `.env`:
+
+```
+SUPABASE_SSL_CERT_PATH=~/Downloads/prod-ca-2021.crt
+```
+
+3. Use the npm wrapper for Supabase CLI commands so SSL env vars are applied automatically:
+
+```bash
+npm run supabase -- functions deploy admin-data
+npm run supabase -- db push
+```
+
+The Vite dev/build tooling also loads this certificate for any Node-side HTTPS connections via `NODE_EXTRA_CA_CERTS`. The browser client uses HTTPS to `*.supabase.co` automatically.
+
 ## Auth Pages
 
 | Page | URL |
@@ -95,6 +115,31 @@ supabase secrets set GOOGLE_CLIENT_SECRET=your-client-secret
 ### 4. Database
 
 Run the Gmail tables section in `supabase/schema.sql` (creates `gmail_tokens` and `gmail_connections`).
+
+## Agent Settings API
+
+Returns the `agent_settings` row linked to a Clinty API key as JSON.
+
+**Endpoint:** `GET {VITE_SUPABASE_URL}/functions/v1/agent-settings`
+
+**Authentication:** include the Clinty API key in a request header:
+
+- `X-Clinty-Api-Key: clinty_sk_...` (recommended), or
+- `Authorization: Bearer clinty_sk_...`
+
+Supabase also requires the project anon key on the request:
+
+```bash
+curl -s "https://your-project.supabase.co/functions/v1/agent-settings" \
+  -H "apikey: YOUR_SUPABASE_ANON_KEY" \
+  -H "X-Clinty-Api-Key: clinty_sk_your_key_here"
+```
+
+Deploy the function:
+
+```bash
+npm run supabase -- functions deploy agent-settings
+```
 
 ## Build
 

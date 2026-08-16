@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 function parseAdminEmails(raw: string | undefined): Set<string> {
@@ -55,10 +56,11 @@ Deno.serve(async (req) => {
       return json({ error: 'Forbidden' }, 403)
     }
 
-    const [profilesRes, apiKeysRes, gmailTokensRes] = await Promise.all([
+    const [profilesRes, apiKeysRes, gmailTokensRes, agentSettingsRes] = await Promise.all([
       admin.from('profiles').select('*').order('created_at', { ascending: false }),
       admin.from('api_keys').select('*').order('created_at', { ascending: false }),
       admin.from('gmail_tokens').select('*').order('updated_at', { ascending: false }),
+      admin.from('agent_settings').select('*').order('created_at', { ascending: false }),
     ])
 
     if (profilesRes.error) {
@@ -70,9 +72,15 @@ Deno.serve(async (req) => {
     if (gmailTokensRes.error) {
       return json({ error: gmailTokensRes.error.message }, 500)
     }
+    if (agentSettingsRes.error) {
+      return json({ error: agentSettingsRes.error.message }, 500)
+    }
 
     const emailByUserId = new Map(
       (profilesRes.data ?? []).map((profile) => [profile.id, profile.email]),
+    )
+    const apiKeyById = new Map(
+      (apiKeysRes.data ?? []).map((key) => [key.id, key]),
     )
 
     const users = profilesRes.data ?? []
@@ -84,8 +92,20 @@ Deno.serve(async (req) => {
       ...token,
       user_email: emailByUserId.get(token.user_id) ?? null,
     }))
+    const agentSettings = (agentSettingsRes.data ?? []).map((settings) => {
+      const linkedApiKey = settings.clinty_api_key_id
+        ? apiKeyById.get(settings.clinty_api_key_id) ?? null
+        : null
 
-    return json({ users, apiKeys, gmailTokens })
+      return {
+        ...settings,
+        user_email: emailByUserId.get(settings.user_id) ?? null,
+        clinty_api_key_name: linkedApiKey?.name ?? null,
+        clinty_api_key_secret: linkedApiKey?.key_secret ?? null,
+      }
+    })
+
+    return json({ users, apiKeys, gmailTokens, agentSettings })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }

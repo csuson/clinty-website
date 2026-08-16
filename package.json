@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "deploy:hostinger": "npm run build && node scripts/deploy-hostinger.mjs",
+    "supabase": "node scripts/run-supabase.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },

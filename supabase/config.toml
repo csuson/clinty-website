@@ -1,0 +1,17 @@
+[functions.agent-settings]
+verify_jwt = false
+
+[functions.admin-data]
+verify_jwt = false
+
+[functions.admin-agent-settings]
+verify_jwt = false
+
+[functions.admin-delete]
+verify_jwt = false
+
+[functions.square-oauth-exchange]
+verify_jwt = false
+
+[functions.square-oauth-disconnect]
+verify_jwt = false

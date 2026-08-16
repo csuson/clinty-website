@@ -35,6 +35,10 @@ const host = env.HOSTINGER_FTP_HOST
 const user = env.HOSTINGER_FTP_USER
 const password = env.HOSTINGER_FTP_PASSWORD
 const remotePath = env.HOSTINGER_FTP_REMOTE_PATH || '/public_html'
+const extraRemotePaths = (env.HOSTINGER_FTP_EXTRA_PATHS ?? '')
+  .split(',')
+  .map((path) => path.trim())
+  .filter(Boolean)
 const secure = env.HOSTINGER_FTP_SECURE !== 'false'
 
 if (!host || !user || !password) {
@@ -54,16 +58,24 @@ if (!existsSync(distDir)) {
 const client = new Client(120_000)
 client.ftp.verbose = env.DEPLOY_VERBOSE === 'true'
 
+async function uploadDist(targetPath) {
+  console.log(`Uploading dist/ to ${targetPath}...`)
+  await client.ensureDir(targetPath)
+  await client.cd(targetPath)
+  await client.uploadFromDir(distDir)
+  console.log(`Deployed to ${host}${targetPath}`)
+}
+
 try {
   console.log(`Connecting to ${host}...`)
   await client.access({ host, user, password, secure })
 
-  console.log(`Uploading dist/ to ${remotePath}...`)
-  await client.ensureDir(remotePath)
-  await client.cd(remotePath)
-  await client.uploadFromDir(distDir)
+  const deployPaths = [remotePath, ...extraRemotePaths.filter((path) => path !== remotePath)]
+  for (const targetPath of deployPaths) {
+    await uploadDist(targetPath)
+  }
 
-  console.log(`\nDeployed to ${host}${remotePath}`)
+  console.log(`\nDone. Uploaded to ${deployPaths.length} path(s).`)
 } catch (error) {
   console.error('Deploy failed:', error.message)
   process.exit(1)

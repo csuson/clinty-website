@@ -12,6 +12,8 @@ import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 import Account from './pages/Account'
 import Admin from './pages/Admin'
+import AdminAgentSettingsNew from './pages/AdminAgentSettingsNew'
+import AdminAgentSettingsEdit from './pages/AdminAgentSettingsEdit'
 import Dashboard from './pages/Dashboard'
 
 export default function App() {
@@ -39,6 +41,22 @@ export default function App() {
               <GuestRoute>
                 <SignUp />
               </GuestRoute>
+            }
+          />
+          <Route
+            path="/admin/agent-settings/:id/edit"
+            element={
+              <AdminRoute>
+                <AdminAgentSettingsEdit />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/agent-settings/new"
+            element={
+              <AdminRoute>
+                <AdminAgentSettingsNew />
+              </AdminRoute>
             }
           />
           <Route

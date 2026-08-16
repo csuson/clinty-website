@@ -141,6 +141,125 @@ create policy "Users can view own gmail connection"
   on public.gmail_connections for select
   using (auth.uid() = user_id);
 
+-- Square OAuth tokens (server-side only — no user RLS policies)
+create table if not exists public.square_tokens (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  access_token text not null,
+  refresh_token text,
+  merchant_id text not null,
+  application_id text not null,
+  expires_at timestamptz,
+  scopes text[] not null default '{}',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.square_tokens enable row level security;
+
+-- Square connection status (visible to the account owner)
+create table if not exists public.square_connections (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  merchant_id text,
+  business_name text,
+  location_id text,
+  location_name text,
+  timezone text,
+  scopes text[] not null default '{}',
+  connected_at timestamptz not null default now(),
+  token_expiry timestamptz,
+  status text not null default 'connected' check (status in ('connected', 'disconnected', 'error'))
+);
+
+alter table public.square_connections enable row level security;
+
+drop policy if exists "Users can view own square connection" on public.square_connections;
+create policy "Users can view own square connection"
+  on public.square_connections for select
+  using (auth.uid() = user_id);
+
 -- Admin dashboard: set ADMIN_EMAILS in Supabase Edge Function secrets and
 -- VITE_ADMIN_EMAILS in the website .env (comma-separated admin emails).
 -- The admin-data Edge Function uses the service role to read all rows.
+
+-- Agent runtime configuration per user
+create table if not exists public.agent_settings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  name text not null,
+  clinty_api_key_id uuid references public.api_keys (id) on delete set null,
+  langgraph_api_key text,
+  url text,
+  graph_id text,
+  openapi_key text,
+  database_uri text,
+  redis_uri text,
+  secrets_dir text,
+  calendar_provider text,
+  square_access_token text,
+  square_location_id text,
+  square_service_variation_id text,
+  square_service_variation_version bigint,
+  square_team_member_id text,
+  square_timezone text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.agent_settings enable row level security;
+
+drop policy if exists "Users can view own agent settings" on public.agent_settings;
+create policy "Users can view own agent settings"
+  on public.agent_settings for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can create own agent settings" on public.agent_settings;
+create policy "Users can create own agent settings"
+  on public.agent_settings for insert
+  with check (
+    auth.uid() = user_id
+    and (
+      clinty_api_key_id is null
+      or exists (
+        select 1
+        from public.api_keys
+        where id = clinty_api_key_id
+          and user_id = auth.uid()
+          and revoked_at is null
+      )
+    )
+  );
+
+drop policy if exists "Users can update own agent settings" on public.agent_settings;
+create policy "Users can update own agent settings"
+  on public.agent_settings for update
+  using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id
+    and (
+      clinty_api_key_id is null
+      or exists (
+        select 1
+        from public.api_keys
+        where id = clinty_api_key_id
+          and user_id = auth.uid()
+          and revoked_at is null
+      )
+    )
+  );
+
+drop policy if exists "Users can delete own agent settings" on public.agent_settings;
+create policy "Users can delete own agent settings"
+  on public.agent_settings for delete
+  using (auth.uid() = user_id);
+
+drop trigger if exists agent_settings_updated_at on public.agent_settings;
+
+create trigger agent_settings_updated_at
+  before update on public.agent_settings
+  for each row execute function public.set_updated_at();
+
+create index if not exists agent_settings_clinty_api_key_id_idx
+  on public.agent_settings (clinty_api_key_id);
+
+-- Migration for existing agent_settings tables (safe to re-run)
+alter table public.agent_settings drop column if exists clinty_api_key;
+alter table public.agent_settings add column if not exists clinty_api_key_id uuid references public.api_keys (id) on delete set null;

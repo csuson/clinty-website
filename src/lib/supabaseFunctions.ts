@@ -1,4 +1,4 @@
-import { FunctionsHttpError } from '@supabase/supabase-js'
+import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js'
 
 /** Extract the real error message from a Supabase Edge Function response. */
 export async function getFunctionErrorMessage(
@@ -7,6 +7,14 @@ export async function getFunctionErrorMessage(
 ): Promise<string> {
   if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
     return data.error
+  }
+
+  if (error instanceof FunctionsFetchError) {
+    return 'Could not reach the Edge Function. Check your connection, sign in again, or try refreshing the page.'
+  }
+
+  if (error instanceof FunctionsRelayError) {
+    return 'The Edge Function relay failed. Try again in a moment.'
   }
 
   if (error instanceof FunctionsHttpError) {
