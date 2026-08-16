@@ -6,6 +6,7 @@ import Billing from './account/Billing'
 import GmailCallback from './account/GmailCallback'
 import Integrations from './account/Integrations'
 import SquareCallback from './account/SquareCallback'
+import YahooCallback from './account/YahooCallback'
 
 export default function Account() {
   return (
@@ -15,6 +16,7 @@ export default function Account() {
         <Route path="integrations" element={<Integrations />} />
         <Route path="integrations/gmail/callback" element={<GmailCallback />} />
         <Route path="integrations/square/callback" element={<SquareCallback />} />
+        <Route path="integrations/yahoo/callback" element={<YahooCallback />} />
         <Route path="billing" element={<Billing />} />
         <Route path="api-keys" element={<ApiKeys />} />
       </Route>

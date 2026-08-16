@@ -1,6 +1,7 @@
 /** Square Bookings / Appointments OAuth scopes for merchant calendar access */
 export const SQUARE_SCOPES = [
   'MERCHANT_PROFILE_READ',
+  'ITEMS_READ',
   'APPOINTMENTS_READ',
   'APPOINTMENTS_WRITE',
   'APPOINTMENTS_ALL_READ',

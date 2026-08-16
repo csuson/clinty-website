@@ -33,32 +33,14 @@ Deno.serve(async (req) => {
       return json({ error: 'Unauthorized' }, 401)
     }
 
-    await admin.from('square_tokens').delete().eq('user_id', user.id)
-    await admin.from('square_connections').upsert({
+    await admin.from('yahoo_tokens').delete().eq('user_id', user.id)
+    await admin.from('yahoo_connections').upsert({
       user_id: user.id,
       status: 'disconnected',
-      merchant_id: null,
-      business_name: null,
-      location_id: null,
-      location_name: null,
-      timezone: null,
-      service_variation_id: null,
-      service_variation_version: null,
-      service_variation_name: null,
+      yahoo_email: null,
       scopes: [],
       token_expiry: null,
     })
-
-    await admin
-      .from('agent_settings')
-      .update({
-        square_access_token: null,
-        calendar_provider: null,
-        square_service_variation_id: null,
-        square_service_variation_version: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', user.id)
 
     return json({ success: true })
   } catch (err) {

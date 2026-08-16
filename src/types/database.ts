@@ -48,6 +48,28 @@ export type GmailToken = {
   updated_at: string
 }
 
+export type YahooConnection = {
+  user_id: string
+  yahoo_email: string | null
+  scopes: string[]
+  connected_at: string
+  token_expiry: string | null
+  status: 'connected' | 'disconnected' | 'error'
+}
+
+export type YahooToken = {
+  user_id: string
+  access_token: string
+  refresh_token: string | null
+  token_uri: string
+  client_id: string
+  client_secret: string
+  scopes: string[]
+  yahoo_account: string | null
+  expiry: string | null
+  updated_at: string
+}
+
 export type SquareConnection = {
   user_id: string
   merchant_id: string | null
@@ -55,6 +77,9 @@ export type SquareConnection = {
   location_id: string | null
   location_name: string | null
   timezone: string | null
+  service_variation_id: string | null
+  service_variation_version: number | null
+  service_variation_name: string | null
   scopes: string[]
   connected_at: string
   token_expiry: string | null
@@ -189,6 +214,51 @@ export type Database = {
         }
         Relationships: []
       }
+      yahoo_connections: {
+        Row: YahooConnection
+        Insert: {
+          user_id: string
+          yahoo_email?: string | null
+          scopes?: string[]
+          connected_at?: string
+          token_expiry?: string | null
+          status?: 'connected' | 'disconnected' | 'error'
+        }
+        Update: {
+          yahoo_email?: string | null
+          scopes?: string[]
+          token_expiry?: string | null
+          status?: 'connected' | 'disconnected' | 'error'
+        }
+        Relationships: []
+      }
+      yahoo_tokens: {
+        Row: YahooToken
+        Insert: {
+          user_id: string
+          access_token: string
+          refresh_token?: string | null
+          token_uri?: string
+          client_id: string
+          client_secret: string
+          scopes?: string[]
+          yahoo_account?: string | null
+          expiry?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          refresh_token?: string | null
+          token_uri?: string
+          client_id?: string
+          client_secret?: string
+          scopes?: string[]
+          yahoo_account?: string | null
+          expiry?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       square_connections: {
         Row: SquareConnection
         Insert: {
@@ -198,6 +268,9 @@ export type Database = {
           location_id?: string | null
           location_name?: string | null
           timezone?: string | null
+          service_variation_id?: string | null
+          service_variation_version?: number | null
+          service_variation_name?: string | null
           scopes?: string[]
           connected_at?: string
           token_expiry?: string | null
@@ -209,6 +282,9 @@ export type Database = {
           location_id?: string | null
           location_name?: string | null
           timezone?: string | null
+          service_variation_id?: string | null
+          service_variation_version?: number | null
+          service_variation_name?: string | null
           scopes?: string[]
           token_expiry?: string | null
           status?: 'connected' | 'disconnected' | 'error'

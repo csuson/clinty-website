@@ -8,6 +8,7 @@ const corsHeaders = {
 
 const SCOPES = [
   'MERCHANT_PROFILE_READ',
+  'ITEMS_READ',
   'APPOINTMENTS_READ',
   'APPOINTMENTS_WRITE',
   'APPOINTMENTS_ALL_READ',
@@ -25,14 +26,79 @@ async function squareFetch(
   sandbox: boolean,
   accessToken: string,
   path: string,
+  init: RequestInit = {},
 ): Promise<Response> {
   return fetch(`${squareConnectHost(sandbox)}${path}`, {
+    ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Square-Version': SQUARE_VERSION,
       'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
     },
   })
+}
+
+type BookableServiceVariation = {
+  id: string
+  version: number
+  name: string
+  itemName: string
+}
+
+function findBookableServiceVariation(items: unknown[]): BookableServiceVariation | null {
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue
+
+    const catalogItem = item as {
+      item_data?: {
+        name?: string
+        variations?: Array<{
+          id?: string
+          version?: number
+          item_variation_data?: {
+            name?: string
+            available_for_booking?: boolean
+          }
+        }>
+      }
+    }
+
+    const itemName = catalogItem.item_data?.name ?? 'Service'
+    for (const variation of catalogItem.item_data?.variations ?? []) {
+      if (!variation.id || variation.version == null) continue
+      if (variation.item_variation_data?.available_for_booking !== true) continue
+
+      const variationName = variation.item_variation_data?.name ?? 'Default'
+      return {
+        id: variation.id,
+        version: variation.version,
+        name: `${itemName} — ${variationName}`,
+        itemName,
+      }
+    }
+  }
+
+  return null
+}
+
+async function fetchBookableServiceVariation(
+  sandbox: boolean,
+  accessToken: string,
+): Promise<BookableServiceVariation | null> {
+  const catalogRes = await squareFetch(sandbox, accessToken, '/v2/catalog/search-catalog-items', {
+    method: 'POST',
+    body: JSON.stringify({
+      product_types: ['APPOINTMENTS_SERVICE'],
+    }),
+  })
+
+  if (!catalogRes.ok) {
+    return null
+  }
+
+  const catalogData = await catalogRes.json()
+  return findBookableServiceVariation(catalogData.items ?? [])
 }
 
 async function fetchMerchantContext(
@@ -45,12 +111,18 @@ async function fetchMerchantContext(
   locationName: string | null
   timezone: string | null
   teamMemberId: string | null
+  serviceVariationId: string | null
+  serviceVariationVersion: number | null
+  serviceVariationName: string | null
 }> {
   let businessName: string | null = null
   let locationId: string | null = null
   let locationName: string | null = null
   let timezone: string | null = null
   let teamMemberId: string | null = null
+  let serviceVariationId: string | null = null
+  let serviceVariationVersion: number | null = null
+  let serviceVariationName: string | null = null
 
   const merchantRes = await squareFetch(sandbox, accessToken, `/v2/merchants/${merchantId}`)
   if (merchantRes.ok) {
@@ -82,7 +154,23 @@ async function fetchMerchantContext(
     teamMemberId = bookableMember?.team_member_id ?? null
   }
 
-  return { businessName, locationId, locationName, timezone, teamMemberId }
+  const bookableService = await fetchBookableServiceVariation(sandbox, accessToken)
+  if (bookableService) {
+    serviceVariationId = bookableService.id
+    serviceVariationVersion = bookableService.version
+    serviceVariationName = bookableService.name
+  }
+
+  return {
+    businessName,
+    locationId,
+    locationName,
+    timezone,
+    teamMemberId,
+    serviceVariationId,
+    serviceVariationVersion,
+    serviceVariationName,
+  }
 }
 
 async function syncAgentSettings(
@@ -92,6 +180,8 @@ async function syncAgentSettings(
   locationId: string | null,
   timezone: string | null,
   teamMemberId: string | null,
+  serviceVariationId: string | null,
+  serviceVariationVersion: number | null,
 ) {
   const { data: settingsRows, error } = await admin
     .from('agent_settings')
@@ -110,6 +200,8 @@ async function syncAgentSettings(
       square_location_id: locationId,
       square_timezone: timezone,
       square_team_member_id: teamMemberId,
+      square_service_variation_id: serviceVariationId,
+      square_service_variation_version: serviceVariationVersion,
       updated_at: new Date().toISOString(),
     })
     .eq('id', settingsRows[0].id)
@@ -212,6 +304,9 @@ Deno.serve(async (req) => {
       location_id: merchantContext.locationId,
       location_name: merchantContext.locationName,
       timezone: merchantContext.timezone,
+      service_variation_id: merchantContext.serviceVariationId,
+      service_variation_version: merchantContext.serviceVariationVersion,
+      service_variation_name: merchantContext.serviceVariationName,
       scopes: SCOPES,
       token_expiry: expiresAt,
       status: 'connected',
@@ -229,6 +324,8 @@ Deno.serve(async (req) => {
       merchantContext.locationId,
       merchantContext.timezone,
       merchantContext.teamMemberId,
+      merchantContext.serviceVariationId,
+      merchantContext.serviceVariationVersion,
     )
 
     return json({
@@ -236,6 +333,9 @@ Deno.serve(async (req) => {
       merchantId,
       businessName: merchantContext.businessName,
       locationName: merchantContext.locationName,
+      serviceVariationName: merchantContext.serviceVariationName,
+      serviceVariationId: merchantContext.serviceVariationId,
+      serviceVariationVersion: merchantContext.serviceVariationVersion,
     })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)

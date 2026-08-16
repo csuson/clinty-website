@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const allowedResources = new Set(['user', 'api_key', 'gmail_token', 'square_token', 'agent_settings'])
+const allowedResources = new Set(['user', 'api_key', 'gmail_token', 'yahoo_token', 'square_token', 'agent_settings'])
 
 function parseAdminEmails(raw: string | undefined): Set<string> {
   return new Set(
@@ -115,6 +115,22 @@ Deno.serve(async (req) => {
       const [tokensRes, connectionsRes] = await Promise.all([
         admin.from('gmail_tokens').delete().eq('user_id', id),
         admin.from('gmail_connections').delete().eq('user_id', id),
+      ])
+
+      if (tokensRes.error) {
+        return json({ error: tokensRes.error.message }, 500)
+      }
+      if (connectionsRes.error) {
+        return json({ error: connectionsRes.error.message }, 500)
+      }
+
+      return json({ ok: true })
+    }
+
+    if (resource === 'yahoo_token') {
+      const [tokensRes, connectionsRes] = await Promise.all([
+        admin.from('yahoo_tokens').delete().eq('user_id', id),
+        admin.from('yahoo_connections').delete().eq('user_id', id),
       ])
 
       if (tokensRes.error) {

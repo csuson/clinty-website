@@ -163,6 +163,9 @@ create table if not exists public.square_connections (
   location_id text,
   location_name text,
   timezone text,
+  service_variation_id text,
+  service_variation_version bigint,
+  service_variation_name text,
   scopes text[] not null default '{}',
   connected_at timestamptz not null default now(),
   token_expiry timestamptz,
@@ -174,6 +177,39 @@ alter table public.square_connections enable row level security;
 drop policy if exists "Users can view own square connection" on public.square_connections;
 create policy "Users can view own square connection"
   on public.square_connections for select
+  using (auth.uid() = user_id);
+
+-- Yahoo OAuth tokens (server-side only — no user RLS policies)
+create table if not exists public.yahoo_tokens (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  access_token text not null,
+  refresh_token text,
+  token_uri text not null default 'https://api.login.yahoo.com/oauth2/get_token',
+  client_id text not null,
+  client_secret text not null,
+  scopes text[] not null default '{}',
+  yahoo_account text,
+  expiry timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.yahoo_tokens enable row level security;
+
+-- Yahoo connection status (visible to the account owner)
+create table if not exists public.yahoo_connections (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  yahoo_email text,
+  scopes text[] not null default '{}',
+  connected_at timestamptz not null default now(),
+  token_expiry timestamptz,
+  status text not null default 'connected' check (status in ('connected', 'disconnected', 'error'))
+);
+
+alter table public.yahoo_connections enable row level security;
+
+drop policy if exists "Users can view own yahoo connection" on public.yahoo_connections;
+create policy "Users can view own yahoo connection"
+  on public.yahoo_connections for select
   using (auth.uid() = user_id);
 
 -- Admin dashboard: set ADMIN_EMAILS in Supabase Edge Function secrets and
@@ -263,3 +299,6 @@ create index if not exists agent_settings_clinty_api_key_id_idx
 -- Migration for existing agent_settings tables (safe to re-run)
 alter table public.agent_settings drop column if exists clinty_api_key;
 alter table public.agent_settings add column if not exists clinty_api_key_id uuid references public.api_keys (id) on delete set null;
+alter table public.square_connections add column if not exists service_variation_id text;
+alter table public.square_connections add column if not exists service_variation_version bigint;
+alter table public.square_connections add column if not exists service_variation_name text;

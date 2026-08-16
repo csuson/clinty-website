@@ -15,3 +15,9 @@ verify_jwt = false
 
 [functions.square-oauth-disconnect]
 verify_jwt = false
+
+[functions.yahoo-oauth-exchange]
+verify_jwt = false
+
+[functions.yahoo-oauth-disconnect]
+verify_jwt = false

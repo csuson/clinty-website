@@ -91,6 +91,7 @@ type SecretValueProps = {
   value: string
   truncateLength?: number
   className?: string
+  expanded?: boolean
 }
 
 function maskSecret(value: string, truncateLength: number): string {
@@ -100,13 +101,19 @@ function maskSecret(value: string, truncateLength: number): string {
   return `${value.slice(0, truncateLength)}…`
 }
 
-export function SecretValue({ value, truncateLength = 20, className = 'font-mono text-xs' }: SecretValueProps) {
+export function SecretValue({
+  value,
+  truncateLength = 20,
+  className = 'font-mono text-xs',
+  expanded = false,
+}: SecretValueProps) {
   const [visible, setVisible] = useState(false)
+  const effectiveTruncate = expanded ? value.length : truncateLength
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className={`${className} break-all`}>
-        {visible ? value : maskSecret(value, truncateLength)}
+    <div className="flex items-start gap-2 flex-wrap">
+      <span className={`${className} break-all ${expanded ? 'whitespace-pre-wrap' : ''}`}>
+        {visible ? value : maskSecret(value, effectiveTruncate)}
       </span>
       <EyeToggleButton visible={visible} onToggle={() => setVisible((current) => !current)} />
     </div>

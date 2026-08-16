@@ -17,6 +17,9 @@ export type SquareConnection = {
   location_id: string | null
   location_name: string | null
   timezone: string | null
+  service_variation_id: string | null
+  service_variation_version: number | null
+  service_variation_name: string | null
   scopes: string[]
   connected_at: string
   token_expiry: string | null

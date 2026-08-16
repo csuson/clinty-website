@@ -51,7 +51,7 @@ export type CreateAgentSettingsInput = {
   square_timezone?: string | null
 }
 
-export type AdminDeleteResource = 'user' | 'api_key' | 'gmail_token' | 'square_token' | 'agent_settings'
+export type AdminDeleteResource = 'user' | 'api_key' | 'gmail_token' | 'yahoo_token' | 'square_token' | 'agent_settings'
 
 export async function deleteAdminRecord(resource: AdminDeleteResource, id: string): Promise<void> {
   if (!supabase) {
