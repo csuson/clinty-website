@@ -144,7 +144,10 @@ async function fetchMerchantContext(
     }
   }
 
-  const teamRes = await squareFetch(sandbox, accessToken, '/v2/bookings/team-member-booking-profiles')
+  const teamPath = locationId
+    ? `/v2/bookings/team-member-booking-profiles?location_id=${encodeURIComponent(locationId)}`
+    : '/v2/bookings/team-member-booking-profiles'
+  const teamRes = await squareFetch(sandbox, accessToken, teamPath)
   if (teamRes.ok) {
     const teamData = await teamRes.json()
     const bookableMember = (teamData.team_member_booking_profiles ?? []).find(
@@ -303,6 +306,7 @@ Deno.serve(async (req) => {
       business_name: merchantContext.businessName,
       location_id: merchantContext.locationId,
       location_name: merchantContext.locationName,
+      team_member_id: merchantContext.teamMemberId,
       timezone: merchantContext.timezone,
       service_variation_id: merchantContext.serviceVariationId,
       service_variation_version: merchantContext.serviceVariationVersion,
@@ -332,7 +336,10 @@ Deno.serve(async (req) => {
       success: true,
       merchantId,
       businessName: merchantContext.businessName,
+      locationId: merchantContext.locationId,
       locationName: merchantContext.locationName,
+      teamMemberId: merchantContext.teamMemberId,
+      timezone: merchantContext.timezone,
       serviceVariationName: merchantContext.serviceVariationName,
       serviceVariationId: merchantContext.serviceVariationId,
       serviceVariationVersion: merchantContext.serviceVariationVersion,

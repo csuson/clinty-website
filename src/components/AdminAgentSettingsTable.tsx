@@ -18,6 +18,13 @@ type ColumnId =
   | 'redisUri'
   | 'secretsDir'
   | 'calendar'
+  | 'autoBook'
+  | 'autoRespondInstruction'
+  | 'autoRespondScheduling'
+  | 'environment'
+  | 'logLevel'
+  | 'pgoptions'
+  | 'postgresSchema'
   | 'squareToken'
   | 'squareLocation'
   | 'squareVariation'
@@ -40,6 +47,13 @@ const COLUMNS: AdminTableColumn<ColumnId>[] = [
   { id: 'redisUri', label: 'Redis URI', defaultWidth: 140, minWidth: 100 },
   { id: 'secretsDir', label: 'Secrets Dir', defaultWidth: 120, minWidth: 80 },
   { id: 'calendar', label: 'Calendar', defaultWidth: 100, minWidth: 80 },
+  { id: 'autoBook', label: 'Auto Book', defaultWidth: 100, minWidth: 80 },
+  { id: 'autoRespondInstruction', label: 'Auto Instruct', defaultWidth: 110, minWidth: 90 },
+  { id: 'autoRespondScheduling', label: 'Auto Schedule', defaultWidth: 110, minWidth: 90 },
+  { id: 'environment', label: 'Environment', defaultWidth: 110, minWidth: 90 },
+  { id: 'logLevel', label: 'Log Level', defaultWidth: 100, minWidth: 80 },
+  { id: 'pgoptions', label: 'PGOPTIONS', defaultWidth: 160, minWidth: 100 },
+  { id: 'postgresSchema', label: 'Postgres Schema', defaultWidth: 130, minWidth: 90 },
   { id: 'squareToken', label: 'Square Token', defaultWidth: 140, minWidth: 100 },
   { id: 'squareLocation', label: 'Square Location', defaultWidth: 130, minWidth: 90 },
   { id: 'squareVariation', label: 'Square Variation', defaultWidth: 130, minWidth: 90 },
@@ -50,6 +64,11 @@ const COLUMNS: AdminTableColumn<ColumnId>[] = [
   { id: 'updated', label: 'Updated', defaultWidth: 160, minWidth: 110 },
   { id: 'actions', label: 'Actions', defaultWidth: 180, minWidth: 140, expandable: false, resizable: false, nowrap: true },
 ]
+
+function formatBoolean(value: boolean | null | undefined): string {
+  if (value === null || value === undefined) return '—'
+  return value ? 'true' : 'false'
+}
 
 function SecretCell({ value, expanded }: { value: string | null; expanded: boolean }) {
   if (!value) return <span className="text-navy-500">—</span>
@@ -144,6 +163,24 @@ export default function AdminAgentSettingsTable({
             return <ExpandableText value={formatCellValue(row.secrets_dir)} expanded={expanded} monospace />
           case 'calendar':
             return <ExpandableText value={formatCellValue(row.calendar_provider)} expanded={expanded} />
+          case 'autoBook':
+            return <ExpandableText value={formatBoolean(row.auto_book_scheduling)} expanded={expanded} />
+          case 'autoRespondInstruction':
+            return (
+              <ExpandableText value={formatBoolean(row.auto_respond_instruction)} expanded={expanded} />
+            )
+          case 'autoRespondScheduling':
+            return (
+              <ExpandableText value={formatBoolean(row.auto_respond_scheduling)} expanded={expanded} />
+            )
+          case 'environment':
+            return <ExpandableText value={formatCellValue(row.environment)} expanded={expanded} />
+          case 'logLevel':
+            return <ExpandableText value={formatCellValue(row.log_level)} expanded={expanded} />
+          case 'pgoptions':
+            return <ExpandableText value={formatCellValue(row.pgoptions)} expanded={expanded} monospace />
+          case 'postgresSchema':
+            return <ExpandableText value={formatCellValue(row.postgres_schema)} expanded={expanded} monospace />
           case 'squareToken':
             return <SecretCell value={row.square_access_token} expanded={expanded} />
           case 'squareLocation':

@@ -120,7 +120,19 @@ export default function SquareIntegration() {
                 <dd className="font-medium text-navy-900">{connection.location_name ?? '—'}</dd>
               </div>
               <div>
-                <dt className="text-navy-600 mb-1">Timezone</dt>
+                <dt className="text-navy-600 mb-1">Square location ID</dt>
+                <dd className="font-medium text-navy-900 font-mono text-xs break-all">
+                  {connection.location_id ?? '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-navy-600 mb-1">Square team member ID</dt>
+                <dd className="font-medium text-navy-900 font-mono text-xs break-all">
+                  {connection.team_member_id ?? '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-navy-600 mb-1">Square calendar timezone</dt>
                 <dd className="font-medium text-navy-900">{connection.timezone ?? '—'}</dd>
               </div>
               <div>

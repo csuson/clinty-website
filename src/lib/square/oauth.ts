@@ -16,6 +16,7 @@ export type SquareConnection = {
   business_name: string | null
   location_id: string | null
   location_name: string | null
+  team_member_id: string | null
   timezone: string | null
   service_variation_id: string | null
   service_variation_version: number | null

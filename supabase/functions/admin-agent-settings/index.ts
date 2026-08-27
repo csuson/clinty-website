@@ -26,6 +26,15 @@ function emptyToNull(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null
 }
 
+function parseBoolean(value: unknown): boolean | null {
+  if (value === undefined || value === null || value === '') return null
+  if (typeof value === 'boolean') return value
+  const normalized = String(value).trim().toLowerCase()
+  if (normalized === 'true') return true
+  if (normalized === 'false') return false
+  return null
+}
+
 async function authorizeAdmin(req: Request) {
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) {
@@ -100,6 +109,13 @@ async function buildPayload(body: Record<string, unknown>) {
       square_service_variation_version: squareServiceVariationVersion,
       square_team_member_id: emptyToNull(body.square_team_member_id),
       square_timezone: emptyToNull(body.square_timezone),
+      auto_book_scheduling: parseBoolean(body.auto_book_scheduling),
+      auto_respond_instruction: parseBoolean(body.auto_respond_instruction),
+      auto_respond_scheduling: parseBoolean(body.auto_respond_scheduling),
+      environment: emptyToNull(body.environment),
+      log_level: emptyToNull(body.log_level),
+      pgoptions: emptyToNull(body.pgoptions),
+      postgres_schema: emptyToNull(body.postgres_schema),
     },
   }
 }

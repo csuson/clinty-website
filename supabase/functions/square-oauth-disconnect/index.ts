@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
       business_name: null,
       location_id: null,
       location_name: null,
+      team_member_id: null,
       timezone: null,
       service_variation_id: null,
       service_variation_version: null,
@@ -54,6 +55,9 @@ Deno.serve(async (req) => {
       .update({
         square_access_token: null,
         calendar_provider: null,
+        square_location_id: null,
+        square_team_member_id: null,
+        square_timezone: null,
         square_service_variation_id: null,
         square_service_variation_version: null,
         updated_at: new Date().toISOString(),

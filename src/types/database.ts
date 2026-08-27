@@ -76,6 +76,7 @@ export type SquareConnection = {
   business_name: string | null
   location_id: string | null
   location_name: string | null
+  team_member_id: string | null
   timezone: string | null
   service_variation_id: string | null
   service_variation_version: number | null
@@ -116,6 +117,13 @@ export type AgentSettings = {
   square_service_variation_version: number | null
   square_team_member_id: string | null
   square_timezone: string | null
+  auto_book_scheduling: boolean | null
+  auto_respond_instruction: boolean | null
+  auto_respond_scheduling: boolean | null
+  environment: string | null
+  log_level: string | null
+  pgoptions: string | null
+  postgres_schema: string | null
   created_at: string
   updated_at: string
 }
@@ -267,6 +275,7 @@ export type Database = {
           business_name?: string | null
           location_id?: string | null
           location_name?: string | null
+          team_member_id?: string | null
           timezone?: string | null
           service_variation_id?: string | null
           service_variation_version?: number | null
@@ -281,6 +290,7 @@ export type Database = {
           business_name?: string | null
           location_id?: string | null
           location_name?: string | null
+          team_member_id?: string | null
           timezone?: string | null
           service_variation_id?: string | null
           service_variation_version?: number | null
@@ -335,6 +345,13 @@ export type Database = {
           square_service_variation_version?: number | null
           square_team_member_id?: string | null
           square_timezone?: string | null
+          auto_book_scheduling?: boolean | null
+          auto_respond_instruction?: boolean | null
+          auto_respond_scheduling?: boolean | null
+          environment?: string | null
+          log_level?: string | null
+          pgoptions?: string | null
+          postgres_schema?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -355,6 +372,13 @@ export type Database = {
           square_service_variation_version?: number | null
           square_team_member_id?: string | null
           square_timezone?: string | null
+          auto_book_scheduling?: boolean | null
+          auto_respond_instruction?: boolean | null
+          auto_respond_scheduling?: boolean | null
+          environment?: string | null
+          log_level?: string | null
+          pgoptions?: string | null
+          postgres_schema?: string | null
           updated_at?: string
         }
         Relationships: []

@@ -24,6 +24,13 @@ export const emptyAgentSettingsForm: CreateAgentSettingsInput = {
   square_service_variation_version: null,
   square_team_member_id: '',
   square_timezone: '',
+  auto_book_scheduling: null,
+  auto_respond_instruction: null,
+  auto_respond_scheduling: null,
+  environment: '',
+  log_level: '',
+  pgoptions: '',
+  postgres_schema: '',
 }
 
 export function toAgentSettingsPayload(form: CreateAgentSettingsInput): CreateAgentSettingsInput {
@@ -44,7 +51,24 @@ export function toAgentSettingsPayload(form: CreateAgentSettingsInput): CreateAg
     square_service_variation_version: form.square_service_variation_version ?? null,
     square_team_member_id: form.square_team_member_id || null,
     square_timezone: form.square_timezone || null,
+    auto_book_scheduling: form.auto_book_scheduling ?? null,
+    auto_respond_instruction: form.auto_respond_instruction ?? null,
+    auto_respond_scheduling: form.auto_respond_scheduling ?? null,
+    environment: form.environment || null,
+    log_level: form.log_level || null,
+    pgoptions: form.pgoptions || null,
+    postgres_schema: form.postgres_schema || null,
   }
+}
+
+function booleanSelectValue(value: boolean | null | undefined): string {
+  if (value === null || value === undefined) return ''
+  return value ? 'true' : 'false'
+}
+
+function parseBooleanSelect(value: string): boolean | null {
+  if (value === '') return null
+  return value === 'true'
 }
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -365,6 +389,95 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Agent Behavior">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <FormField label="Auto Book Scheduling" id="agent-auto-book-scheduling">
+            <select
+              id="agent-auto-book-scheduling"
+              value={booleanSelectValue(form.auto_book_scheduling)}
+              onChange={(e) => updateField('auto_book_scheduling', parseBooleanSelect(e.target.value))}
+              className={inputClass}
+              disabled={saving}
+            >
+              <option value="">Not set</option>
+              <option value="true">True</option>
+              <option value="false">False</option>
+            </select>
+          </FormField>
+          <FormField label="Auto Respond Instruction" id="agent-auto-respond-instruction">
+            <select
+              id="agent-auto-respond-instruction"
+              value={booleanSelectValue(form.auto_respond_instruction)}
+              onChange={(e) => updateField('auto_respond_instruction', parseBooleanSelect(e.target.value))}
+              className={inputClass}
+              disabled={saving}
+            >
+              <option value="">Not set</option>
+              <option value="true">True</option>
+              <option value="false">False</option>
+            </select>
+          </FormField>
+          <FormField label="Auto Respond Scheduling" id="agent-auto-respond-scheduling">
+            <select
+              id="agent-auto-respond-scheduling"
+              value={booleanSelectValue(form.auto_respond_scheduling)}
+              onChange={(e) => updateField('auto_respond_scheduling', parseBooleanSelect(e.target.value))}
+              className={inputClass}
+              disabled={saving}
+            >
+              <option value="">Not set</option>
+              <option value="true">True</option>
+              <option value="false">False</option>
+            </select>
+          </FormField>
+          <FormField label="Environment" id="agent-environment">
+            <input
+              id="agent-environment"
+              type="text"
+              value={form.environment ?? ''}
+              onChange={(e) => updateField('environment', e.target.value)}
+              placeholder="production"
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+          <FormField label="Log Level" id="agent-log-level">
+            <input
+              id="agent-log-level"
+              type="text"
+              value={form.log_level ?? ''}
+              onChange={(e) => updateField('log_level', e.target.value)}
+              placeholder="INFO"
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+          <FormField label="Postgres Schema" id="agent-postgres-schema">
+            <input
+              id="agent-postgres-schema"
+              type="text"
+              value={form.postgres_schema ?? ''}
+              onChange={(e) => updateField('postgres_schema', e.target.value)}
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+          <div className="sm:col-span-2">
+            <FormField label="PGOPTIONS" id="agent-pgoptions">
+              <input
+                id="agent-pgoptions"
+                type="text"
+                value={form.pgoptions ?? ''}
+                onChange={(e) => updateField('pgoptions', e.target.value)}
+                placeholder='c search_path=kiteschool_assistant'
+                className={inputClass}
+                disabled={saving}
+              />
+            </FormField>
+          </div>
         </div>
       </SectionCard>
 

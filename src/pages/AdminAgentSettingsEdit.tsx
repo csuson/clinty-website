@@ -28,6 +28,13 @@ function agentSettingsToForm(settings: AdminAgentSettings): CreateAgentSettingsI
     square_service_variation_version: settings.square_service_variation_version,
     square_team_member_id: settings.square_team_member_id ?? '',
     square_timezone: settings.square_timezone ?? '',
+    auto_book_scheduling: settings.auto_book_scheduling,
+    auto_respond_instruction: settings.auto_respond_instruction,
+    auto_respond_scheduling: settings.auto_respond_scheduling,
+    environment: settings.environment ?? '',
+    log_level: settings.log_level ?? '',
+    pgoptions: settings.pgoptions ?? '',
+    postgres_schema: settings.postgres_schema ?? '',
   }
 }
 

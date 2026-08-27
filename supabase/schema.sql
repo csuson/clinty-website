@@ -162,6 +162,7 @@ create table if not exists public.square_connections (
   business_name text,
   location_id text,
   location_name text,
+  team_member_id text,
   timezone text,
   service_variation_id text,
   service_variation_version bigint,
@@ -236,6 +237,13 @@ create table if not exists public.agent_settings (
   square_service_variation_version bigint,
   square_team_member_id text,
   square_timezone text,
+  auto_book_scheduling boolean,
+  auto_respond_instruction boolean,
+  auto_respond_scheduling boolean,
+  environment text,
+  log_level text,
+  pgoptions text,
+  postgres_schema text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -299,6 +307,14 @@ create index if not exists agent_settings_clinty_api_key_id_idx
 -- Migration for existing agent_settings tables (safe to re-run)
 alter table public.agent_settings drop column if exists clinty_api_key;
 alter table public.agent_settings add column if not exists clinty_api_key_id uuid references public.api_keys (id) on delete set null;
+alter table public.agent_settings add column if not exists auto_book_scheduling boolean;
+alter table public.agent_settings add column if not exists auto_respond_instruction boolean;
+alter table public.agent_settings add column if not exists auto_respond_scheduling boolean;
+alter table public.agent_settings add column if not exists environment text;
+alter table public.agent_settings add column if not exists log_level text;
+alter table public.agent_settings add column if not exists pgoptions text;
+alter table public.agent_settings add column if not exists postgres_schema text;
 alter table public.square_connections add column if not exists service_variation_id text;
 alter table public.square_connections add column if not exists service_variation_version bigint;
 alter table public.square_connections add column if not exists service_variation_name text;
+alter table public.square_connections add column if not exists team_member_id text;

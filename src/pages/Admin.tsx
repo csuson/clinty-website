@@ -6,6 +6,7 @@ import AdminAgentSettingsTable from '../components/AdminAgentSettingsTable'
 import AdminApiKeysTable from '../components/admin/AdminApiKeysTable'
 import AdminGmailTokensTable from '../components/admin/AdminGmailTokensTable'
 import AdminUsersTable from '../components/admin/AdminUsersTable'
+import ImportAgentSettingsEnv from '../components/admin/ImportAgentSettingsEnv'
 
 function Section({
   title,
@@ -144,13 +145,18 @@ export default function Admin() {
             </Section>
 
             <Section title="Agent Settings" count={(data.agentSettings ?? []).length}>
-              <div className="px-6 py-4 border-b border-navy-900/5">
+              <div className="px-6 py-4 border-b border-navy-900/5 flex flex-wrap items-center gap-3">
                 <Link
                   to="/admin/agent-settings/new"
                   className="inline-flex items-center text-sm font-medium bg-navy-900 text-cream px-4 py-2 rounded-lg hover:bg-navy-800 transition-colors"
                 >
                   Add Agent Settings
                 </Link>
+                <ImportAgentSettingsEnv
+                  users={data.users.map((user) => ({ id: user.id, email: user.email }))}
+                  apiKeys={data.apiKeys}
+                  onImported={loadData}
+                />
               </div>
               <AdminAgentSettingsTable
                 settings={data.agentSettings ?? []}

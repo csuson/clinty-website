@@ -49,6 +49,13 @@ export type CreateAgentSettingsInput = {
   square_service_variation_version?: number | null
   square_team_member_id?: string | null
   square_timezone?: string | null
+  auto_book_scheduling?: boolean | null
+  auto_respond_instruction?: boolean | null
+  auto_respond_scheduling?: boolean | null
+  environment?: string | null
+  log_level?: string | null
+  pgoptions?: string | null
+  postgres_schema?: string | null
 }
 
 export type AdminDeleteResource = 'user' | 'api_key' | 'gmail_token' | 'yahoo_token' | 'square_token' | 'agent_settings'
