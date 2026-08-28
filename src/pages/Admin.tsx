@@ -5,6 +5,7 @@ import { fetchAdminData, deleteAdminRecord, type AdminData, type AdminDeleteReso
 import AdminAgentSettingsTable from '../components/AdminAgentSettingsTable'
 import AdminApiKeysTable from '../components/admin/AdminApiKeysTable'
 import AdminGmailTokensTable from '../components/admin/AdminGmailTokensTable'
+import AdminSquareTokensTable from '../components/admin/AdminSquareTokensTable'
 import AdminUsersTable from '../components/admin/AdminUsersTable'
 import ImportAgentSettingsEnv from '../components/admin/ImportAgentSettingsEnv'
 
@@ -141,6 +142,14 @@ export default function Admin() {
                 gmailTokens={data.gmailTokens}
                 isDeleting={(id) => isDeleting('gmail_token', id)}
                 onDelete={(id, label) => handleDelete('gmail_token', id, `Gmail token for ${label}`)}
+              />
+            </Section>
+
+            <Section title="Square Tokens" count={(data.squareTokens ?? []).length}>
+              <AdminSquareTokensTable
+                squareTokens={data.squareTokens ?? []}
+                isDeleting={(id) => isDeleting('square_token', id)}
+                onDelete={(id, label) => handleDelete('square_token', id, `Square token for ${label}`)}
               />
             </Section>
 

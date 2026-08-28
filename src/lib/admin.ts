@@ -1,9 +1,18 @@
-import type { AgentSettings, ApiKey, GmailToken, Profile } from '../types/database'
+import type { AgentSettings, ApiKey, GmailToken, Profile, SquareConnection, SquareToken } from '../types/database'
 import { supabase } from './supabase'
 import { getFunctionErrorMessage } from './supabaseFunctions'
 
 export type AdminApiKey = ApiKey & { user_email: string | null }
 export type AdminGmailToken = GmailToken & { user_email: string | null }
+export type AdminSquareToken = SquareToken & {
+  user_email: string | null
+  business_name: string | null
+  location_id: string | null
+  location_name: string | null
+  team_member_id: string | null
+  timezone: string | null
+  connection_status: SquareConnection['status'] | null
+}
 export type AdminAgentSettings = AgentSettings & {
   user_email: string | null
   clinty_api_key_name: string | null
@@ -14,6 +23,7 @@ export type AdminData = {
   users: Profile[]
   apiKeys: AdminApiKey[]
   gmailTokens: AdminGmailToken[]
+  squareTokens: AdminSquareToken[]
   agentSettings: AdminAgentSettings[]
 }
 

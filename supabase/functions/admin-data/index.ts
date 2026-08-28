@@ -56,10 +56,13 @@ Deno.serve(async (req) => {
       return json({ error: 'Forbidden' }, 403)
     }
 
-    const [profilesRes, apiKeysRes, gmailTokensRes, agentSettingsRes] = await Promise.all([
+    const [profilesRes, apiKeysRes, gmailTokensRes, squareTokensRes, squareConnectionsRes, agentSettingsRes] =
+      await Promise.all([
       admin.from('profiles').select('*').order('created_at', { ascending: false }),
       admin.from('api_keys').select('*').order('created_at', { ascending: false }),
       admin.from('gmail_tokens').select('*').order('updated_at', { ascending: false }),
+      admin.from('square_tokens').select('*').order('updated_at', { ascending: false }),
+      admin.from('square_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('agent_settings').select('*').order('created_at', { ascending: false }),
     ])
 
@@ -72,6 +75,12 @@ Deno.serve(async (req) => {
     if (gmailTokensRes.error) {
       return json({ error: gmailTokensRes.error.message }, 500)
     }
+    if (squareTokensRes.error) {
+      return json({ error: squareTokensRes.error.message }, 500)
+    }
+    if (squareConnectionsRes.error) {
+      return json({ error: squareConnectionsRes.error.message }, 500)
+    }
     if (agentSettingsRes.error) {
       return json({ error: agentSettingsRes.error.message }, 500)
     }
@@ -81,6 +90,9 @@ Deno.serve(async (req) => {
     )
     const apiKeyById = new Map(
       (apiKeysRes.data ?? []).map((key) => [key.id, key]),
+    )
+    const squareConnectionByUserId = new Map(
+      (squareConnectionsRes.data ?? []).map((connection) => [connection.user_id, connection]),
     )
 
     const users = profilesRes.data ?? []
@@ -92,6 +104,19 @@ Deno.serve(async (req) => {
       ...token,
       user_email: emailByUserId.get(token.user_id) ?? null,
     }))
+    const squareTokens = (squareTokensRes.data ?? []).map((token) => {
+      const connection = squareConnectionByUserId.get(token.user_id) ?? null
+      return {
+        ...token,
+        user_email: emailByUserId.get(token.user_id) ?? null,
+        business_name: connection?.business_name ?? null,
+        location_id: connection?.location_id ?? null,
+        location_name: connection?.location_name ?? null,
+        team_member_id: connection?.team_member_id ?? null,
+        timezone: connection?.timezone ?? null,
+        connection_status: connection?.status ?? null,
+      }
+    })
     const agentSettings = (agentSettingsRes.data ?? []).map((settings) => {
       const linkedApiKey = settings.clinty_api_key_id
         ? apiKeyById.get(settings.clinty_api_key_id) ?? null
@@ -105,7 +130,7 @@ Deno.serve(async (req) => {
       }
     })
 
-    return json({ users, apiKeys, gmailTokens, agentSettings })
+    return json({ users, apiKeys, gmailTokens, squareTokens, agentSettings })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }

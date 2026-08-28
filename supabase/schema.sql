@@ -318,3 +318,20 @@ alter table public.square_connections add column if not exists service_variation
 alter table public.square_connections add column if not exists service_variation_version bigint;
 alter table public.square_connections add column if not exists service_variation_name text;
 alter table public.square_connections add column if not exists team_member_id text;
+
+-- WhatsApp Web connection status (visible to the account owner)
+create table if not exists public.whatsapp_connections (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  phone text,
+  connected_at timestamptz not null default now(),
+  status text not null default 'disconnected'
+    check (status in ('connected', 'disconnected', 'pairing', 'error')),
+  last_error text
+);
+
+alter table public.whatsapp_connections enable row level security;
+
+drop policy if exists "Users can view own whatsapp connection" on public.whatsapp_connections;
+create policy "Users can view own whatsapp connection"
+  on public.whatsapp_connections for select
+  using (auth.uid() = user_id);
