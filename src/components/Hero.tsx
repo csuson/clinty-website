@@ -11,13 +11,14 @@ export default function Hero() {
           </div>
 
           <h1 className="font-serif text-5xl md:text-7xl leading-[1.1] text-navy-900 mb-6">
-            Stop drowning in emails.{' '}
-            <em className="text-teal-500 not-italic">Start growing</em> your business.
+            Email, WhatsApp, inventory, scheduling, and your calendar —{' '}
+            <em className="text-teal-500 not-italic">handled for you</em>.
           </h1>
 
           <p className="text-lg md:text-xl text-navy-600 leading-relaxed mb-10 max-w-2xl">
-            Clinty deploys AI agents that handle customer emails, schedule appointments,
-            and manage your calendar — so you can focus on the work that actually matters.
+            Clinty’s AI agent replies on email and WhatsApp, checks live inventory, books
+            appointments, and manages your calendar — so you can focus on the work that actually
+            matters.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 mb-16">
@@ -41,9 +42,9 @@ export default function Hero() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           {[
-            { value: '15+ hrs', label: 'saved per week', sub: 'on email & scheduling' },
+            { value: '15+ hrs', label: 'saved per week', sub: 'on messaging & scheduling' },
             { value: '$28K', label: 'avg. annual savings', sub: 'for a 5-person team' },
-            { value: '< 2 min', label: 'email response time', sub: 'vs. 4+ hours manual' },
+            { value: '< 2 min', label: 'response time', sub: 'email, WhatsApp & inventory' },
             { value: '94%', label: 'scheduling accuracy', sub: 'zero double-bookings' },
           ].map((stat) => (
             <div

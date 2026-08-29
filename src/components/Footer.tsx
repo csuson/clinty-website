@@ -23,7 +23,7 @@ export default function Footer() {
               <li><Link to="/#features" className="hover:text-navy-900 transition-colors">Features</Link></li>
               <li><Link to="/#roi" className="hover:text-navy-900 transition-colors">ROI Calculator</Link></li>
               <li><Link to="/#pricing" className="hover:text-navy-900 transition-colors">Pricing</Link></li>
-              <li><a href="#" className="hover:text-navy-900 transition-colors">Integrations</a></li>
+              <li><Link to="/#integrations" className="hover:text-navy-900 transition-colors">Integrations</Link></li>
             </ul>
           </div>
 

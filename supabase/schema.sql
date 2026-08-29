@@ -180,37 +180,66 @@ create policy "Users can view own square connection"
   on public.square_connections for select
   using (auth.uid() = user_id);
 
--- Yahoo OAuth tokens (server-side only — no user RLS policies)
-create table if not exists public.yahoo_tokens (
+-- Microsoft Outlook OAuth tokens (server-side only — no user RLS policies)
+create table if not exists public.outlook_tokens (
   user_id uuid primary key references auth.users (id) on delete cascade,
   access_token text not null,
   refresh_token text,
-  token_uri text not null default 'https://api.login.yahoo.com/oauth2/get_token',
+  token_uri text not null default 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
   client_id text not null,
   client_secret text not null,
   scopes text[] not null default '{}',
-  yahoo_account text,
+  outlook_account text,
   expiry timestamptz,
   updated_at timestamptz not null default now()
 );
 
-alter table public.yahoo_tokens enable row level security;
+alter table public.outlook_tokens enable row level security;
 
--- Yahoo connection status (visible to the account owner)
-create table if not exists public.yahoo_connections (
+-- Microsoft Outlook connection status (visible to the account owner)
+create table if not exists public.outlook_connections (
   user_id uuid primary key references auth.users (id) on delete cascade,
-  yahoo_email text,
+  outlook_email text,
   scopes text[] not null default '{}',
   connected_at timestamptz not null default now(),
   token_expiry timestamptz,
   status text not null default 'connected' check (status in ('connected', 'disconnected', 'error'))
 );
 
-alter table public.yahoo_connections enable row level security;
+alter table public.outlook_connections enable row level security;
 
-drop policy if exists "Users can view own yahoo connection" on public.yahoo_connections;
-create policy "Users can view own yahoo connection"
-  on public.yahoo_connections for select
+drop policy if exists "Users can view own outlook connection" on public.outlook_connections;
+create policy "Users can view own outlook connection"
+  on public.outlook_connections for select
+  using (auth.uid() = user_id);
+
+-- Shopify OAuth tokens (server-side only — no user RLS policies)
+create table if not exists public.shopify_tokens (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  shop_domain text not null,
+  access_token text not null,
+  client_id text not null,
+  scopes text[] not null default '{}',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.shopify_tokens enable row level security;
+
+-- Shopify connection status (visible to the account owner)
+create table if not exists public.shopify_connections (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  shop_domain text,
+  shop_name text,
+  scopes text[] not null default '{}',
+  connected_at timestamptz not null default now(),
+  status text not null default 'connected' check (status in ('connected', 'disconnected', 'error'))
+);
+
+alter table public.shopify_connections enable row level security;
+
+drop policy if exists "Users can view own shopify connection" on public.shopify_connections;
+create policy "Users can view own shopify connection"
+  on public.shopify_connections for select
   using (auth.uid() = user_id);
 
 -- Admin dashboard: set ADMIN_EMAILS in Supabase Edge Function secrets and
@@ -335,3 +364,36 @@ drop policy if exists "Users can view own whatsapp connection" on public.whatsap
 create policy "Users can view own whatsapp connection"
   on public.whatsapp_connections for select
   using (auth.uid() = user_id);
+
+-- User-editable AI prompt text (background, calendar rules, message footer)
+create table if not exists public.user_prompts (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  background text,
+  calendar_preference text,
+  default_footer text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_prompts enable row level security;
+
+drop policy if exists "Users can view own prompts" on public.user_prompts;
+create policy "Users can view own prompts"
+  on public.user_prompts for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own prompts" on public.user_prompts;
+create policy "Users can insert own prompts"
+  on public.user_prompts for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own prompts" on public.user_prompts;
+create policy "Users can update own prompts"
+  on public.user_prompts for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop trigger if exists user_prompts_updated_at on public.user_prompts;
+create trigger user_prompts_updated_at
+  before update on public.user_prompts
+  for each row execute function public.set_updated_at();

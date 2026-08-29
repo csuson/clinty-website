@@ -3,7 +3,7 @@ const steps = [
     number: '01',
     title: 'Connect your tools',
     description:
-      'Link your email inbox and calendar in under 5 minutes. Clinty integrates with Gmail, Outlook, Google Calendar, and more.',
+      'Link your email, WhatsApp, inventory, and calendar in under 5 minutes. Clinty integrates with Gmail, Shopify, Square, and more.',
     time: '5 min setup',
   },
   {
@@ -62,6 +62,8 @@ export default function HowItWorks() {
             </div>
             <div className="space-y-4">
               <BeforeAfterRow task="Reply to customer inquiry" before="45 min" after="< 2 min" />
+              <BeforeAfterRow task="Check product availability" before="15 min" after="Instant" />
+              <BeforeAfterRow task="Answer WhatsApp message" before="20 min" after="< 1 min" />
               <BeforeAfterRow task="Schedule new appointment" before="20 min" after="Automatic" />
               <BeforeAfterRow task="Send appointment reminder" before="10 min" after="Automatic" />
               <BeforeAfterRow task="Handle reschedule request" before="30 min" after="< 1 min" />

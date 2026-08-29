@@ -5,11 +5,24 @@ export async function getFunctionErrorMessage(
   error: unknown,
   data: unknown,
 ): Promise<string> {
-  if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
-    return data.error
+  if (data && typeof data === 'object') {
+    if ('error' in data && typeof data.error === 'string' && data.error) {
+      return data.error
+    }
+    if ('message' in data && typeof data.message === 'string' && data.message) {
+      return data.message
+    }
   }
 
   if (error instanceof FunctionsFetchError) {
+    const cause = error.context instanceof Error
+      ? error.context.message
+      : typeof error.context === 'string'
+        ? error.context
+        : null
+    if (cause && cause !== error.message) {
+      return `Could not reach the Edge Function (${cause}). Check your connection, sign in again, or try refreshing the page.`
+    }
     return 'Could not reach the Edge Function. Check your connection, sign in again, or try refreshing the page.'
   }
 

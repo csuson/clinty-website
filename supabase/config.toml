@@ -16,8 +16,20 @@ verify_jwt = false
 [functions.square-oauth-disconnect]
 verify_jwt = false
 
-[functions.yahoo-oauth-exchange]
+[functions.outlook-oauth-exchange]
 verify_jwt = false
 
-[functions.yahoo-oauth-disconnect]
+[functions.outlook-oauth-disconnect]
+verify_jwt = false
+
+[functions.shopify-oauth-exchange]
+verify_jwt = false
+
+[functions.shopify-oauth-disconnect]
+verify_jwt = false
+
+[functions.whatsapp-web-login]
+verify_jwt = false
+
+[functions.generate-prompt-background]
 verify_jwt = false

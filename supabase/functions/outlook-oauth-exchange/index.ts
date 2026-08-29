@@ -3,12 +3,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const SCOPES = ['openid', 'mail-r', 'mail-w', 'ycal-r', 'ycal-w']
-const YAHOO_TOKEN_URL = 'https://api.login.yahoo.com/oauth2/get_token'
-const YAHOO_USERINFO_URL = 'https://api.login.yahoo.com/openid/v1/userinfo'
+const TOKEN_URI = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
+
+const SCOPES = [
+  'https://graph.microsoft.com/Mail.ReadWrite',
+  'https://graph.microsoft.com/Calendars.ReadWrite',
+  'https://graph.microsoft.com/User.Read',
+  'offline_access',
+]
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -42,31 +46,31 @@ Deno.serve(async (req) => {
       return json({ error: 'Missing code or redirectUri' }, 400)
     }
 
-    const clientSecret = Deno.env.get('YAHOO_CLIENT_SECRET')
-    const envClientId = Deno.env.get('YAHOO_CLIENT_ID')
+    const clientSecret = Deno.env.get('MICROSOFT_CLIENT_SECRET')
+    const envClientId = Deno.env.get('MICROSOFT_CLIENT_ID')
     const effectiveClientId = clientId || envClientId
 
     if (!effectiveClientId || !clientSecret) {
       return json({
-        error: 'Yahoo OAuth not configured on server. Set YAHOO_CLIENT_SECRET (and optionally YAHOO_CLIENT_ID) in Supabase Edge Function secrets.',
+        error: 'Microsoft OAuth not configured on server. Set MICROSOFT_CLIENT_SECRET (and optionally MICROSOFT_CLIENT_ID) in Supabase Edge Function secrets.',
       }, 500)
     }
 
     if (envClientId && clientId && envClientId !== clientId) {
       return json({
-        error: 'YAHOO_CLIENT_ID in Supabase secrets must match VITE_YAHOO_CLIENT_ID in your website .env',
+        error: 'MICROSOFT_CLIENT_ID in Supabase secrets must match VITE_MICROSOFT_CLIENT_ID in your website .env',
       }, 400)
     }
 
-    const tokenRes = await fetch(YAHOO_TOKEN_URL, {
+    const tokenRes = await fetch(TOKEN_URI, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        grant_type: 'authorization_code',
         code,
-        redirect_uri: redirectUri,
         client_id: effectiveClientId,
         client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
       }),
     })
 
@@ -77,27 +81,26 @@ Deno.serve(async (req) => {
       }, 400)
     }
 
-    const accessToken = tokenData.access_token as string
-    const expiresIn = Number(tokenData.expires_in ?? 0)
-    const expiry = expiresIn > 0
-      ? new Date(Date.now() + expiresIn * 1000).toISOString()
-      : null
-
-    const userInfoRes = await fetch(YAHOO_USERINFO_URL, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    const profileRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
     })
-    const userInfo = userInfoRes.ok ? await userInfoRes.json() : {}
-    const yahooEmail = userInfo.email ?? userInfo.preferred_username ?? null
+    const profile = profileRes.ok ? await profileRes.json() : {}
+    const email = profile.mail ?? profile.userPrincipalName ?? null
 
-    const { error: tokenError } = await admin.from('yahoo_tokens').upsert({
+    const expiry = new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+    const grantedScopes = typeof tokenData.scope === 'string'
+      ? tokenData.scope.split(' ').filter(Boolean)
+      : SCOPES
+
+    const { error: tokenError } = await admin.from('outlook_tokens').upsert({
       user_id: user.id,
-      access_token: accessToken,
+      access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token ?? null,
-      token_uri: YAHOO_TOKEN_URL,
+      token_uri: TOKEN_URI,
       client_id: effectiveClientId,
       client_secret: clientSecret,
-      scopes: SCOPES,
-      yahoo_account: yahooEmail,
+      scopes: grantedScopes,
+      outlook_account: email,
       expiry,
       updated_at: new Date().toISOString(),
     })
@@ -106,10 +109,10 @@ Deno.serve(async (req) => {
       return json({ error: tokenError.message }, 500)
     }
 
-    const { error: connError } = await admin.from('yahoo_connections').upsert({
+    const { error: connError } = await admin.from('outlook_connections').upsert({
       user_id: user.id,
-      yahoo_email: yahooEmail,
-      scopes: SCOPES,
+      outlook_email: email,
+      scopes: grantedScopes,
       token_expiry: expiry,
       status: 'connected',
       connected_at: new Date().toISOString(),
@@ -119,7 +122,7 @@ Deno.serve(async (req) => {
       return json({ error: connError.message }, 500)
     }
 
-    return json({ success: true, email: yahooEmail })
+    return json({ success: true, email })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }

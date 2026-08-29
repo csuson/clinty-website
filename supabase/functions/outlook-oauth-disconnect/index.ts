@@ -3,7 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 Deno.serve(async (req) => {
@@ -33,11 +32,11 @@ Deno.serve(async (req) => {
       return json({ error: 'Unauthorized' }, 401)
     }
 
-    await admin.from('yahoo_tokens').delete().eq('user_id', user.id)
-    await admin.from('yahoo_connections').upsert({
+    await admin.from('outlook_tokens').delete().eq('user_id', user.id)
+    await admin.from('outlook_connections').upsert({
       user_id: user.id,
       status: 'disconnected',
-      yahoo_email: null,
+      outlook_email: null,
       scopes: [],
       token_expiry: null,
     })

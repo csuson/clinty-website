@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const allowedResources = new Set(['user', 'api_key', 'gmail_token', 'yahoo_token', 'square_token', 'agent_settings'])
+const allowedResources = new Set(['user', 'api_key', 'gmail_token', 'square_token', 'shopify_token', 'agent_settings'])
 
 function parseAdminEmails(raw: string | undefined): Set<string> {
   return new Set(
@@ -127,10 +127,10 @@ Deno.serve(async (req) => {
       return json({ ok: true })
     }
 
-    if (resource === 'yahoo_token') {
+    if (resource === 'square_token') {
       const [tokensRes, connectionsRes] = await Promise.all([
-        admin.from('yahoo_tokens').delete().eq('user_id', id),
-        admin.from('yahoo_connections').delete().eq('user_id', id),
+        admin.from('square_tokens').delete().eq('user_id', id),
+        admin.from('square_connections').delete().eq('user_id', id),
       ])
 
       if (tokensRes.error) {
@@ -143,10 +143,10 @@ Deno.serve(async (req) => {
       return json({ ok: true })
     }
 
-    if (resource === 'square_token') {
+    if (resource === 'shopify_token') {
       const [tokensRes, connectionsRes] = await Promise.all([
-        admin.from('square_tokens').delete().eq('user_id', id),
-        admin.from('square_connections').delete().eq('user_id', id),
+        admin.from('shopify_tokens').delete().eq('user_id', id),
+        admin.from('shopify_connections').delete().eq('user_id', id),
       ])
 
       if (tokensRes.error) {

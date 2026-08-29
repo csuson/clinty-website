@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveUserPrompts } from '../_shared/promptDefaults.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -84,7 +85,22 @@ Deno.serve(async (req) => {
       return json({ error: 'No agent settings found for this API key' }, 404)
     }
 
-    return json(agentSettings)
+    const { data: userPrompts } = await admin
+      .from('user_prompts')
+      .select('background, calendar_preference, default_footer')
+      .eq('user_id', agentSettings.user_id)
+      .maybeSingle()
+
+    const prompts = resolveUserPrompts(userPrompts)
+
+    return json({
+      ...agentSettings,
+      prompts,
+      // Flat keys for env / agent runtimes that map directly to email_assistant variables.
+      prompt_background: prompts.background,
+      prompt_calendar_preference: prompts.calendar_preference,
+      email_footer: prompts.default_footer,
+    })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }

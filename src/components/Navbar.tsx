@@ -9,6 +9,7 @@ interface NavLink {
 
 const links: NavLink[] = [
   { label: 'Features', to: '/#features' },
+  { label: 'Integrations', to: '/#integrations' },
   { label: 'ROI Calculator', to: '/#roi' },
   { label: 'How It Works', to: '/#how-it-works' },
   { label: 'Pricing', to: '/#pricing' },

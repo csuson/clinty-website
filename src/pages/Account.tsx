@@ -5,9 +5,11 @@ import ApiKeys from './account/ApiKeys'
 import Billing from './account/Billing'
 import GmailCallback from './account/GmailCallback'
 import Integrations from './account/Integrations'
+import OutlookCallback from './account/OutlookCallback'
+import Prompts from './account/Prompts'
+import ShopifyCallback from './account/ShopifyCallback'
 import SquareCallback from './account/SquareCallback'
 import WhatsAppLogin from './account/WhatsAppLogin'
-import YahooCallback from './account/YahooCallback'
 
 export default function Account() {
   return (
@@ -17,8 +19,10 @@ export default function Account() {
         <Route path="integrations" element={<Integrations />} />
         <Route path="integrations/whatsapp" element={<WhatsAppLogin />} />
         <Route path="integrations/gmail/callback" element={<GmailCallback />} />
+        <Route path="integrations/outlook/callback" element={<OutlookCallback />} />
         <Route path="integrations/square/callback" element={<SquareCallback />} />
-        <Route path="integrations/yahoo/callback" element={<YahooCallback />} />
+        <Route path="integrations/shopify/callback" element={<ShopifyCallback />} />
+        <Route path="prompts" element={<Prompts />} />
         <Route path="billing" element={<Billing />} />
         <Route path="api-keys" element={<ApiKeys />} />
       </Route>

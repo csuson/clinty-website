@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext'
 import {
   fetchWhatsAppLoginStatus,
   formatPhone,
+  formatWhatsAppLinkError,
+  restartWhatsAppLogin,
   startWhatsAppLogin,
   stopWhatsAppLogin,
 } from '../../lib/whatsapp/web'
@@ -18,13 +20,14 @@ export default function WhatsAppLogin() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [phone, setPhone] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [retrying, setRetrying] = useState(false)
   const startedRef = useRef(false)
 
   const pollStatus = useCallback(async () => {
     try {
       const status = await fetchWhatsAppLoginStatus()
-      if (status.error) {
-        setError(status.error)
+      if (status.error || status.status === 'error') {
+        setError(formatWhatsAppLinkError(status.error ?? 'Couldn\'t link device'))
         setPhase('error')
         return
       }
@@ -41,7 +44,9 @@ export default function WhatsAppLogin() {
         setPhase('pairing')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to check login status')
+      setError(formatWhatsAppLinkError(
+        err instanceof Error ? err.message : 'Failed to check login status',
+      ))
       setPhase('error')
     }
   }, [])
@@ -58,12 +63,19 @@ export default function WhatsAppLogin() {
           setPhase('connected')
           return
         }
+        if (status.error || status.status === 'error') {
+          setError(formatWhatsAppLinkError(status.error ?? 'Couldn\'t link device'))
+          setPhase('error')
+          return
+        }
         if (status.qrDataUrl) {
           setQrDataUrl(status.qrDataUrl)
         }
         setPhase('pairing')
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to start WhatsApp login')
+        setError(formatWhatsAppLinkError(
+          err instanceof Error ? err.message : 'Failed to start WhatsApp login',
+        ))
         setPhase('error')
       }
     }
@@ -98,6 +110,38 @@ export default function WhatsAppLogin() {
       // ignore cancel errors
     }
     navigate('/account/integrations')
+  }
+
+  async function handleRetry() {
+    setRetrying(true)
+    setError(null)
+    setQrDataUrl(null)
+    setPhone(null)
+    setPhase('starting')
+    try {
+      const status = await restartWhatsAppLogin()
+      if (status.status === 'connected' && status.phone) {
+        setPhone(status.phone)
+        setPhase('connected')
+        return
+      }
+      if (status.error || status.status === 'error') {
+        setError(formatWhatsAppLinkError(status.error ?? 'Couldn\'t link device'))
+        setPhase('error')
+        return
+      }
+      if (status.qrDataUrl) {
+        setQrDataUrl(status.qrDataUrl)
+      }
+      setPhase('pairing')
+    } catch (err) {
+      setError(formatWhatsAppLinkError(
+        err instanceof Error ? err.message : 'Failed to start WhatsApp login',
+      ))
+      setPhase('error')
+    } finally {
+      setRetrying(false)
+    }
   }
 
   return (
@@ -187,9 +231,17 @@ export default function WhatsAppLogin() {
 
         {phase === 'error' && (
           <div className="flex flex-col items-center gap-4 py-6">
+            <button
+              type="button"
+              onClick={handleRetry}
+              disabled={retrying}
+              className="inline-flex items-center gap-2 bg-[#25D366] text-white font-medium px-6 py-3 rounded-xl hover:bg-[#20bd5a] transition-colors text-sm disabled:opacity-60"
+            >
+              {retrying ? 'Starting new QR code...' : 'Try again with new QR code'}
+            </button>
             <Link
               to="/account/integrations"
-              className="inline-flex items-center gap-2 bg-navy-900 text-cream font-medium px-6 py-3 rounded-xl hover:bg-navy-800 transition-colors text-sm"
+              className="text-sm font-medium text-navy-600 hover:text-navy-900"
             >
               Back to integrations
             </Link>

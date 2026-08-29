@@ -5,6 +5,7 @@ import { fetchAdminData, deleteAdminRecord, type AdminData, type AdminDeleteReso
 import AdminAgentSettingsTable from '../components/AdminAgentSettingsTable'
 import AdminApiKeysTable from '../components/admin/AdminApiKeysTable'
 import AdminGmailTokensTable from '../components/admin/AdminGmailTokensTable'
+import AdminShopifyTokensTable from '../components/admin/AdminShopifyTokensTable'
 import AdminSquareTokensTable from '../components/admin/AdminSquareTokensTable'
 import AdminUsersTable from '../components/admin/AdminUsersTable'
 import ImportAgentSettingsEnv from '../components/admin/ImportAgentSettingsEnv'
@@ -150,6 +151,14 @@ export default function Admin() {
                 squareTokens={data.squareTokens ?? []}
                 isDeleting={(id) => isDeleting('square_token', id)}
                 onDelete={(id, label) => handleDelete('square_token', id, `Square token for ${label}`)}
+              />
+            </Section>
+
+            <Section title="Shopify Tokens" count={(data.shopifyTokens ?? []).length}>
+              <AdminShopifyTokensTable
+                shopifyTokens={data.shopifyTokens ?? []}
+                isDeleting={(id) => isDeleting('shopify_token', id)}
+                onDelete={(id, label) => handleDelete('shopify_token', id, `Shopify token for ${label}`)}
               />
             </Section>
 

@@ -1,4 +1,4 @@
-import type { AgentSettings, ApiKey, GmailToken, Profile, SquareConnection, SquareToken } from '../types/database'
+import type { AgentSettings, ApiKey, GmailToken, Profile, ShopifyConnection, ShopifyToken, SquareConnection, SquareToken } from '../types/database'
 import { supabase } from './supabase'
 import { getFunctionErrorMessage } from './supabaseFunctions'
 
@@ -13,10 +13,19 @@ export type AdminSquareToken = SquareToken & {
   timezone: string | null
   connection_status: SquareConnection['status'] | null
 }
+export type AdminShopifyToken = ShopifyToken & {
+  user_email: string | null
+  shop_name: string | null
+  connected_at: string | null
+  connection_status: ShopifyConnection['status'] | null
+}
 export type AdminAgentSettings = AgentSettings & {
   user_email: string | null
   clinty_api_key_name: string | null
   clinty_api_key_secret: string | null
+  prompt_background?: string | null
+  prompt_calendar_preference?: string | null
+  prompt_default_footer?: string | null
 }
 
 export type AdminData = {
@@ -24,6 +33,7 @@ export type AdminData = {
   apiKeys: AdminApiKey[]
   gmailTokens: AdminGmailToken[]
   squareTokens: AdminSquareToken[]
+  shopifyTokens: AdminShopifyToken[]
   agentSettings: AdminAgentSettings[]
 }
 
@@ -68,7 +78,7 @@ export type CreateAgentSettingsInput = {
   postgres_schema?: string | null
 }
 
-export type AdminDeleteResource = 'user' | 'api_key' | 'gmail_token' | 'yahoo_token' | 'square_token' | 'agent_settings'
+export type AdminDeleteResource = 'user' | 'api_key' | 'gmail_token' | 'square_token' | 'shopify_token' | 'agent_settings'
 
 export async function deleteAdminRecord(resource: AdminDeleteResource, id: string): Promise<void> {
   if (!supabase) {

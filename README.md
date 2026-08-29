@@ -76,6 +76,7 @@ The Vite dev/build tooling also loads this certificate for any Node-side HTTPS c
 | Sign In | `/sign-in` |
 | Account | `/account` (protected) |
 | Account Settings | `/account` |
+| Prompts | `/account/prompts` |
 | Billing | `/account/billing` |
 | API Keys | `/account/api-keys` |
 | Integrations (Gmail) | `/account/integrations` |
@@ -118,7 +119,7 @@ Run the Gmail tables section in `supabase/schema.sql` (creates `gmail_tokens` an
 
 ## Agent Settings API
 
-Returns the `agent_settings` row linked to a Clinty API key as JSON.
+Returns the `agent_settings` row linked to a Clinty API key as JSON, plus resolved user prompts (`prompts`, `prompt_background`, `prompt_calendar_preference`, `email_footer`).
 
 **Endpoint:** `GET {VITE_SUPABASE_URL}/functions/v1/agent-settings`
 

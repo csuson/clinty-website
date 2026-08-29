@@ -48,16 +48,16 @@ export type GmailToken = {
   updated_at: string
 }
 
-export type YahooConnection = {
+export type OutlookConnection = {
   user_id: string
-  yahoo_email: string | null
+  outlook_email: string | null
   scopes: string[]
   connected_at: string
   token_expiry: string | null
   status: 'connected' | 'disconnected' | 'error'
 }
 
-export type YahooToken = {
+export type OutlookToken = {
   user_id: string
   access_token: string
   refresh_token: string | null
@@ -65,8 +65,26 @@ export type YahooToken = {
   client_id: string
   client_secret: string
   scopes: string[]
-  yahoo_account: string | null
+  outlook_account: string | null
   expiry: string | null
+  updated_at: string
+}
+
+export type ShopifyConnection = {
+  user_id: string
+  shop_domain: string | null
+  shop_name: string | null
+  scopes: string[]
+  connected_at: string
+  status: 'connected' | 'disconnected' | 'error'
+}
+
+export type ShopifyToken = {
+  user_id: string
+  shop_domain: string
+  access_token: string
+  client_id: string
+  scopes: string[]
   updated_at: string
 }
 
@@ -95,6 +113,15 @@ export type SquareToken = {
   application_id: string
   expires_at: string | null
   scopes: string[]
+  updated_at: string
+}
+
+export type UserPrompts = {
+  user_id: string
+  background: string | null
+  calendar_preference: string | null
+  default_footer: string | null
+  created_at: string
   updated_at: string
 }
 
@@ -222,26 +249,26 @@ export type Database = {
         }
         Relationships: []
       }
-      yahoo_connections: {
-        Row: YahooConnection
+      outlook_connections: {
+        Row: OutlookConnection
         Insert: {
           user_id: string
-          yahoo_email?: string | null
+          outlook_email?: string | null
           scopes?: string[]
           connected_at?: string
           token_expiry?: string | null
           status?: 'connected' | 'disconnected' | 'error'
         }
         Update: {
-          yahoo_email?: string | null
+          outlook_email?: string | null
           scopes?: string[]
           token_expiry?: string | null
           status?: 'connected' | 'disconnected' | 'error'
         }
         Relationships: []
       }
-      yahoo_tokens: {
-        Row: YahooToken
+      outlook_tokens: {
+        Row: OutlookToken
         Insert: {
           user_id: string
           access_token: string
@@ -250,7 +277,7 @@ export type Database = {
           client_id: string
           client_secret: string
           scopes?: string[]
-          yahoo_account?: string | null
+          outlook_account?: string | null
           expiry?: string | null
           updated_at?: string
         }
@@ -261,8 +288,45 @@ export type Database = {
           client_id?: string
           client_secret?: string
           scopes?: string[]
-          yahoo_account?: string | null
+          outlook_account?: string | null
           expiry?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shopify_connections: {
+        Row: ShopifyConnection
+        Insert: {
+          user_id: string
+          shop_domain?: string | null
+          shop_name?: string | null
+          scopes?: string[]
+          connected_at?: string
+          status?: 'connected' | 'disconnected' | 'error'
+        }
+        Update: {
+          shop_domain?: string | null
+          shop_name?: string | null
+          scopes?: string[]
+          status?: 'connected' | 'disconnected' | 'error'
+        }
+        Relationships: []
+      }
+      shopify_tokens: {
+        Row: ShopifyToken
+        Insert: {
+          user_id: string
+          shop_domain: string
+          access_token: string
+          client_id: string
+          scopes?: string[]
+          updated_at?: string
+        }
+        Update: {
+          shop_domain?: string
+          access_token?: string
+          client_id?: string
+          scopes?: string[]
           updated_at?: string
         }
         Relationships: []
@@ -320,6 +384,24 @@ export type Database = {
           application_id?: string
           expires_at?: string | null
           scopes?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_prompts: {
+        Row: UserPrompts
+        Insert: {
+          user_id: string
+          background?: string | null
+          calendar_preference?: string | null
+          default_footer?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          background?: string | null
+          calendar_preference?: string | null
+          default_footer?: string | null
           updated_at?: string
         }
         Relationships: []

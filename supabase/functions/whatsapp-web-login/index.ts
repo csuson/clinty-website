@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 type LoginAction = 'start' | 'stop' | 'disconnect' | 'status'
@@ -61,6 +62,12 @@ Deno.serve(async (req) => {
       const status = await callGateway(gatewayUrl, gatewayKey, 'GET', `/v1/login/status?user_id=${user.id}`)
       if (status.status === 'connected' && status.phone) {
         await upsertConnection(admin, user.id, status.phone, 'connected')
+      } else if (status.status === 'error' || status.error) {
+        await admin.from('whatsapp_connections').upsert({
+          user_id: user.id,
+          status: 'error',
+          last_error: typeof status.error === 'string' ? status.error : 'Link failed',
+        })
       }
       return json({
         status: status.status,
@@ -71,18 +78,31 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'start') {
+      // Clear any stale pairing session before starting a fresh QR flow.
+      await callGateway(gatewayUrl, gatewayKey, 'POST', '/v1/login/stop', {
+        user_id: user.id,
+      }, 5_000).catch(() => {})
+
       const status = await callGateway(gatewayUrl, gatewayKey, 'POST', '/v1/login/start', {
         user_id: user.id,
       })
-      await admin.from('whatsapp_connections').upsert({
+      const connectionStatus =
+        status.status === 'connected' ? 'connected'
+        : status.status === 'error' ? 'error'
+        : 'pairing'
+
+      const { error: upsertError } = await admin.from('whatsapp_connections').upsert({
         user_id: user.id,
-        status: status.status === 'connected' ? 'connected' : 'pairing',
+        status: connectionStatus,
         phone: status.phone ?? null,
         ...(status.status === 'connected'
           ? { connected_at: new Date().toISOString() }
           : {}),
         last_error: status.error ?? null,
       })
+      if (upsertError) {
+        throw new Error(`Failed to save WhatsApp connection: ${upsertError.message}`)
+      }
       return json({
         status: status.status,
         qrDataUrl: status.qr_data_url ?? null,
@@ -121,6 +141,7 @@ async function callGateway(
   method: string,
   path: string,
   body?: Record<string, unknown>,
+  timeoutMs = 20_000,
 ) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (apiKey) {
@@ -131,6 +152,20 @@ async function callGateway(
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(timeoutMs),
+  }).catch((err) => {
+    const message = err instanceof Error ? err.message : String(err)
+    if (err instanceof DOMException && err.name === 'TimeoutError') {
+      throw new Error(
+        `WhatsApp gateway timed out at ${baseUrl}. Ensure the gateway is running and reachable.`,
+      )
+    }
+    if (/timed out|connection refused|dns|connect/i.test(message)) {
+      throw new Error(
+        `WhatsApp gateway unreachable at ${baseUrl}. Use a public URL reachable from Supabase (not a private LAN IP like 192.168.x.x). Original error: ${message}`,
+      )
+    }
+    throw err
   })
 
   const data = await response.json().catch(() => ({}))

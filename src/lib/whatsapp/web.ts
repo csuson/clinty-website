@@ -37,9 +37,10 @@ export async function startWhatsAppLogin(): Promise<WhatsAppLoginStatus> {
 
   const result = await supabase.functions.invoke('whatsapp-web-login', {
     body: { action: 'start' },
+    timeout: 90_000,
   })
 
-  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+  if (result.error || hasFunctionFailure(result.data)) {
     throw new Error(await getFunctionErrorMessage(result.error, result.data))
   }
 
@@ -53,9 +54,10 @@ export async function fetchWhatsAppLoginStatus(): Promise<WhatsAppLoginStatus> {
 
   const result = await supabase.functions.invoke('whatsapp-web-login', {
     body: { action: 'status' },
+    timeout: 45_000,
   })
 
-  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+  if (result.error || hasFunctionFailure(result.data)) {
     throw new Error(await getFunctionErrorMessage(result.error, result.data))
   }
 
@@ -71,7 +73,7 @@ export async function stopWhatsAppLogin(): Promise<void> {
     body: { action: 'stop' },
   })
 
-  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+  if (result.error || hasFunctionFailure(result.data)) {
     throw new Error(await getFunctionErrorMessage(result.error, result.data))
   }
 }
@@ -85,9 +87,19 @@ export async function disconnectWhatsApp(): Promise<void> {
     body: { action: 'disconnect' },
   })
 
-  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+  if (result.error || hasFunctionFailure(result.data)) {
     throw new Error(await getFunctionErrorMessage(result.error, result.data))
   }
+}
+
+/** True when the Edge Function failed (not a WhatsApp status payload with `error: null`). */
+function hasFunctionFailure(data: unknown): boolean {
+  if (data === null || typeof data !== 'object') return false
+
+  const row = data as Record<string, unknown>
+  if ('status' in row || 'qrDataUrl' in row || 'success' in row) return false
+
+  return typeof row.error === 'string' && row.error.length > 0
 }
 
 function normalizeLoginStatus(data: unknown): WhatsAppLoginStatus {
@@ -109,6 +121,28 @@ function formatPhone(phone: string): string {
     return `+${digits}`
   }
   return phone
+}
+
+export function formatWhatsAppLinkError(message: string): string {
+  if (!/couldn'?t link device|unable to link|linking device failed/i.test(message)) {
+    return message
+  }
+
+  return `${message}. This usually means the WhatsApp gateway lost the pairing handshake after the QR scan. Try again with a fresh QR code. If it keeps failing, restart the gateway service and ensure it reconnects after pairing (Baileys disconnect code 515 / restartRequired).`
+}
+
+export async function restartWhatsAppLogin(): Promise<WhatsAppLoginStatus> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  try {
+    await stopWhatsAppLogin()
+  } catch {
+    // Best-effort cleanup before a new QR session.
+  }
+
+  return startWhatsAppLogin()
 }
 
 export { formatPhone }

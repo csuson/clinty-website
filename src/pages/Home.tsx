@@ -1,5 +1,6 @@
 import Hero from '../components/Hero'
 import Features from '../components/Features'
+import Integrations from '../components/Integrations'
 import ROICalculator from '../components/ROICalculator'
 import HowItWorks from '../components/HowItWorks'
 import Stats from '../components/Stats'
@@ -11,6 +12,7 @@ export default function Home() {
     <>
       <Hero />
       <Features />
+      <Integrations />
       <ROICalculator />
       <HowItWorks />
       <Stats />

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { getYahooRedirectUri } from '../../constants/yahoo'
+import { getOutlookRedirectUri } from '../../constants/outlook'
 import { useAuth } from '../../context/AuthContext'
-import { exchangeYahooCode, validateOAuthState } from '../../lib/yahoo/oauth'
+import { exchangeOutlookCode, validateOAuthState } from '../../lib/outlook/oauth'
 
-export default function YahooCallback() {
+export default function OutlookCallback() {
   const { user, loading: authLoading } = useAuth()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const [message, setMessage] = useState('Completing Yahoo authorization...')
+  const [message, setMessage] = useState('Completing Outlook authorization...')
 
   useEffect(() => {
     if (authLoading) return
@@ -20,10 +20,12 @@ export default function YahooCallback() {
 
     const errorParam = searchParams.get('error')
     if (errorParam) {
-      navigate(
-        `/account/integrations?error=${encodeURIComponent(errorParam === 'access_denied' ? 'You declined Yahoo access.' : errorParam)}`,
-        { replace: true },
-      )
+      const description = searchParams.get('error_description')
+      const msg =
+        errorParam === 'access_denied'
+          ? 'You declined Outlook access.'
+          : description ?? errorParam
+      navigate(`/account/integrations?error=${encodeURIComponent(msg)}`, { replace: true })
       return
     }
 
@@ -32,7 +34,7 @@ export default function YahooCallback() {
 
     if (!code || !state) {
       navigate(
-        `/account/integrations?error=${encodeURIComponent('Missing authorization code from Yahoo.')}`,
+        `/account/integrations?error=${encodeURIComponent('Missing authorization code from Microsoft.')}`,
         { replace: true },
       )
       return
@@ -49,10 +51,10 @@ export default function YahooCallback() {
     async function complete() {
       try {
         setMessage('Exchanging authorization code and storing credentials...')
-        await exchangeYahooCode(code!, getYahooRedirectUri())
-        navigate('/account/integrations?yahoo_connected=1', { replace: true })
+        await exchangeOutlookCode(code!, getOutlookRedirectUri())
+        navigate('/account/integrations?outlook_connected=1', { replace: true })
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Yahoo authorization failed'
+        const msg = err instanceof Error ? err.message : 'Outlook authorization failed'
         navigate(`/account/integrations?error=${encodeURIComponent(msg)}`, { replace: true })
       }
     }

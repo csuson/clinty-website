@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveUserPrompts } from '../_shared/promptDefaults.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -56,14 +57,17 @@ Deno.serve(async (req) => {
       return json({ error: 'Forbidden' }, 403)
     }
 
-    const [profilesRes, apiKeysRes, gmailTokensRes, squareTokensRes, squareConnectionsRes, agentSettingsRes] =
+    const [profilesRes, apiKeysRes, gmailTokensRes, squareTokensRes, squareConnectionsRes, shopifyTokensRes, shopifyConnectionsRes, agentSettingsRes, userPromptsRes] =
       await Promise.all([
       admin.from('profiles').select('*').order('created_at', { ascending: false }),
       admin.from('api_keys').select('*').order('created_at', { ascending: false }),
       admin.from('gmail_tokens').select('*').order('updated_at', { ascending: false }),
       admin.from('square_tokens').select('*').order('updated_at', { ascending: false }),
       admin.from('square_connections').select('*').order('connected_at', { ascending: false }),
+      admin.from('shopify_tokens').select('*').order('updated_at', { ascending: false }),
+      admin.from('shopify_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('agent_settings').select('*').order('created_at', { ascending: false }),
+      admin.from('user_prompts').select('*'),
     ])
 
     if (profilesRes.error) {
@@ -81,8 +85,17 @@ Deno.serve(async (req) => {
     if (squareConnectionsRes.error) {
       return json({ error: squareConnectionsRes.error.message }, 500)
     }
+    if (shopifyTokensRes.error) {
+      return json({ error: shopifyTokensRes.error.message }, 500)
+    }
+    if (shopifyConnectionsRes.error) {
+      return json({ error: shopifyConnectionsRes.error.message }, 500)
+    }
     if (agentSettingsRes.error) {
       return json({ error: agentSettingsRes.error.message }, 500)
+    }
+    if (userPromptsRes.error) {
+      return json({ error: userPromptsRes.error.message }, 500)
     }
 
     const emailByUserId = new Map(
@@ -93,6 +106,12 @@ Deno.serve(async (req) => {
     )
     const squareConnectionByUserId = new Map(
       (squareConnectionsRes.data ?? []).map((connection) => [connection.user_id, connection]),
+    )
+    const shopifyConnectionByUserId = new Map(
+      (shopifyConnectionsRes.data ?? []).map((connection) => [connection.user_id, connection]),
+    )
+    const promptsByUserId = new Map(
+      (userPromptsRes.data ?? []).map((prompts) => [prompts.user_id, prompts]),
     )
 
     const users = profilesRes.data ?? []
@@ -117,20 +136,34 @@ Deno.serve(async (req) => {
         connection_status: connection?.status ?? null,
       }
     })
+    const shopifyTokens = (shopifyTokensRes.data ?? []).map((token) => {
+      const connection = shopifyConnectionByUserId.get(token.user_id) ?? null
+      return {
+        ...token,
+        user_email: emailByUserId.get(token.user_id) ?? null,
+        shop_name: connection?.shop_name ?? null,
+        connected_at: connection?.connected_at ?? null,
+        connection_status: connection?.status ?? null,
+      }
+    })
     const agentSettings = (agentSettingsRes.data ?? []).map((settings) => {
       const linkedApiKey = settings.clinty_api_key_id
         ? apiKeyById.get(settings.clinty_api_key_id) ?? null
         : null
+      const prompts = resolveUserPrompts(promptsByUserId.get(settings.user_id) ?? null)
 
       return {
         ...settings,
         user_email: emailByUserId.get(settings.user_id) ?? null,
         clinty_api_key_name: linkedApiKey?.name ?? null,
         clinty_api_key_secret: linkedApiKey?.key_secret ?? null,
+        prompt_background: prompts.background,
+        prompt_calendar_preference: prompts.calendar_preference,
+        prompt_default_footer: prompts.default_footer,
       }
     })
 
-    return json({ users, apiKeys, gmailTokens, squareTokens, agentSettings })
+    return json({ users, apiKeys, gmailTokens, squareTokens, shopifyTokens, agentSettings })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }

@@ -162,6 +162,9 @@ export function agentSettingsToEnvContent(settings: AdminAgentSettings): string 
   add('SQUARE_SERVICE_VARIATION_VERSION', settings.square_service_variation_version)
   add('SQUARE_TEAM_MEMBER_ID', settings.square_team_member_id)
   add('SQUARE_TIMEZONE', settings.square_timezone)
+  addQuoted('PROMPT_BACKGROUND', settings.prompt_background)
+  addQuoted('PROMPT_CALENDAR_PREFERENCE', settings.prompt_calendar_preference)
+  addQuoted('EMAIL_FOOTER', settings.prompt_default_footer)
 
   return `${lines.join('\n')}\n`
 }
