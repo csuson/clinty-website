@@ -8,10 +8,12 @@ const corsHeaders = {
 const TOKEN_URI = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
 
 const SCOPES = [
+  'openid',
+  'profile',
+  'offline_access',
   'https://graph.microsoft.com/Mail.ReadWrite',
   'https://graph.microsoft.com/Calendars.ReadWrite',
   'https://graph.microsoft.com/User.Read',
-  'offline_access',
 ]
 
 Deno.serve(async (req) => {
@@ -81,11 +83,16 @@ Deno.serve(async (req) => {
       }, 400)
     }
 
-    const profileRes = await fetch('https://graph.microsoft.com/v1.0/me', {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
-    })
+    const profileRes = await fetch(
+      'https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName,otherMails',
+      { headers: { Authorization: `Bearer ${tokenData.access_token}` } },
+    )
     const profile = profileRes.ok ? await profileRes.json() : {}
-    const email = profile.mail ?? profile.userPrincipalName ?? null
+    const email = resolveOutlookEmail(profile)
+
+    if (!email) {
+      return json({ error: 'Could not determine your Microsoft account email.' }, 400)
+    }
 
     const expiry = new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
     const grantedScopes = typeof tokenData.scope === 'string'
@@ -133,4 +140,25 @@ function json(body: Record<string, unknown>, status = 200) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
+}
+
+function resolveOutlookEmail(profile: {
+  mail?: string | null
+  userPrincipalName?: string | null
+  otherMails?: string[] | null
+}): string | null {
+  const candidates = [
+    profile.mail,
+    ...(profile.otherMails ?? []),
+    profile.userPrincipalName,
+  ]
+
+  for (const candidate of candidates) {
+    const normalized = candidate?.trim().toLowerCase()
+    if (normalized && normalized.includes('@')) {
+      return normalized
+    }
+  }
+
+  return null
 }

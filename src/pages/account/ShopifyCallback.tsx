@@ -26,7 +26,7 @@ export default function ShopifyCallback() {
 
     if (!code || !shop || !state || !hmac || !timestamp) {
       navigate(
-        `/account/integrations?error=${encodeURIComponent('Missing authorization data from Shopify.')}`,
+        `/account/integrations?shopify_error=${encodeURIComponent('Missing authorization data from Shopify.')}`,
         { replace: true },
       )
       return
@@ -40,7 +40,7 @@ export default function ShopifyCallback() {
 
     if (!validateOAuthState(state, user.id, shopDomain)) {
       navigate(
-        `/account/integrations?error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`,
+        `/account/integrations?shopify_error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`,
         { replace: true },
       )
       return
@@ -59,7 +59,7 @@ export default function ShopifyCallback() {
         navigate('/account/integrations?shopify_connected=1', { replace: true })
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Shopify authorization failed'
-        navigate(`/account/integrations?error=${encodeURIComponent(msg)}`, { replace: true })
+        navigate(`/account/integrations?shopify_error=${encodeURIComponent(msg)}`, { replace: true })
       }
     }
 

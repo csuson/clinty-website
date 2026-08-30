@@ -37,8 +37,8 @@ export default function GmailIntegration() {
       setSuccess('Gmail connected successfully. Your AI agent can now access email and calendar.')
       window.history.replaceState({}, '', '/account/integrations')
     }
-    if (params.get('error')) {
-      const raw = params.get('error') ?? 'Connection failed'
+    if (params.get('gmail_error')) {
+      const raw = params.get('gmail_error') ?? 'Connection failed'
       const message =
         raw === 'redirect_uri_mismatch'
           ? 'Redirect URI mismatch. Contact support if this continues.'

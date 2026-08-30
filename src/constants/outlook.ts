@@ -1,9 +1,11 @@
 /** Microsoft Graph scopes for Outlook mail and calendar */
 export const OUTLOOK_SCOPES = [
+  'openid',
+  'profile',
+  'offline_access',
   'https://graph.microsoft.com/Mail.ReadWrite',
   'https://graph.microsoft.com/Calendars.ReadWrite',
   'https://graph.microsoft.com/User.Read',
-  'offline_access',
 ] as const
 
 export const OUTLOOK_OAUTH_STATE_KEY = 'outlook_oauth_state'

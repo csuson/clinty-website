@@ -1,4 +1,4 @@
-import type { AgentSettings, ApiKey, GmailToken, Profile, ShopifyConnection, ShopifyToken, SquareConnection, SquareToken } from '../types/database'
+import type { AgentSettings, ApiKey, GmailToken, OutlookConnection, OutlookToken, Profile, ShopifyConnection, ShopifyToken, SquareConnection, SquareToken } from '../types/database'
 import { supabase } from './supabase'
 import { getFunctionErrorMessage } from './supabaseFunctions'
 
@@ -19,6 +19,12 @@ export type AdminShopifyToken = ShopifyToken & {
   connected_at: string | null
   connection_status: ShopifyConnection['status'] | null
 }
+export type AdminOutlookToken = OutlookToken & {
+  user_email: string | null
+  outlook_email: string | null
+  connected_at: string | null
+  connection_status: OutlookConnection['status'] | null
+}
 export type AdminAgentSettings = AgentSettings & {
   user_email: string | null
   clinty_api_key_name: string | null
@@ -34,6 +40,7 @@ export type AdminData = {
   gmailTokens: AdminGmailToken[]
   squareTokens: AdminSquareToken[]
   shopifyTokens: AdminShopifyToken[]
+  outlookTokens: AdminOutlookToken[]
   agentSettings: AdminAgentSettings[]
 }
 
@@ -78,7 +85,7 @@ export type CreateAgentSettingsInput = {
   postgres_schema?: string | null
 }
 
-export type AdminDeleteResource = 'user' | 'api_key' | 'gmail_token' | 'square_token' | 'shopify_token' | 'agent_settings'
+export type AdminDeleteResource = 'user' | 'api_key' | 'gmail_token' | 'square_token' | 'shopify_token' | 'outlook_token' | 'agent_settings'
 
 export async function deleteAdminRecord(resource: AdminDeleteResource, id: string): Promise<void> {
   if (!supabase) {

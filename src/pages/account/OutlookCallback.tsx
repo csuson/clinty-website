@@ -24,8 +24,8 @@ export default function OutlookCallback() {
       const msg =
         errorParam === 'access_denied'
           ? 'You declined Outlook access.'
-          : description ?? errorParam
-      navigate(`/account/integrations?error=${encodeURIComponent(msg)}`, { replace: true })
+          : decodeMicrosoftOAuthError(description ?? errorParam)
+      navigate(`/account/integrations?outlook_error=${encodeURIComponent(msg)}`, { replace: true })
       return
     }
 
@@ -34,7 +34,7 @@ export default function OutlookCallback() {
 
     if (!code || !state) {
       navigate(
-        `/account/integrations?error=${encodeURIComponent('Missing authorization code from Microsoft.')}`,
+        `/account/integrations?outlook_error=${encodeURIComponent('Missing authorization code from Microsoft.')}`,
         { replace: true },
       )
       return
@@ -42,7 +42,7 @@ export default function OutlookCallback() {
 
     if (!validateOAuthState(state, user.id)) {
       navigate(
-        `/account/integrations?error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`,
+        `/account/integrations?outlook_error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`,
         { replace: true },
       )
       return
@@ -55,7 +55,7 @@ export default function OutlookCallback() {
         navigate('/account/integrations?outlook_connected=1', { replace: true })
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Outlook authorization failed'
-        navigate(`/account/integrations?error=${encodeURIComponent(msg)}`, { replace: true })
+        navigate(`/account/integrations?outlook_error=${encodeURIComponent(msg)}`, { replace: true })
       }
     }
 
@@ -70,4 +70,12 @@ export default function OutlookCallback() {
       </div>
     </div>
   )
+}
+
+function decodeMicrosoftOAuthError(raw: string): string {
+  try {
+    return decodeURIComponent(raw.replace(/\+/g, ' '))
+  } catch {
+    return raw
+  }
 }

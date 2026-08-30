@@ -9,6 +9,7 @@ import {
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { getEmailConfirmRedirectUrl } from '../constants/auth'
 import type { Profile } from '../types/database'
 
 interface AuthContextValue {
@@ -108,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         options: {
+          emailRedirectTo: getEmailConfirmRedirectUrl(),
           data: {
             full_name: fullName,
             company_name: companyName,

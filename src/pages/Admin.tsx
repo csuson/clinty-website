@@ -5,6 +5,7 @@ import { fetchAdminData, deleteAdminRecord, type AdminData, type AdminDeleteReso
 import AdminAgentSettingsTable from '../components/AdminAgentSettingsTable'
 import AdminApiKeysTable from '../components/admin/AdminApiKeysTable'
 import AdminGmailTokensTable from '../components/admin/AdminGmailTokensTable'
+import AdminOutlookTokensTable from '../components/admin/AdminOutlookTokensTable'
 import AdminShopifyTokensTable from '../components/admin/AdminShopifyTokensTable'
 import AdminSquareTokensTable from '../components/admin/AdminSquareTokensTable'
 import AdminUsersTable from '../components/admin/AdminUsersTable'
@@ -143,6 +144,14 @@ export default function Admin() {
                 gmailTokens={data.gmailTokens}
                 isDeleting={(id) => isDeleting('gmail_token', id)}
                 onDelete={(id, label) => handleDelete('gmail_token', id, `Gmail token for ${label}`)}
+              />
+            </Section>
+
+            <Section title="Outlook Tokens" count={(data.outlookTokens ?? []).length}>
+              <AdminOutlookTokensTable
+                outlookTokens={data.outlookTokens ?? []}
+                isDeleting={(id) => isDeleting('outlook_token', id)}
+                onDelete={(id, label) => handleDelete('outlook_token', id, `Outlook token for ${label}`)}
               />
             </Section>
 

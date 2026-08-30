@@ -155,6 +155,15 @@ export type AgentSettings = {
   updated_at: string
 }
 
+export type WhatsAppConnection = {
+  user_id: string
+  phone: string | null
+  connected_at: string
+  status: 'connected' | 'disconnected' | 'pairing' | 'error'
+  last_error: string | null
+  gateway_url: string | null
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -403,6 +412,27 @@ export type Database = {
           calendar_preference?: string | null
           default_footer?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      whatsapp_connections: {
+        Row: WhatsAppConnection & { gateway_api_key: string | null }
+        Insert: {
+          user_id: string
+          phone?: string | null
+          connected_at?: string
+          status?: 'connected' | 'disconnected' | 'pairing' | 'error'
+          last_error?: string | null
+          gateway_url?: string | null
+          gateway_api_key?: string | null
+        }
+        Update: {
+          phone?: string | null
+          connected_at?: string
+          status?: 'connected' | 'disconnected' | 'pairing' | 'error'
+          last_error?: string | null
+          gateway_url?: string | null
+          gateway_api_key?: string | null
         }
         Relationships: []
       }

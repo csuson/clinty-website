@@ -21,7 +21,7 @@ export default function GmailCallback() {
     const errorParam = searchParams.get('error')
     if (errorParam) {
       navigate(
-        `/account/integrations?error=${encodeURIComponent(errorParam === 'access_denied' ? 'You declined Gmail access.' : errorParam)}`,
+        `/account/integrations?gmail_error=${encodeURIComponent(errorParam === 'access_denied' ? 'You declined Gmail access.' : errorParam)}`,
         { replace: true },
       )
       return
@@ -32,7 +32,7 @@ export default function GmailCallback() {
 
     if (!code || !state) {
       navigate(
-        `/account/integrations?error=${encodeURIComponent('Missing authorization code from Google.')}`,
+        `/account/integrations?gmail_error=${encodeURIComponent('Missing authorization code from Google.')}`,
         { replace: true },
       )
       return
@@ -40,7 +40,7 @@ export default function GmailCallback() {
 
     if (!validateOAuthState(state, user.id)) {
       navigate(
-        `/account/integrations?error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`,
+        `/account/integrations?gmail_error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`,
         { replace: true },
       )
       return
@@ -53,7 +53,7 @@ export default function GmailCallback() {
         navigate('/account/integrations?connected=1', { replace: true })
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Gmail authorization failed'
-        navigate(`/account/integrations?error=${encodeURIComponent(msg)}`, { replace: true })
+        navigate(`/account/integrations?gmail_error=${encodeURIComponent(msg)}`, { replace: true })
       }
     }
 

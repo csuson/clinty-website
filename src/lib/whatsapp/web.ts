@@ -7,6 +7,12 @@ export type WhatsAppConnection = {
   connected_at: string
   status: 'connected' | 'disconnected' | 'pairing' | 'error'
   last_error: string | null
+  gateway_url: string | null
+}
+
+export type WhatsAppGatewaySettings = {
+  gatewayUrl: string | null
+  hasApiKey: boolean
 }
 
 export type WhatsAppLoginStatus = {
@@ -16,18 +22,74 @@ export type WhatsAppLoginStatus = {
   error: string | null
 }
 
+const connectionColumns =
+  'user_id, phone, connected_at, status, last_error, gateway_url'
+
+export async function fetchWhatsAppGatewaySettings(): Promise<WhatsAppGatewaySettings> {
+  if (!supabase) {
+    return { gatewayUrl: null, hasApiKey: false }
+  }
+
+  const result = await supabase.functions.invoke('whatsapp-web-login', {
+    body: { action: 'get_settings' },
+  })
+
+  if (result.error || hasFunctionFailure(result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
+
+  const row = (result.data && typeof result.data === 'object' ? result.data : {}) as Record<
+    string,
+    unknown
+  >
+  return {
+    gatewayUrl: typeof row.gatewayUrl === 'string' ? row.gatewayUrl : null,
+    hasApiKey: row.hasApiKey === true,
+  }
+}
+
+export async function saveWhatsAppGateway(
+  gatewayUrl: string,
+  gatewayApiKey?: string,
+): Promise<WhatsAppGatewaySettings> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const result = await supabase.functions.invoke('whatsapp-web-login', {
+    body: {
+      action: 'save_gateway',
+      gatewayUrl,
+      ...(gatewayApiKey ? { gatewayApiKey } : {}),
+    },
+  })
+
+  if (result.error || hasFunctionFailure(result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
+
+  return {
+    gatewayUrl: typeof result.data?.gatewayUrl === 'string' ? result.data.gatewayUrl : gatewayUrl,
+    hasApiKey: true,
+  }
+}
+
 export async function fetchWhatsAppConnection(userId: string): Promise<WhatsAppConnection | null> {
   if (!supabase) return null
 
   const { data, error } = await supabase
     .from('whatsapp_connections')
-    .select('*')
+    .select(connectionColumns)
     .eq('user_id', userId)
     .in('status', ['connected', 'pairing'])
     .maybeSingle()
 
   if (error || !data) return null
   return data as WhatsAppConnection
+}
+
+export function isWhatsAppGatewayConfigured(settings: WhatsAppGatewaySettings): boolean {
+  return Boolean(settings.gatewayUrl && settings.hasApiKey)
 }
 
 export async function startWhatsAppLogin(): Promise<WhatsAppLoginStatus> {
@@ -83,6 +145,11 @@ export async function disconnectWhatsApp(): Promise<void> {
     throw new Error('Supabase is not configured.')
   }
 
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    throw new Error('Your session expired. Sign in again and retry.')
+  }
+
   const result = await supabase.functions.invoke('whatsapp-web-login', {
     body: { action: 'disconnect' },
   })
@@ -97,7 +164,9 @@ function hasFunctionFailure(data: unknown): boolean {
   if (data === null || typeof data !== 'object') return false
 
   const row = data as Record<string, unknown>
-  if ('status' in row || 'qrDataUrl' in row || 'success' in row) return false
+  if ('status' in row || 'qrDataUrl' in row || 'success' in row || 'gatewayUrl' in row) {
+    return false
+  }
 
   return typeof row.error === 'string' && row.error.length > 0
 }

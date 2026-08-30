@@ -355,7 +355,9 @@ create table if not exists public.whatsapp_connections (
   connected_at timestamptz not null default now(),
   status text not null default 'disconnected'
     check (status in ('connected', 'disconnected', 'pairing', 'error')),
-  last_error text
+  last_error text,
+  gateway_url text,
+  gateway_api_key text
 );
 
 alter table public.whatsapp_connections enable row level security;

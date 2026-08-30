@@ -57,11 +57,13 @@ Deno.serve(async (req) => {
       return json({ error: 'Forbidden' }, 403)
     }
 
-    const [profilesRes, apiKeysRes, gmailTokensRes, squareTokensRes, squareConnectionsRes, shopifyTokensRes, shopifyConnectionsRes, agentSettingsRes, userPromptsRes] =
+    const [profilesRes, apiKeysRes, gmailTokensRes, outlookTokensRes, outlookConnectionsRes, squareTokensRes, squareConnectionsRes, shopifyTokensRes, shopifyConnectionsRes, agentSettingsRes, userPromptsRes] =
       await Promise.all([
       admin.from('profiles').select('*').order('created_at', { ascending: false }),
       admin.from('api_keys').select('*').order('created_at', { ascending: false }),
       admin.from('gmail_tokens').select('*').order('updated_at', { ascending: false }),
+      admin.from('outlook_tokens').select('*').order('updated_at', { ascending: false }),
+      admin.from('outlook_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('square_tokens').select('*').order('updated_at', { ascending: false }),
       admin.from('square_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('shopify_tokens').select('*').order('updated_at', { ascending: false }),
@@ -78,6 +80,12 @@ Deno.serve(async (req) => {
     }
     if (gmailTokensRes.error) {
       return json({ error: gmailTokensRes.error.message }, 500)
+    }
+    if (outlookTokensRes.error) {
+      return json({ error: outlookTokensRes.error.message }, 500)
+    }
+    if (outlookConnectionsRes.error) {
+      return json({ error: outlookConnectionsRes.error.message }, 500)
     }
     if (squareTokensRes.error) {
       return json({ error: squareTokensRes.error.message }, 500)
@@ -107,6 +115,9 @@ Deno.serve(async (req) => {
     const squareConnectionByUserId = new Map(
       (squareConnectionsRes.data ?? []).map((connection) => [connection.user_id, connection]),
     )
+    const outlookConnectionByUserId = new Map(
+      (outlookConnectionsRes.data ?? []).map((connection) => [connection.user_id, connection]),
+    )
     const shopifyConnectionByUserId = new Map(
       (shopifyConnectionsRes.data ?? []).map((connection) => [connection.user_id, connection]),
     )
@@ -123,6 +134,16 @@ Deno.serve(async (req) => {
       ...token,
       user_email: emailByUserId.get(token.user_id) ?? null,
     }))
+    const outlookTokens = (outlookTokensRes.data ?? []).map((token) => {
+      const connection = outlookConnectionByUserId.get(token.user_id) ?? null
+      return {
+        ...token,
+        user_email: emailByUserId.get(token.user_id) ?? null,
+        outlook_email: connection?.outlook_email ?? null,
+        connected_at: connection?.connected_at ?? null,
+        connection_status: connection?.status ?? null,
+      }
+    })
     const squareTokens = (squareTokensRes.data ?? []).map((token) => {
       const connection = squareConnectionByUserId.get(token.user_id) ?? null
       return {
@@ -163,7 +184,7 @@ Deno.serve(async (req) => {
       }
     })
 
-    return json({ users, apiKeys, gmailTokens, squareTokens, shopifyTokens, agentSettings })
+    return json({ users, apiKeys, gmailTokens, outlookTokens, squareTokens, shopifyTokens, agentSettings })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }

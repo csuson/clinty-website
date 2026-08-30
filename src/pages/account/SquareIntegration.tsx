@@ -36,6 +36,10 @@ export default function SquareIntegration() {
       setSuccess('Square Appointments connected. Your AI agent can now manage your booking calendar.')
       window.history.replaceState({}, '', '/account/integrations')
     }
+    if (params.get('square_error')) {
+      setError(decodeURIComponent(params.get('square_error') ?? 'Connection failed'))
+      window.history.replaceState({}, '', '/account/integrations')
+    }
   }, [loadConnection])
 
   function handleConnect() {

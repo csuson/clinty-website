@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import AuthLayout, { AuthConfigNotice, AuthError } from '../components/AuthLayout'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import AuthLayout, { AuthConfigNotice, AuthError, AuthSuccess } from '../components/AuthLayout'
 import FormField from '../components/FormField'
 import { inputClass } from '../constants/forms'
 import { useAuth } from '../context/AuthContext'
@@ -9,7 +9,9 @@ export default function SignIn() {
   const { signIn, configured } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const from = (location.state as { from?: string } | null)?.from ?? '/account'
+  const emailConfirmed = searchParams.get('email_confirmed') === '1'
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -52,6 +54,9 @@ export default function SignIn() {
       )}
 
       {error && <AuthError message={error} />}
+      {emailConfirmed && (
+        <AuthSuccess message="Email confirmed. Sign in to continue." />
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <FormField label="Email" id="email" required>

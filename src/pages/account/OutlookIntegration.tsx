@@ -37,8 +37,8 @@ export default function OutlookIntegration() {
       setSuccess('Microsoft Outlook connected. Your AI agent can now access email and calendar.')
       window.history.replaceState({}, '', '/account/integrations')
     }
-    if (params.get('error')) {
-      setError(decodeURIComponent(params.get('error') ?? 'Connection failed'))
+    if (params.get('outlook_error')) {
+      setError(decodeURIComponent(params.get('outlook_error') ?? 'Connection failed'))
       window.history.replaceState({}, '', '/account/integrations')
     }
   }, [loadConnection])
@@ -160,8 +160,8 @@ export default function OutlookIntegration() {
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-navy-600">
-              Click below to authorize Clinty. A Microsoft sign-in window will open to grant access
-              to your Outlook inbox and calendar.
+              Click below to authorize Clinty. Choose the Microsoft account for the Outlook mailbox
+              you want Clinty to use.
             </p>
             <button
               onClick={handleConnect}
@@ -194,6 +194,8 @@ export default function OutlookIntegration() {
 
 function formatScope(scope: string): string {
   const labels: Record<string, string> = {
+    openid: 'Sign you in with Microsoft',
+    profile: 'Read your basic Microsoft profile',
     'https://graph.microsoft.com/Mail.ReadWrite': 'Read, compose, and manage Outlook mail',
     'https://graph.microsoft.com/Calendars.ReadWrite': 'View and manage Outlook Calendar events',
     'https://graph.microsoft.com/User.Read': 'Read your Microsoft account profile',

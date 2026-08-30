@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const allowedResources = new Set(['user', 'api_key', 'gmail_token', 'square_token', 'shopify_token', 'agent_settings'])
+const allowedResources = new Set(['user', 'api_key', 'gmail_token', 'square_token', 'shopify_token', 'outlook_token', 'agent_settings'])
 
 function parseAdminEmails(raw: string | undefined): Set<string> {
   return new Set(
@@ -147,6 +147,22 @@ Deno.serve(async (req) => {
       const [tokensRes, connectionsRes] = await Promise.all([
         admin.from('shopify_tokens').delete().eq('user_id', id),
         admin.from('shopify_connections').delete().eq('user_id', id),
+      ])
+
+      if (tokensRes.error) {
+        return json({ error: tokensRes.error.message }, 500)
+      }
+      if (connectionsRes.error) {
+        return json({ error: connectionsRes.error.message }, 500)
+      }
+
+      return json({ ok: true })
+    }
+
+    if (resource === 'outlook_token') {
+      const [tokensRes, connectionsRes] = await Promise.all([
+        admin.from('outlook_tokens').delete().eq('user_id', id),
+        admin.from('outlook_connections').delete().eq('user_id', id),
       ])
 
       if (tokensRes.error) {

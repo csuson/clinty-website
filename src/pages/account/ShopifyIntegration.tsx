@@ -44,8 +44,8 @@ export default function ShopifyIntegration() {
       setSuccess('Shopify connected. Your AI agent can now check products, inventory, and orders.')
       window.history.replaceState({}, '', '/account/integrations')
     }
-    if (params.get('error')) {
-      setError(decodeURIComponent(params.get('error') ?? 'Connection failed'))
+    if (params.get('shopify_error')) {
+      setError(decodeURIComponent(params.get('shopify_error') ?? 'Connection failed'))
       window.history.replaceState({}, '', '/account/integrations')
     }
   }, [loadConnection])
