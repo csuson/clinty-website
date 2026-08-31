@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom'
 
 export default function Dashboard() {
-  return <Navigate to="/account" replace />
+  return <Navigate to="/account/google-ads" replace />
 }

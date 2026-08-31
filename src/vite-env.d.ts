@@ -15,6 +15,7 @@ interface ImportMetaEnv {
   readonly VITE_SHOPIFY_CLIENT_ID?: string
   readonly VITE_SHOPIFY_REDIRECT_URI?: string
   readonly VITE_ADMIN_EMAILS?: string
+  readonly VITE_AD_CAMPAIGN_API_URL?: string
 }
 
 interface ImportMeta {

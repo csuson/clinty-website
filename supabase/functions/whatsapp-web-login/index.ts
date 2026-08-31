@@ -61,9 +61,12 @@ Deno.serve(async (req) => {
         .eq('user_id', user.id)
         .maybeSingle()
 
+      const defaultApiKey = await fetchUserDefaultApiKey(admin, user.id)
+
       return json({
         gatewayUrl: data?.gateway_url ?? null,
-        hasApiKey: Boolean(data?.gateway_api_key),
+        hasApiKey: Boolean(data?.gateway_api_key || defaultApiKey),
+        usesDefaultApiKey: Boolean(!data?.gateway_api_key && defaultApiKey),
       })
     }
 
@@ -84,8 +87,13 @@ Deno.serve(async (req) => {
         .eq('user_id', user.id)
         .maybeSingle()
 
-      if (!gatewayApiKey && !existing?.gateway_api_key) {
-        return json({ error: 'Enter the API key for your WhatsApp gateway.' }, 400)
+      const defaultApiKey = await fetchUserDefaultApiKey(admin, user.id)
+      const resolvedApiKey = gatewayApiKey || existing?.gateway_api_key || null
+
+      if (!resolvedApiKey && !defaultApiKey) {
+        return json({
+          error: 'Generate a Clinty API key in Account → API Keys, or enter a WhatsApp gateway API key.',
+        }, 400)
       }
 
       const { error: upsertError } = await admin.from('whatsapp_connections').upsert({
@@ -104,7 +112,12 @@ Deno.serve(async (req) => {
         throw new Error(`Failed to save WhatsApp gateway: ${upsertError.message}`)
       }
 
-      return json({ success: true, gatewayUrl, hasApiKey: true })
+      return json({
+        success: true,
+        gatewayUrl,
+        hasApiKey: true,
+        usesDefaultApiKey: Boolean(!gatewayApiKey && !existing?.gateway_api_key && defaultApiKey),
+      })
     }
 
     const { gatewayUrl, gatewayKey } = await resolveUserGateway(admin, user.id)
@@ -136,11 +149,31 @@ Deno.serve(async (req) => {
     if (action === 'start') {
       await callGateway(gatewayUrl, gatewayKey, 'POST', '/v1/login/stop', {
         user_id: user.id,
-      }, 5_000).catch(() => {})
+      }, { timeoutMs: 4_000, attempts: 1 }).catch(() => {})
 
-      const status = await callGateway(gatewayUrl, gatewayKey, 'POST', '/v1/login/start', {
-        user_id: user.id,
-      }, 60_000)
+      let status: Record<string, unknown>
+      try {
+        status = await callGateway(gatewayUrl, gatewayKey, 'POST', '/v1/login/start', {
+          user_id: user.id,
+        }, { timeoutMs: 40_000, attempts: 1 })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        const timedOut = /timed out|TimeoutError|operation was aborted/i.test(message)
+        if (timedOut) {
+          await mergeWhatsAppConnection(admin, user.id, {
+            status: 'pairing',
+            last_error: null,
+          })
+          return json({
+            status: 'pairing',
+            qrDataUrl: null,
+            phone: null,
+            error: null,
+          })
+        }
+        throw err
+      }
+
       const connectionStatus =
         status.status === 'connected' ? 'connected'
         : status.status === 'error' ? 'error'
@@ -194,6 +227,24 @@ Deno.serve(async (req) => {
   }
 })
 
+async function fetchUserDefaultApiKey(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<string | null> {
+  const { data } = await admin
+    .from('api_keys')
+    .select('key_secret')
+    .eq('user_id', userId)
+    .is('revoked_at', null)
+    .not('key_secret', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const key = typeof data?.key_secret === 'string' ? data.key_secret.trim() : ''
+  return key || null
+}
+
 async function resolveUserGateway(
   admin: ReturnType<typeof createClient>,
   userId: string,
@@ -206,8 +257,10 @@ async function resolveUserGateway(
 
   const gatewayUrl = (data?.gateway_url || Deno.env.get('WHATSAPP_WEB_GATEWAY_URL') || '')
     .replace(/\/$/, '')
+  const defaultApiKey = await fetchUserDefaultApiKey(admin, userId)
   const gatewayKey =
     data?.gateway_api_key ||
+    defaultApiKey ||
     Deno.env.get('WHATSAPP_WEB_LOGIN_API_KEY') ||
     Deno.env.get('CLINTY_API_KEY') ||
     ''
@@ -223,7 +276,7 @@ function requireGateway(gatewayUrl: string, gatewayKey: string) {
   }
   if (!gatewayKey) {
     throw new Error(
-      'WhatsApp gateway API key not configured. Add your gateway API key in Integrations before linking.',
+      'WhatsApp gateway API key not configured. Generate a Clinty API key in Account → API Keys, or add a gateway API key in Integrations.',
     )
   }
 }
@@ -269,24 +322,36 @@ async function mergeWhatsAppConnection(
   }
 }
 
+type CallGatewayOptions = {
+  timeoutMs?: number
+  attempts?: number
+}
+
 async function callGateway(
   baseUrl: string,
   apiKey: string,
   method: string,
   path: string,
   body?: Record<string, unknown>,
-  timeoutMs = 20_000,
+  timeoutMsOrOptions: number | CallGatewayOptions = 20_000,
 ) {
+  const options = typeof timeoutMsOrOptions === 'number'
+    ? { timeoutMs: timeoutMsOrOptions, attempts: 3 }
+    : {
+      timeoutMs: timeoutMsOrOptions.timeoutMs ?? 20_000,
+      attempts: timeoutMsOrOptions.attempts ?? 3,
+    }
+  const { timeoutMs, attempts } = options
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Connection: 'close',
   }
   if (apiKey) {
     headers['X-Api-Key'] = apiKey
+    headers['X-Clinty-Api-Key'] = apiKey
   }
 
   let lastError: Error | null = null
-  const attempts = 3
 
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
@@ -297,15 +362,29 @@ async function callGateway(
         signal: AbortSignal.timeout(timeoutMs),
       })
 
-      const data = await response.json().catch(() => ({}))
+      const rawBody = await response.text()
+      let data: Record<string, unknown> = {}
+      if (rawBody) {
+        try {
+          data = JSON.parse(rawBody) as Record<string, unknown>
+        } catch {
+          data = { error: rawBody.slice(0, 300) }
+        }
+      }
+
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error(
-            'WhatsApp gateway rejected the API key. Check the API key saved in Integrations matches your gateway.',
+            'WhatsApp gateway rejected the API key. Use the same Clinty API key on the gateway (Account → API Keys), or enter a matching gateway key in Integrations.',
           )
         }
+        if (response.status === 502 || response.status === 503 || response.status === 504) {
+          throw new Error(formatGatewayUpstreamError(baseUrl, response.status, data, path))
+        }
         throw new Error(
-          typeof data.error === 'string' ? data.error : `Gateway request failed (${response.status})`,
+          typeof data.error === 'string'
+            ? data.error
+            : `Gateway request failed (${response.status})`,
         )
       }
       return data
@@ -313,7 +392,7 @@ async function callGateway(
       lastError = err instanceof Error ? err : new Error(String(err))
       const message = lastError.message
       const retryable =
-        /connection closed|connection reset|broken pipe|unexpected eof|SendRequest/i.test(message)
+        /connection closed|connection reset|broken pipe|unexpected eof|SendRequest|Gateway request failed \(502\)|Gateway request failed \(503\)|Gateway request failed \(504\)/i.test(message)
 
       if (!retryable || attempt === attempts) {
         break
@@ -337,6 +416,30 @@ async function callGateway(
     )
   }
   throw lastError
+}
+
+function formatGatewayUpstreamError(
+  baseUrl: string,
+  status: number,
+  data: Record<string, unknown>,
+  path: string,
+): string {
+  const detail = typeof data.error === 'string'
+    ? data.error
+    : typeof data.message === 'string'
+    ? data.message
+    : ''
+
+  const action = path.includes('/login/start')
+    ? 'starting the WhatsApp QR session'
+    : 'talking to your WhatsApp gateway'
+
+  return (
+    `WhatsApp gateway error (${status}) while ${action} at ${baseUrl}. ` +
+    'This usually means the gateway process crashed, is restarting, or your reverse proxy cannot reach it. ' +
+    'Check that the gateway service is running, port 8787 is open, and the API key matches Account → API Keys. ' +
+    (detail ? `Gateway said: ${detail}` : 'Check gateway logs for the underlying error.')
+  )
 }
 
 function json(body: Record<string, unknown>, status = 200) {

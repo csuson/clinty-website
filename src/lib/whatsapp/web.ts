@@ -13,6 +13,7 @@ export type WhatsAppConnection = {
 export type WhatsAppGatewaySettings = {
   gatewayUrl: string | null
   hasApiKey: boolean
+  usesDefaultApiKey: boolean
 }
 
 export type WhatsAppLoginStatus = {
@@ -25,13 +26,17 @@ export type WhatsAppLoginStatus = {
 const connectionColumns =
   'user_id, phone, connected_at, status, last_error, gateway_url'
 
+const WHATSAPP_FUNCTION_TIMEOUT_MS = 120_000
+const WHATSAPP_STATUS_TIMEOUT_MS = 30_000
+
 export async function fetchWhatsAppGatewaySettings(): Promise<WhatsAppGatewaySettings> {
   if (!supabase) {
-    return { gatewayUrl: null, hasApiKey: false }
+    return { gatewayUrl: null, hasApiKey: false, usesDefaultApiKey: false }
   }
 
   const result = await supabase.functions.invoke('whatsapp-web-login', {
     body: { action: 'get_settings' },
+    timeout: WHATSAPP_STATUS_TIMEOUT_MS,
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
@@ -45,6 +50,7 @@ export async function fetchWhatsAppGatewaySettings(): Promise<WhatsAppGatewaySet
   return {
     gatewayUrl: typeof row.gatewayUrl === 'string' ? row.gatewayUrl : null,
     hasApiKey: row.hasApiKey === true,
+    usesDefaultApiKey: row.usesDefaultApiKey === true,
   }
 }
 
@@ -62,6 +68,7 @@ export async function saveWhatsAppGateway(
       gatewayUrl,
       ...(gatewayApiKey ? { gatewayApiKey } : {}),
     },
+    timeout: WHATSAPP_STATUS_TIMEOUT_MS,
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
@@ -71,6 +78,7 @@ export async function saveWhatsAppGateway(
   return {
     gatewayUrl: typeof result.data?.gatewayUrl === 'string' ? result.data.gatewayUrl : gatewayUrl,
     hasApiKey: true,
+    usesDefaultApiKey: result.data?.usesDefaultApiKey === true,
   }
 }
 
@@ -99,7 +107,7 @@ export async function startWhatsAppLogin(): Promise<WhatsAppLoginStatus> {
 
   const result = await supabase.functions.invoke('whatsapp-web-login', {
     body: { action: 'start' },
-    timeout: 90_000,
+    timeout: WHATSAPP_FUNCTION_TIMEOUT_MS,
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
@@ -116,7 +124,7 @@ export async function fetchWhatsAppLoginStatus(): Promise<WhatsAppLoginStatus> {
 
   const result = await supabase.functions.invoke('whatsapp-web-login', {
     body: { action: 'status' },
-    timeout: 45_000,
+    timeout: WHATSAPP_STATUS_TIMEOUT_MS,
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
@@ -133,6 +141,7 @@ export async function stopWhatsAppLogin(): Promise<void> {
 
   const result = await supabase.functions.invoke('whatsapp-web-login', {
     body: { action: 'stop' },
+    timeout: WHATSAPP_STATUS_TIMEOUT_MS,
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
@@ -152,6 +161,7 @@ export async function disconnectWhatsApp(): Promise<void> {
 
   const result = await supabase.functions.invoke('whatsapp-web-login', {
     body: { action: 'disconnect' },
+    timeout: WHATSAPP_STATUS_TIMEOUT_MS,
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
@@ -164,7 +174,7 @@ function hasFunctionFailure(data: unknown): boolean {
   if (data === null || typeof data !== 'object') return false
 
   const row = data as Record<string, unknown>
-  if ('status' in row || 'qrDataUrl' in row || 'success' in row || 'gatewayUrl' in row) {
+  if ('status' in row || 'qrDataUrl' in row || 'success' in row || 'gatewayUrl' in row || 'usesDefaultApiKey' in row) {
     return false
   }
 

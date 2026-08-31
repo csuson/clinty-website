@@ -94,6 +94,8 @@ export default function WhatsAppLogin() {
   useEffect(() => {
     if (phase !== 'pairing') return
 
+    void pollStatus()
+
     const timer = window.setInterval(() => {
       pollStatus()
     }, WHATSAPP_POLL_MS)

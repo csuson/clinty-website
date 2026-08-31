@@ -20,6 +20,9 @@ export async function getFunctionErrorMessage(
       : typeof error.context === 'string'
         ? error.context
         : null
+    if (cause && /aborted|timeout/i.test(cause)) {
+      return 'WhatsApp login timed out before Clinty finished talking to your gateway. Try again — the QR code may still appear after a few seconds. If it keeps failing, check that your gateway URL is reachable and responding quickly.'
+    }
     if (cause && cause !== error.message) {
       return `Could not reach the Edge Function (${cause}). Check your connection, sign in again, or try refreshing the page.`
     }

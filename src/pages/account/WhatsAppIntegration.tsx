@@ -21,6 +21,7 @@ export default function WhatsAppIntegration() {
   const [gatewaySettings, setGatewaySettings] = useState<WhatsAppGatewaySettings>({
     gatewayUrl: null,
     hasApiKey: false,
+    usesDefaultApiKey: false,
   })
   const [gatewayUrlInput, setGatewayUrlInput] = useState('')
   const [gatewayApiKeyInput, setGatewayApiKeyInput] = useState('')
@@ -156,15 +157,26 @@ export default function WhatsAppIntegration() {
               </FormField>
 
               <FormField label="Gateway API key" id="whatsapp-gateway-api-key">
-                {gatewaySettings.hasApiKey && (
+                {gatewaySettings.usesDefaultApiKey && (
                   <p className="text-xs text-navy-500 mb-2">
-                    Leave blank to keep your saved API key.
+                    Using your Clinty API key from Account → API Keys by default.
+                  </p>
+                )}
+                {gatewaySettings.hasApiKey && !gatewaySettings.usesDefaultApiKey && (
+                  <p className="text-xs text-navy-500 mb-2">
+                    Leave blank to keep your saved gateway API key.
                   </p>
                 )}
                 <input
                   id="whatsapp-gateway-api-key"
                   type="password"
-                  placeholder={gatewaySettings.hasApiKey ? '••••••••••••••••' : 'clinty_sk_...'}
+                  placeholder={
+                    gatewaySettings.usesDefaultApiKey
+                      ? 'Optional override'
+                      : gatewaySettings.hasApiKey
+                        ? '••••••••••••••••'
+                        : 'Optional — defaults to your Clinty API key'
+                  }
                   value={gatewayApiKeyInput}
                   onChange={(e) => setGatewayApiKeyInput(e.target.value)}
                   className={inputClass}
@@ -174,18 +186,14 @@ export default function WhatsAppIntegration() {
               </FormField>
               {!gatewaySettings.hasApiKey && (
                 <p className="text-xs text-navy-500 -mt-2">
-                  Same key configured on your gateway (X-Api-Key header).
+                  Generate a key in Account → API Keys, or enter a custom gateway key here.
                 </p>
               )}
 
               <button
                 type="button"
                 onClick={handleSaveGateway}
-                disabled={
-                  savingGateway ||
-                  !gatewayUrlInput.trim() ||
-                  (!gatewaySettings.hasApiKey && !gatewayApiKeyInput.trim())
-                }
+                disabled={savingGateway || !gatewayUrlInput.trim()}
                 className="inline-flex items-center gap-2 bg-navy-900 text-cream font-medium px-5 py-2.5 rounded-xl hover:bg-navy-800 transition-colors text-sm disabled:opacity-60"
               >
                 {savingGateway ? 'Saving...' : 'Save gateway'}
@@ -281,7 +289,11 @@ export default function WhatsAppIntegration() {
           </li>
           <li className="flex items-start gap-2">
             <span className="text-teal-500 mt-0.5">•</span>
-            Use the same API key on the gateway and in the field above.
+            Your Clinty API key (Account → API Keys) is used for the gateway by default.
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-teal-500 mt-0.5">•</span>
+            Use the same key on the gateway and in Clinty, or override with a custom gateway key.
           </li>
         </ul>
       </section>

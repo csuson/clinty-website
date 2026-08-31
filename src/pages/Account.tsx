@@ -1,15 +1,19 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AccountLayout from './account/AccountLayout'
 import AccountSettings from './account/AccountSettings'
 import ApiKeys from './account/ApiKeys'
 import Billing from './account/Billing'
 import GmailCallback from './account/GmailCallback'
+import GoogleAds from './account/GoogleAds'
 import Integrations from './account/Integrations'
 import OutlookCallback from './account/OutlookCallback'
 import Prompts from './account/Prompts'
 import ShopifyCallback from './account/ShopifyCallback'
 import SquareCallback from './account/SquareCallback'
 import WhatsAppLogin from './account/WhatsAppLogin'
+
+const ShopifyTools = lazy(() => import('./account/ShopifyTools'))
 
 export default function Account() {
   return (
@@ -22,7 +26,16 @@ export default function Account() {
         <Route path="integrations/outlook/callback" element={<OutlookCallback />} />
         <Route path="integrations/square/callback" element={<SquareCallback />} />
         <Route path="integrations/shopify/callback" element={<ShopifyCallback />} />
+        <Route
+          path="shopify-tools"
+          element={
+            <Suspense fallback={<p className="text-sm text-navy-600">Loading Shopify tools...</p>}>
+              <ShopifyTools />
+            </Suspense>
+          }
+        />
         <Route path="prompts" element={<Prompts />} />
+        <Route path="google-ads" element={<GoogleAds />} />
         <Route path="billing" element={<Billing />} />
         <Route path="api-keys" element={<ApiKeys />} />
       </Route>
