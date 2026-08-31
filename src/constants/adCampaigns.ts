@@ -94,12 +94,44 @@ export type FacebookCampaignPlan = {
   launch_checklist: string[]
 }
 
+export type YelpProgram = {
+  name: string
+  theme: string
+  monthly_budget_usd: number
+  categories: string[]
+  specialties_text: string
+  custom_ad_text: string
+  photo_concept: string
+  negatives: string[]
+  ad_goal: string
+}
+
+export type YelpCampaignPlan = {
+  campaign_name: string
+  program_type: string
+  ad_goal: string
+  monthly_budget_usd: number
+  daily_budget_usd: number
+  is_autobid: boolean
+  max_bid_usd: number | null
+  pacing_method: string
+  fee_period: string
+  categories: string[]
+  geo_targets: string[]
+  radius_miles: number | null
+  programs: YelpProgram[]
+  rationale: string
+  launch_checklist: string[]
+}
+
 export type MediaPlan = {
   platforms: string[]
   google: CampaignPlan | null
   facebook: FacebookCampaignPlan | null
+  yelp?: YelpCampaignPlan | null
   google_budget_share: number
   facebook_budget_share: number
+  yelp_budget_share?: number
   rationale: string
 }
 
@@ -121,6 +153,7 @@ export type CampaignSnapshot = {
   platforms?: string[]
   campaign_plan: CampaignPlan | null
   facebook_plan: FacebookCampaignPlan | null
+  yelp_plan?: YelpCampaignPlan | null
   media_plan: MediaPlan | null
   review: {
     passed: boolean

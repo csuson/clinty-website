@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import FormField from '../../components/FormField'
-import { CAMPAIGN_GOALS, type CampaignPlan, type CampaignSnapshot, type FacebookCampaignPlan } from '../../constants/adCampaigns'
+import { CAMPAIGN_GOALS, type CampaignPlan, type CampaignSnapshot, type FacebookCampaignPlan, type YelpCampaignPlan } from '../../constants/adCampaigns'
 import { inputClass, textareaClass } from '../../constants/forms'
 import { useAuth } from '../../context/AuthContext'
 import { createAdCampaign, configureAdCampaignApi, isAdCampaignApiConfigured, resumeAdCampaign } from '../../lib/adCampaigns'
@@ -50,6 +50,39 @@ function composeBrief(form: BriefForm): string {
   if (form.audience.trim()) lines.push(`Target audience: ${form.audience.trim()}`)
   if (form.notes.trim()) lines.push(`Additional background and goals:\n${form.notes.trim()}`)
   return lines.join('\n')
+}
+
+function togglePlatform(current: string[], name: string): string[] {
+  return current.includes(name)
+    ? current.filter((item) => item !== name)
+    : [...current, name]
+}
+
+function budgetSplitHint(platforms: string[]): string | null {
+  const google = platforms.includes('google')
+  const facebook = platforms.includes('facebook')
+  const yelp = platforms.includes('yelp')
+  const selected = Number(google) + Number(facebook) + Number(yelp)
+  if (selected < 2) return null
+  if (google && facebook && yelp) {
+    return 'The monthly budget is split 40% Google / 35% Meta / 25% Yelp when all three are selected.'
+  }
+  if (google && facebook) return 'The monthly budget is split 55% Google / 45% Meta when both are selected.'
+  if (google && yelp) return 'The monthly budget is split 60% Google / 40% Yelp when both are selected.'
+  if (facebook && yelp) return 'The monthly budget is split 55% Meta / 45% Yelp when both are selected.'
+  return null
+}
+
+function hasAnyPlan(snapshot: CampaignSnapshot): boolean {
+  return Boolean(snapshot.campaign_plan || snapshot.facebook_plan || snapshot.yelp_plan)
+}
+
+function reviewForPlan(
+  plan: 'google' | 'facebook' | 'yelp',
+  snapshot: CampaignSnapshot,
+): CampaignSnapshot['review'] | null {
+  const last = snapshot.yelp_plan ? 'yelp' : snapshot.facebook_plan ? 'facebook' : 'google'
+  return plan === last ? snapshot.review : null
 }
 
 function downloadJson(filename: string, data: unknown) {
@@ -164,7 +197,7 @@ export default function GoogleAds() {
       return
     }
     if (platforms.length === 0) {
-      setError('Select at least one platform: Google Ads or Facebook / Instagram.')
+      setError('Select at least one platform: Google Ads, Facebook / Instagram, or Yelp.')
       return
     }
 
@@ -302,13 +335,15 @@ export default function GoogleAds() {
     )
   }
 
+  const splitHint = budgetSplitHint(platforms)
+
   return (
     <div className="space-y-6">
       {error && <Alert type="error" message={error} />}
       {working && (
         <Alert
           type="info"
-          message="Drafting Google and/or Meta campaigns. This usually takes under a minute."
+          message="Drafting Google, Meta, and/or Yelp campaigns. This usually takes under a minute."
         />
       )}
 
@@ -319,8 +354,8 @@ export default function GoogleAds() {
               <div>
                 <h2 className="text-lg font-semibold text-navy-900 mb-1">Paid media campaign</h2>
                 <p className="text-sm text-navy-600">
-                  Tell us about the business and the outcome you want. Clinty will draft Google Search
-                  and/or Meta campaigns — targeting, ads, and budget — for you to review before
+                  Tell us about the business and the outcome you want. Clinty will draft Google Search,
+                  Meta, and/or Yelp campaigns — targeting, ads, and budget — for you to review before
                   anything is created in the ad accounts.
                 </p>
               </div>
@@ -418,13 +453,7 @@ export default function GoogleAds() {
                     <input
                       type="checkbox"
                       checked={platforms.includes('google')}
-                      onChange={() =>
-                        setPlatforms((current) =>
-                          current.includes('google')
-                            ? current.filter((item) => item !== 'google')
-                            : [...current, 'google'],
-                        )
-                      }
+                      onChange={() => setPlatforms((current) => togglePlatform(current, 'google'))}
                       disabled={working}
                     />
                     Google Search
@@ -433,22 +462,23 @@ export default function GoogleAds() {
                     <input
                       type="checkbox"
                       checked={platforms.includes('facebook')}
-                      onChange={() =>
-                        setPlatforms((current) =>
-                          current.includes('facebook')
-                            ? current.filter((item) => item !== 'facebook')
-                            : [...current, 'facebook'],
-                        )
-                      }
+                      onChange={() => setPlatforms((current) => togglePlatform(current, 'facebook'))}
                       disabled={working}
                     />
                     Facebook / Instagram
                   </label>
+                  <label className="flex items-center gap-2 text-sm text-navy-800">
+                    <input
+                      type="checkbox"
+                      checked={platforms.includes('yelp')}
+                      onChange={() => setPlatforms((current) => togglePlatform(current, 'yelp'))}
+                      disabled={working}
+                    />
+                    Yelp
+                  </label>
                 </div>
-                {platforms.includes('google') && platforms.includes('facebook') && (
-                  <p className="text-xs text-navy-500 mt-2">
-                    The monthly budget is split 55% Google / 45% Meta when both are selected.
-                  </p>
+                {splitHint && (
+                  <p className="text-xs text-navy-500 mt-2">{splitHint}</p>
                 )}
               </fieldset>
               <FormField label="Products or services to advertise" id="ads-offerings" required>
@@ -542,16 +572,22 @@ export default function GoogleAds() {
         </form>
       )}
 
-      {step === 'review' && snapshot && (snapshot.campaign_plan || snapshot.facebook_plan) && (
+      {step === 'review' && snapshot && hasAnyPlan(snapshot) && (
         <div className="space-y-6">
           {snapshot.campaign_plan && (
             <CampaignPlanView
               plan={snapshot.campaign_plan}
-              review={snapshot.facebook_plan ? null : snapshot.review}
+              review={reviewForPlan('google', snapshot)}
             />
           )}
           {snapshot.facebook_plan && (
-            <FacebookPlanView plan={snapshot.facebook_plan} review={snapshot.review} />
+            <FacebookPlanView
+              plan={snapshot.facebook_plan}
+              review={reviewForPlan('facebook', snapshot)}
+            />
+          )}
+          {snapshot.yelp_plan && (
+            <YelpPlanView plan={snapshot.yelp_plan} review={reviewForPlan('yelp', snapshot)} />
           )}
           <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
             <h3 className="text-base font-semibold text-navy-900 mb-1">Approve this draft?</h3>
@@ -575,7 +611,7 @@ export default function GoogleAds() {
                 onChange={(e) => setPublish(e.target.checked)}
                 disabled={working}
               />
-              Create paused campaigns in Google Ads and/or Meta Ads Manager after I approve
+              Create paused campaigns in Google Ads, Meta Ads Manager, and/or Yelp Ads after I approve
             </label>
             <div className="flex flex-wrap gap-3 mt-6">
               <button
@@ -613,14 +649,20 @@ export default function GoogleAds() {
           {snapshot.campaign_plan && (
             <CampaignPlanView
               plan={snapshot.campaign_plan}
-              review={snapshot.facebook_plan ? null : snapshot.review}
+              review={reviewForPlan('google', snapshot)}
             />
           )}
           {snapshot.facebook_plan && (
-            <FacebookPlanView plan={snapshot.facebook_plan} review={snapshot.review} />
+            <FacebookPlanView
+              plan={snapshot.facebook_plan}
+              review={reviewForPlan('facebook', snapshot)}
+            />
+          )}
+          {snapshot.yelp_plan && (
+            <YelpPlanView plan={snapshot.yelp_plan} review={reviewForPlan('yelp', snapshot)} />
           )}
           <div className="flex flex-wrap gap-3">
-            {(snapshot.campaign_plan || snapshot.facebook_plan) && (
+            {hasAnyPlan(snapshot) && (
               <button
                 type="button"
                 onClick={() =>
@@ -629,6 +671,7 @@ export default function GoogleAds() {
                     snapshot.media_plan ?? {
                       google: snapshot.campaign_plan,
                       facebook: snapshot.facebook_plan,
+                      yelp: snapshot.yelp_plan,
                     },
                   )
                 }
@@ -851,6 +894,106 @@ function FacebookPlanView({
       {plan.launch_checklist.length > 0 && (
         <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
           <h3 className="text-base font-semibold text-navy-900 mb-3">Meta launch checklist</h3>
+          <ul className="list-disc pl-5 space-y-1 text-sm text-navy-700">
+            {plan.launch_checklist.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  )
+}
+
+function YelpPlanView({
+  plan,
+  review,
+}: {
+  plan: YelpCampaignPlan
+  review: CampaignSnapshot['review'] | null
+}) {
+  return (
+    <>
+      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+        <h2 className="text-lg font-semibold text-navy-900 mb-1">{plan.campaign_name}</h2>
+        <p className="text-xs uppercase tracking-wide text-navy-500 mb-2">Yelp CPC</p>
+        <p className="text-sm text-navy-600 mb-4">
+          {plan.program_type} · {plan.ad_goal.replaceAll('_', ' ')}
+        </p>
+        <p className="text-sm text-navy-800 mb-6">{plan.rationale}</p>
+        <dl className="grid sm:grid-cols-2 gap-3 text-sm">
+          <Info label="Monthly budget" value={`$${plan.monthly_budget_usd.toLocaleString()}`} />
+          <Info label="Daily budget" value={`$${plan.daily_budget_usd.toFixed(2)}`} />
+          <Info label="Autobid" value={plan.is_autobid ? 'Yes' : 'No'} />
+          {plan.max_bid_usd != null && (
+            <Info label="Max bid" value={`$${plan.max_bid_usd.toFixed(2)}`} />
+          )}
+          <Info label="Pacing" value={plan.pacing_method.replaceAll('_', ' ')} />
+          <Info label="Fee period" value={plan.fee_period.replaceAll('_', ' ')} />
+          <Info label="Geo" value={plan.geo_targets.join(', ')} />
+          {plan.radius_miles != null && (
+            <Info label="Radius" value={`${plan.radius_miles} miles`} />
+          )}
+          {plan.categories.length > 0 && (
+            <Info label="Categories" value={plan.categories.join(', ')} />
+          )}
+        </dl>
+      </section>
+
+      {plan.programs.map((program) => (
+        <section key={program.name} className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+          <h3 className="text-base font-semibold text-navy-900 mb-1">{program.name}</h3>
+          <p className="text-sm text-navy-600 mb-4">
+            {program.theme} · ${program.monthly_budget_usd.toLocaleString()}/month
+          </p>
+          {program.categories.length > 0 && (
+            <p className="text-xs text-navy-500 mb-4">Categories: {program.categories.join(', ')}</p>
+          )}
+          <div className="space-y-3 text-sm">
+            <div>
+              <h4 className="font-medium text-navy-900 mb-1">Specialties</h4>
+              <p className="text-navy-700">
+                {program.specialties_text}{' '}
+                <span className="text-xs text-navy-400">({program.specialties_text.length})</span>
+              </p>
+            </div>
+            <div>
+              <h4 className="font-medium text-navy-900 mb-1">Ad text</h4>
+              <p className="text-navy-700">
+                {program.custom_ad_text}{' '}
+                <span className="text-xs text-navy-400">({program.custom_ad_text.length})</span>
+              </p>
+            </div>
+            <p className="text-xs text-navy-500">CTA: {program.ad_goal.replaceAll('_', ' ')}</p>
+            {program.photo_concept && (
+              <p className="text-xs text-navy-500">Photo: {program.photo_concept}</p>
+            )}
+            {program.negatives.length > 0 && (
+              <p className="text-xs text-navy-500">Negatives: {program.negatives.join(', ')}</p>
+            )}
+          </div>
+        </section>
+      ))}
+
+      {review && review.issues.length > 0 && (
+        <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+          <h3 className="text-base font-semibold text-navy-900 mb-3">Review notes</h3>
+          <ul className="space-y-2 text-sm">
+            {review.issues.map((issue) => (
+              <li
+                key={`${issue.field}-${issue.message}`}
+                className={issue.severity === 'error' ? 'text-red-700' : 'text-amber-700'}
+              >
+                [{issue.severity}] {issue.field}: {issue.message}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {plan.launch_checklist.length > 0 && (
+        <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+          <h3 className="text-base font-semibold text-navy-900 mb-3">Yelp launch checklist</h3>
           <ul className="list-disc pl-5 space-y-1 text-sm text-navy-700">
             {plan.launch_checklist.map((item) => (
               <li key={item}>{item}</li>

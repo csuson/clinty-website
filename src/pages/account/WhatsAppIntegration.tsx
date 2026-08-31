@@ -275,28 +275,6 @@ export default function WhatsAppIntegration() {
           </div>
         )}
       </section>
-
-      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-        <h3 className="text-sm font-semibold text-navy-900 mb-3">Gateway requirements</h3>
-        <ul className="space-y-2 text-sm text-navy-600">
-          <li className="flex items-start gap-2">
-            <span className="text-teal-500 mt-0.5">•</span>
-            Run a Clinty-compatible Baileys gateway on your own server or machine.
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-teal-500 mt-0.5">•</span>
-            Expose it on a public HTTPS URL — home IPs often block Supabase cloud requests.
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-teal-500 mt-0.5">•</span>
-            Your Clinty API key (Account → API Keys) is used for the gateway by default.
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-teal-500 mt-0.5">•</span>
-            Use the same key on the gateway and in Clinty, or override with a custom gateway key.
-          </li>
-        </ul>
-      </section>
     </div>
   )
 }

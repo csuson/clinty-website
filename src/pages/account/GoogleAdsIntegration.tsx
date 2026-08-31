@@ -58,7 +58,7 @@ export default function GoogleAdsIntegration() {
     try {
       const nextSettings = await saveGoogleAdsSettings(apiUrlInput)
       setSettings(nextSettings)
-      setSuccess('Campaign AI URL saved. You can now draft Google and Meta campaigns.')
+      setSuccess('Campaign AI URL saved. You can now draft Google, Meta, and Yelp campaigns.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save Google Ads settings')
     } finally {
@@ -100,8 +100,8 @@ export default function GoogleAdsIntegration() {
         <div>
           <h2 className="text-lg font-semibold text-navy-900 mb-1">Ad campaigns</h2>
           <p className="text-sm text-navy-600">
-            Connect your ad campaign AI service so Clinty can draft Google Search and Meta campaigns
-            for review before publishing paused ads.
+            Connect your ad campaign AI service so Clinty can draft Google Search, Meta, and Yelp
+            campaigns for review before publishing paused ads.
           </p>
         </div>
       </div>
@@ -126,8 +126,8 @@ export default function GoogleAdsIntegration() {
             <div>
               <h3 className="text-sm font-semibold text-navy-900 mb-1">Ad campaign AI URL</h3>
               <p className="text-sm text-navy-600">
-                The base URL of your campaign agent API (the service that drafts Google Search and
-                Meta campaigns). Clinty calls{' '}
+                The base URL of your campaign agent API (the service that drafts Google Search, Meta,
+                and Yelp campaigns). Clinty calls{' '}
                 <code className="text-xs bg-white px-1 py-0.5 rounded">POST /v1/campaigns</code> on
                 this host.
               </p>

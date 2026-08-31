@@ -5,6 +5,8 @@ const EXACT_FIELD_HINTS: Record<string, string> = {
     'A short category label (e.g. “kiteboarding school”, “family dentistry”, “HVAC contractor”) so we pick the right keywords.',
   website_url:
     'Your main site or the page you want most ads to point to, including https://.',
+  yelp_business_id:
+    'The encrypted Yelp listing id for this business, if you already have it from Yelp or Business Match.',
   landing_page_url:
     'The specific page people should land on after clicking an ad — often a service page, booking page, or contact page.',
   locations:
