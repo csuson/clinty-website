@@ -60,6 +60,49 @@ export type CampaignPlan = {
   rationale: string
 }
 
+export type FacebookAd = {
+  name: string
+  primary_text: string
+  headline: string
+  description: string
+  call_to_action: string
+  landing_page_url: string
+  image_concept: string
+}
+
+export type FacebookAdSet = {
+  name: string
+  theme: string
+  daily_budget_usd: number
+  age_min: number
+  age_max: number
+  locations: string[]
+  interests: string[]
+  exclusions: string[]
+  placements: string[]
+  ads: FacebookAd[]
+}
+
+export type FacebookCampaignPlan = {
+  campaign_name: string
+  objective: string
+  monthly_budget_usd: number
+  daily_budget_usd: number
+  bid_strategy: string
+  ad_sets: FacebookAdSet[]
+  rationale: string
+  launch_checklist: string[]
+}
+
+export type MediaPlan = {
+  platforms: string[]
+  google: CampaignPlan | null
+  facebook: FacebookCampaignPlan | null
+  google_budget_share: number
+  facebook_budget_share: number
+  rationale: string
+}
+
 export type ReviewIssue = {
   severity: 'error' | 'warning'
   field: string
@@ -75,7 +118,10 @@ export type CampaignSnapshot = {
     missing_fields?: string[]
   } | null
   brief: Record<string, unknown> | null
+  platforms?: string[]
   campaign_plan: CampaignPlan | null
+  facebook_plan: FacebookCampaignPlan | null
+  media_plan: MediaPlan | null
   review: {
     passed: boolean
     issues: ReviewIssue[]

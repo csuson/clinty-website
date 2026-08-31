@@ -1,4 +1,5 @@
 import GmailIntegration from './GmailIntegration'
+import GoogleAdsIntegration from './GoogleAdsIntegration'
 import OutlookIntegration from './OutlookIntegration'
 import ShopifyIntegration from './ShopifyIntegration'
 import SquareIntegration from './SquareIntegration'
@@ -12,6 +13,7 @@ export default function Integrations() {
       <SquareIntegration />
       <ShopifyIntegration />
       <WhatsAppIntegration />
+      <GoogleAdsIntegration />
     </div>
   )
 }

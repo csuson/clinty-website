@@ -164,6 +164,15 @@ export type WhatsAppConnection = {
   gateway_url: string | null
 }
 
+export type GoogleAdsConnection = {
+  user_id: string
+  ad_campaign_api_url: string | null
+  campaign_brief: Record<string, string> | null
+  status: 'connected' | 'disconnected' | 'error'
+  connected_at: string | null
+  updated_at: string
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -433,6 +442,25 @@ export type Database = {
           last_error?: string | null
           gateway_url?: string | null
           gateway_api_key?: string | null
+        }
+        Relationships: []
+      }
+      google_ads_connections: {
+        Row: GoogleAdsConnection
+        Insert: {
+          user_id: string
+          ad_campaign_api_url?: string | null
+          campaign_brief?: Record<string, string> | null
+          status?: 'connected' | 'disconnected' | 'error'
+          connected_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ad_campaign_api_url?: string | null
+          campaign_brief?: Record<string, string> | null
+          status?: 'connected' | 'disconnected' | 'error'
+          connected_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

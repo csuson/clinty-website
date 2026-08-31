@@ -4,11 +4,13 @@ export default function FormField({
   label,
   id,
   required,
+  hint,
   children,
 }: {
   label: string
   id: string
   required?: boolean
+  hint?: string
   children: ReactNode
 }) {
   return (
@@ -17,6 +19,7 @@ export default function FormField({
         {label}
         {required && <span className="text-teal-500 ml-0.5">*</span>}
       </label>
+      {hint && <p className="text-sm text-navy-600 mb-2">{hint}</p>}
       {children}
     </div>
   )

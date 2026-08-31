@@ -31,6 +31,9 @@ verify_jwt = false
 [functions.whatsapp-web-login]
 verify_jwt = false
 
+[functions.google-ads-settings]
+verify_jwt = false
+
 [functions.generate-prompt-background]
 verify_jwt = false
 
@@ -51,5 +54,5 @@ otp_length = 8
 enroll_enabled = true
 verify_enabled = true
 
-[remotes.production.auth.email.smtp]
-sender_name = "Clinty Auth"
+# SMTP is configured in the Supabase dashboard (Project Settings → Auth → SMTP).
+# Do not add [remotes.production.auth.email.smtp] here unless host, port, user, and pass are set.

@@ -1,22 +1,35 @@
 import type { CampaignSnapshot } from '../constants/adCampaigns'
+import { getDefaultAdCampaignApiUrl } from '../constants/googleAds'
 
 const DEFAULT_DEV_API = '/api/ad-campaigns'
 
-function apiBase(): string {
-  const configured = import.meta.env.VITE_AD_CAMPAIGN_API_URL?.replace(/\/$/, '')
+let userApiBase: string | null = null
+
+export function configureAdCampaignApi(userUrl?: string | null) {
+  const trimmed = userUrl?.trim().replace(/\/$/, '')
+  userApiBase = trimmed || null
+}
+
+export function resolveAdCampaignApiUrl(): string {
+  if (userApiBase) return userApiBase
+
+  const configured = getDefaultAdCampaignApiUrl()
   if (configured) return configured
+
   if (import.meta.env.DEV) return DEFAULT_DEV_API
   return ''
 }
 
 export function isAdCampaignApiConfigured(): boolean {
-  return apiBase().length > 0
+  return resolveAdCampaignApiUrl().length > 0
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const base = apiBase()
+  const base = resolveAdCampaignApiUrl()
   if (!base) {
-    throw new Error('Google Ads campaign API is not configured. Set VITE_AD_CAMPAIGN_API_URL.')
+    throw new Error(
+      'Ad campaign API is not configured. Save your campaign AI URL in Integrations, or set VITE_AD_CAMPAIGN_API_URL.',
+    )
   }
 
   const response = await fetch(`${base}${path}`, {
@@ -39,10 +52,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
-export async function createAdCampaign(brief: string): Promise<CampaignSnapshot> {
+export async function createAdCampaign(
+  brief: string,
+  platforms: string[] = ['google', 'facebook'],
+): Promise<CampaignSnapshot> {
   return request<CampaignSnapshot>('/v1/campaigns', {
     method: 'POST',
-    body: JSON.stringify({ brief }),
+    body: JSON.stringify({ brief, platforms }),
   })
 }
 

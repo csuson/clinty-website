@@ -1,9 +1,15 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import FormField from '../../components/FormField'
-import { CAMPAIGN_GOALS, type CampaignPlan, type CampaignSnapshot } from '../../constants/adCampaigns'
+import { CAMPAIGN_GOALS, type CampaignPlan, type CampaignSnapshot, type FacebookCampaignPlan } from '../../constants/adCampaigns'
 import { inputClass, textareaClass } from '../../constants/forms'
 import { useAuth } from '../../context/AuthContext'
-import { createAdCampaign, isAdCampaignApiConfigured, resumeAdCampaign } from '../../lib/adCampaigns'
+import { createAdCampaign, configureAdCampaignApi, isAdCampaignApiConfigured, resumeAdCampaign } from '../../lib/adCampaigns'
+import {
+  fetchGoogleAdsSettings,
+  saveGoogleAdsCampaignBrief,
+} from '../../lib/googleAds/settings'
+import { briefFormFromBackground, combineAdBriefForm } from '../../lib/googleAds/briefFromBackground'
+import { clarifyingFieldHint } from '../../lib/googleAds/clarifyingHints'
 import { fetchUserPrompts } from '../../lib/prompts'
 
 type Step = 'brief' | 'clarifying' | 'review' | 'complete'
@@ -38,7 +44,7 @@ function composeBrief(form: BriefForm): string {
   if (form.industry.trim()) lines.push(`Industry: ${form.industry.trim()}`)
   if (form.websiteUrl.trim()) lines.push(`Website: ${form.websiteUrl.trim()}`)
   if (form.locations.trim()) lines.push(`Locations to target: ${form.locations.trim()}`)
-  if (form.monthlyBudget.trim()) lines.push(`Monthly Google Ads budget: $${form.monthlyBudget.trim()} USD`)
+  if (form.monthlyBudget.trim()) lines.push(`Monthly paid media budget: $${form.monthlyBudget.trim()} USD`)
   if (form.goal) lines.push(`Primary goal: ${form.goal.replaceAll('_', ' ')}`)
   if (form.offerings.trim()) lines.push(`Products or services: ${form.offerings.trim()}`)
   if (form.audience.trim()) lines.push(`Target audience: ${form.audience.trim()}`)
@@ -57,29 +63,77 @@ function downloadJson(filename: string, data: unknown) {
 }
 
 export default function GoogleAds() {
-  const { user } = useAuth()
-  const apiReady = isAdCampaignApiConfigured()
+  const { user, profile } = useAuth()
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const apiReady = settingsLoaded && isAdCampaignApiConfigured()
   const [form, setForm] = useState<BriefForm>(emptyBrief)
   const [step, setStep] = useState<Step>('brief')
   const [snapshot, setSnapshot] = useState<CampaignSnapshot | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [revisionNotes, setRevisionNotes] = useState('')
   const [publish, setPublish] = useState(false)
+  const [platforms, setPlatforms] = useState<string[]>(['google', 'facebook'])
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [briefLoaded, setBriefLoaded] = useState(false)
+  const [reloadingBackground, setReloadingBackground] = useState(false)
+  const skipBriefSaveRef = useRef(true)
 
   useEffect(() => {
-    if (!user) return
-    fetchUserPrompts(user.id)
-      .then((prompts) => {
-        setForm((current) =>
-          current.notes ? current : { ...current, notes: prompts.background },
-        )
+    if (!user) {
+      setSettingsLoaded(true)
+      return
+    }
+
+    let cancelled = false
+    const userId = user.id
+
+    async function loadCampaignData() {
+      try {
+        const [settings, prompts] = await Promise.all([
+          fetchGoogleAdsSettings(),
+          fetchUserPrompts(userId),
+        ])
+
+        if (cancelled) return
+
+        configureAdCampaignApi(settings.adCampaignApiUrl)
+
+        const parsed = briefFormFromBackground(prompts.background, {
+          companyName: profile?.company_name,
+        })
+        setForm(combineAdBriefForm(parsed, settings.campaignBrief))
+      } catch {
+        if (!cancelled) {
+          configureAdCampaignApi(null)
+        }
+      } finally {
+        if (!cancelled) {
+          skipBriefSaveRef.current = false
+          setBriefLoaded(true)
+          setSettingsLoaded(true)
+        }
+      }
+    }
+
+    loadCampaignData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [user, profile?.company_name])
+
+  useEffect(() => {
+    if (!briefLoaded || skipBriefSaveRef.current) return
+
+    const timer = window.setTimeout(() => {
+      saveGoogleAdsCampaignBrief(form).catch(() => {
+        /* Best-effort autosave for campaign brief fields. */
       })
-      .catch(() => {
-        /* Prompts are optional context for the brief. */
-      })
-  }, [user])
+    }, 900)
+
+    return () => window.clearTimeout(timer)
+  }, [form, briefLoaded])
 
   function applySnapshot(next: CampaignSnapshot) {
     setSnapshot(next)
@@ -109,11 +163,16 @@ export default function GoogleAds() {
       setError('Add your business name, offer, locations, budget, and goal so we can draft ads.')
       return
     }
+    if (platforms.length === 0) {
+      setError('Select at least one platform: Google Ads or Facebook / Instagram.')
+      return
+    }
 
     setWorking(true)
     setError(null)
     try {
-      applySnapshot(await createAdCampaign(brief))
+      await saveGoogleAdsCampaignBrief(form)
+      applySnapshot(await createAdCampaign(brief, platforms))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to draft the campaign')
     } finally {
@@ -158,27 +217,86 @@ export default function GoogleAds() {
     }
   }
 
+  async function handleReloadFromBackground() {
+    if (!user) return
+
+    setReloadingBackground(true)
+    setError(null)
+    skipBriefSaveRef.current = true
+
+    try {
+      const prompts = await fetchUserPrompts(user.id)
+      const parsed = briefFormFromBackground(prompts.background, {
+        companyName: profile?.company_name,
+      })
+      const nextForm = combineAdBriefForm(parsed, {
+        monthlyBudget: form.monthlyBudget,
+        goal: form.goal,
+      })
+      setForm(nextForm)
+      await saveGoogleAdsCampaignBrief(nextForm)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reload business background')
+    } finally {
+      skipBriefSaveRef.current = false
+      setReloadingBackground(false)
+    }
+  }
+
   function handleReset() {
     setStep('brief')
     setSnapshot(null)
     setAnswers({})
     setRevisionNotes('')
     setPublish(false)
+    setPlatforms(['google', 'facebook'])
     setError(null)
+    if (!user) {
+      setForm(emptyBrief())
+      return
+    }
+
+    skipBriefSaveRef.current = true
+    Promise.all([fetchGoogleAdsSettings(), fetchUserPrompts(user.id)])
+      .then(([settings, prompts]) => {
+        const parsed = briefFormFromBackground(prompts.background, {
+          companyName: profile?.company_name,
+        })
+        setForm(combineAdBriefForm(parsed, settings.campaignBrief))
+      })
+      .catch(() => {
+        setForm(emptyBrief())
+      })
+      .finally(() => {
+        skipBriefSaveRef.current = false
+      })
   }
 
   function update<K extends keyof BriefForm>(key: K, value: BriefForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
+  if (!settingsLoaded) {
+    return (
+      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+        <p className="text-sm text-navy-600">Loading ad campaign settings...</p>
+      </section>
+    )
+  }
+
   if (!apiReady) {
     return (
       <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-        <h2 className="text-lg font-semibold text-navy-900 mb-1">Google Ads</h2>
-        <p className="text-sm text-navy-600">
-          Set <code className="text-xs bg-cream px-1 py-0.5 rounded">VITE_AD_CAMPAIGN_API_URL</code> to
-          your campaign agent (for local dev, run <code className="text-xs bg-cream px-1 py-0.5 rounded">ad-campaign-api</code> and
-          leave the Vite proxy at <code className="text-xs bg-cream px-1 py-0.5 rounded">/api/ad-campaigns</code>).
+        <h2 className="text-lg font-semibold text-navy-900 mb-1">Ad campaigns</h2>
+        <p className="text-sm text-navy-600 mb-4">
+          Save your ad campaign AI URL in{' '}
+          <a href="/account/integrations" className="text-[#4285F4] hover:underline">
+            Integrations
+          </a>{' '}
+          before drafting campaigns. For local development you can also set{' '}
+          <code className="text-xs bg-cream px-1 py-0.5 rounded">VITE_AD_CAMPAIGN_API_URL</code> or
+          use the Vite proxy at{' '}
+          <code className="text-xs bg-cream px-1 py-0.5 rounded">/api/ad-campaigns</code>.
         </p>
       </section>
     )
@@ -190,19 +308,31 @@ export default function GoogleAds() {
       {working && (
         <Alert
           type="info"
-          message="Drafting strategy, keywords, and ads. This usually takes under a minute."
+          message="Drafting Google and/or Meta campaigns. This usually takes under a minute."
         />
       )}
 
       {step === 'brief' && (
         <form onSubmit={handleCreate} className="space-y-6">
           <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-            <h2 className="text-lg font-semibold text-navy-900 mb-1">Google Ads campaign</h2>
-            <p className="text-sm text-navy-600 mb-6">
-              Tell us about the business and the outcome you want. Clinty will draft a Search campaign
-              — ad groups, keywords, Responsive Search Ads, and budget — for you to review before
-              anything is created in Google Ads.
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-lg font-semibold text-navy-900 mb-1">Paid media campaign</h2>
+                <p className="text-sm text-navy-600">
+                  Tell us about the business and the outcome you want. Clinty will draft Google Search
+                  and/or Meta campaigns — targeting, ads, and budget — for you to review before
+                  anything is created in the ad accounts.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleReloadFromBackground}
+                disabled={working || reloadingBackground}
+                className="inline-flex items-center justify-center shrink-0 border border-navy-900/15 text-navy-900 font-medium px-4 py-2.5 rounded-xl hover:bg-navy-900/5 transition-colors text-sm disabled:opacity-60"
+              >
+                {reloadingBackground ? 'Reloading…' : 'Reload from background'}
+              </button>
+            </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <FormField label="Business name" id="ads-business" required>
@@ -281,6 +411,46 @@ export default function GoogleAds() {
             </div>
 
             <div className="mt-4 space-y-4">
+              <fieldset>
+                <legend className="text-sm font-medium text-navy-800 mb-2">Platforms</legend>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-sm text-navy-800">
+                    <input
+                      type="checkbox"
+                      checked={platforms.includes('google')}
+                      onChange={() =>
+                        setPlatforms((current) =>
+                          current.includes('google')
+                            ? current.filter((item) => item !== 'google')
+                            : [...current, 'google'],
+                        )
+                      }
+                      disabled={working}
+                    />
+                    Google Search
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-navy-800">
+                    <input
+                      type="checkbox"
+                      checked={platforms.includes('facebook')}
+                      onChange={() =>
+                        setPlatforms((current) =>
+                          current.includes('facebook')
+                            ? current.filter((item) => item !== 'facebook')
+                            : [...current, 'facebook'],
+                        )
+                      }
+                      disabled={working}
+                    />
+                    Facebook / Instagram
+                  </label>
+                </div>
+                {platforms.includes('google') && platforms.includes('facebook') && (
+                  <p className="text-xs text-navy-500 mt-2">
+                    The monthly budget is split 55% Google / 45% Meta when both are selected.
+                  </p>
+                )}
+              </fieldset>
               <FormField label="Products or services to advertise" id="ads-offerings" required>
                 <input
                   id="ads-offerings"
@@ -320,7 +490,7 @@ export default function GoogleAds() {
               disabled={working}
               className="mt-8 bg-navy-900 text-cream font-medium px-6 py-3 rounded-xl hover:bg-navy-800 transition-colors disabled:opacity-60"
             >
-              {working ? 'Drafting campaign…' : 'Draft campaign'}
+              {working ? 'Drafting campaigns…' : 'Draft campaigns'}
             </button>
           </section>
         </form>
@@ -333,8 +503,14 @@ export default function GoogleAds() {
             We need this before we can build keywords and ads.
           </p>
           <div className="space-y-4">
-            {clarifyingFields(snapshot).map(({ field, question }) => (
-              <FormField key={field} label={question} id={`ads-q-${field}`} required>
+            {clarifyingFields(snapshot).map(({ field, question, hint }) => (
+              <FormField
+                key={field}
+                label={question}
+                hint={hint}
+                id={`ads-q-${field}`}
+                required
+              >
                 <input
                   id={`ads-q-${field}`}
                   value={answers[field] ?? ''}
@@ -366,14 +542,21 @@ export default function GoogleAds() {
         </form>
       )}
 
-      {step === 'review' && snapshot?.campaign_plan && (
+      {step === 'review' && snapshot && (snapshot.campaign_plan || snapshot.facebook_plan) && (
         <div className="space-y-6">
-          <CampaignPlanView plan={snapshot.campaign_plan} review={snapshot.review} />
+          {snapshot.campaign_plan && (
+            <CampaignPlanView
+              plan={snapshot.campaign_plan}
+              review={snapshot.facebook_plan ? null : snapshot.review}
+            />
+          )}
+          {snapshot.facebook_plan && (
+            <FacebookPlanView plan={snapshot.facebook_plan} review={snapshot.review} />
+          )}
           <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
             <h3 className="text-base font-semibold text-navy-900 mb-1">Approve this draft?</h3>
             <p className="text-sm text-navy-600 mb-4">
-              Nothing is enabled in Google Ads automatically. Publishing creates the campaign paused
-              so you can QA first.
+              Nothing is enabled automatically. Publishing creates campaigns paused so you can QA first.
             </p>
             <FormField label="What should change? (required if you send it back)" id="ads-revision">
               <textarea
@@ -392,7 +575,7 @@ export default function GoogleAds() {
                 onChange={(e) => setPublish(e.target.checked)}
                 disabled={working}
               />
-              Create this campaign paused in Google Ads after I approve
+              Create paused campaigns in Google Ads and/or Meta Ads Manager after I approve
             </label>
             <div className="flex flex-wrap gap-3 mt-6">
               <button
@@ -428,16 +611,25 @@ export default function GoogleAds() {
             </section>
           )}
           {snapshot.campaign_plan && (
-            <CampaignPlanView plan={snapshot.campaign_plan} review={snapshot.review} />
+            <CampaignPlanView
+              plan={snapshot.campaign_plan}
+              review={snapshot.facebook_plan ? null : snapshot.review}
+            />
+          )}
+          {snapshot.facebook_plan && (
+            <FacebookPlanView plan={snapshot.facebook_plan} review={snapshot.review} />
           )}
           <div className="flex flex-wrap gap-3">
-            {snapshot.campaign_plan && (
+            {(snapshot.campaign_plan || snapshot.facebook_plan) && (
               <button
                 type="button"
                 onClick={() =>
                   downloadJson(
-                    `${snapshot.campaign_plan?.strategy.campaign_name ?? 'campaign'}.json`,
-                    snapshot.campaign_plan,
+                    'media-plan.json',
+                    snapshot.media_plan ?? {
+                      google: snapshot.campaign_plan,
+                      facebook: snapshot.facebook_plan,
+                    },
                   )
                 }
                 className="bg-teal-500 text-white font-medium px-6 py-3 rounded-xl hover:bg-teal-600 transition-colors"
@@ -459,7 +651,9 @@ export default function GoogleAds() {
   )
 }
 
-function clarifyingFields(snapshot: CampaignSnapshot): { field: string; question: string }[] {
+function clarifyingFields(
+  snapshot: CampaignSnapshot,
+): { field: string; question: string; hint: string }[] {
   const fields = snapshot.missing_fields.length
     ? snapshot.missing_fields
     : (snapshot.interrupt?.missing_fields ?? [])
@@ -467,12 +661,23 @@ function clarifyingFields(snapshot: CampaignSnapshot): { field: string; question
     ? snapshot.clarifying_questions
     : (snapshot.interrupt?.questions ?? [])
   if (fields.length === 0) {
-    return questions.map((question, index) => ({ field: `q${index + 1}`, question }))
+    return questions.map((question, index) => {
+      const field = `q${index + 1}`
+      return {
+        field,
+        question,
+        hint: clarifyingFieldHint(field, question),
+      }
+    })
   }
-  return fields.map((field, index) => ({
-    field,
-    question: questions[index] ?? field.replaceAll('_', ' '),
-  }))
+  return fields.map((field, index) => {
+    const question = questions[index] ?? field.replaceAll('_', ' ')
+    return {
+      field,
+      question,
+      hint: clarifyingFieldHint(field, question),
+    }
+  })
 }
 
 function CampaignPlanView({
@@ -480,12 +685,13 @@ function CampaignPlanView({
   review,
 }: {
   plan: CampaignPlan
-  review: CampaignSnapshot['review']
+  review: CampaignSnapshot['review'] | null
 }) {
   return (
     <>
       <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
         <h2 className="text-lg font-semibold text-navy-900 mb-1">{plan.strategy.campaign_name}</h2>
+        <p className="text-xs uppercase tracking-wide text-navy-500 mb-2">Google Search</p>
         <p className="text-sm text-navy-600 mb-4">{plan.strategy.objective}</p>
         <p className="text-sm text-navy-800 mb-6">{plan.strategy.positioning}</p>
         <dl className="grid sm:grid-cols-2 gap-3 text-sm">
@@ -567,6 +773,84 @@ function CampaignPlanView({
       {plan.launch_checklist.length > 0 && (
         <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
           <h3 className="text-base font-semibold text-navy-900 mb-3">Launch checklist</h3>
+          <ul className="list-disc pl-5 space-y-1 text-sm text-navy-700">
+            {plan.launch_checklist.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  )
+}
+
+function FacebookPlanView({
+  plan,
+  review,
+}: {
+  plan: FacebookCampaignPlan
+  review: CampaignSnapshot['review'] | null
+}) {
+  return (
+    <>
+      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+        <h2 className="text-lg font-semibold text-navy-900 mb-1">{plan.campaign_name}</h2>
+        <p className="text-xs uppercase tracking-wide text-navy-500 mb-2">Facebook / Instagram</p>
+        <p className="text-sm text-navy-600 mb-4">{plan.objective.replaceAll('_', ' ')}</p>
+        <p className="text-sm text-navy-800 mb-6">{plan.rationale}</p>
+        <dl className="grid sm:grid-cols-2 gap-3 text-sm">
+          <Info label="Monthly budget" value={`$${plan.monthly_budget_usd.toLocaleString()}`} />
+          <Info label="Daily budget" value={`$${plan.daily_budget_usd.toFixed(2)}`} />
+          <Info label="Bidding" value={plan.bid_strategy.replaceAll('_', ' ')} />
+        </dl>
+      </section>
+
+      {plan.ad_sets.map((adSet) => (
+        <section key={adSet.name} className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+          <h3 className="text-base font-semibold text-navy-900 mb-1">{adSet.name}</h3>
+          <p className="text-sm text-navy-600 mb-4">
+            {adSet.theme} · ages {adSet.age_min}–{adSet.age_max} · ${adSet.daily_budget_usd.toFixed(2)}/day
+          </p>
+          {adSet.interests.length > 0 && (
+            <p className="text-xs text-navy-500 mb-4">Interests: {adSet.interests.join(', ')}</p>
+          )}
+          <div className="grid md:grid-cols-2 gap-6 text-sm">
+            {adSet.ads.map((ad) => (
+              <div key={ad.name} className="rounded-xl border border-navy-900/10 p-4">
+                <h4 className="font-medium text-navy-900 mb-2">{ad.name}</h4>
+                <p className="text-navy-700 mb-2">{ad.primary_text}</p>
+                <p className="font-medium text-navy-900">
+                  {ad.headline}{' '}
+                  <span className="text-xs text-navy-400">({ad.headline.length})</span>
+                </p>
+                {ad.description && <p className="text-navy-600 mt-1">{ad.description}</p>}
+                <p className="text-xs text-navy-500 mt-3">CTA: {ad.call_to_action.replaceAll('_', ' ')}</p>
+                <p className="text-xs text-navy-500 mt-1">Image: {ad.image_concept}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {review && review.issues.length > 0 && (
+        <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+          <h3 className="text-base font-semibold text-navy-900 mb-3">Review notes</h3>
+          <ul className="space-y-2 text-sm">
+            {review.issues.map((issue) => (
+              <li
+                key={`${issue.field}-${issue.message}`}
+                className={issue.severity === 'error' ? 'text-red-700' : 'text-amber-700'}
+              >
+                [{issue.severity}] {issue.field}: {issue.message}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {plan.launch_checklist.length > 0 && (
+        <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+          <h3 className="text-base font-semibold text-navy-900 mb-3">Meta launch checklist</h3>
           <ul className="list-disc pl-5 space-y-1 text-sm text-navy-700">
             {plan.launch_checklist.map((item) => (
               <li key={item}>{item}</li>

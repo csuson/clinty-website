@@ -35,7 +35,7 @@ const tabs = [
   },
   {
     to: '/account/google-ads',
-    label: 'Google Ads',
+    label: 'Ad Campaigns',
     end: false,
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

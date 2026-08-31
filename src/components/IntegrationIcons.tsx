@@ -42,6 +42,17 @@ export function GoogleDocsIcon({ className = 'w-7 h-7' }: IconProps) {
   )
 }
 
+export function GoogleAdsIcon({ className = 'w-7 h-7' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#FBBC04" d="M4 18.5 11.5 5.5 19 18.5H4z" />
+      <path fill="#34A853" d="M11.5 5.5 19 18.5h-5.5L11.5 5.5z" />
+      <path fill="#4285F4" d="M13.5 18.5 11.5 5.5 19 18.5h-5.5z" />
+      <circle cx="17" cy="7" r="3.5" fill="#4285F4" />
+    </svg>
+  )
+}
+
 export function SquareIcon({ className = 'w-7 h-7' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
