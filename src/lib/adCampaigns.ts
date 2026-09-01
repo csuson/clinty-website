@@ -1,5 +1,13 @@
 import type { CampaignSnapshot } from '../constants/adCampaigns'
 import { getDefaultAdCampaignApiUrl } from '../constants/googleAds'
+import {
+  budgetSplitForPlatforms,
+  budgetSplitPayload,
+  parseAdPlatforms,
+  type AdPlatform,
+  type PlatformBudgetSplit,
+} from './googleAds/budgetSplit'
+import type { PlatformCredentialsPayload } from './googleAds/credentials'
 
 const DEFAULT_DEV_API = '/api/ad-campaigns'
 
@@ -52,13 +60,42 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
+export type CreateAdCampaignInput = {
+  brief: string
+  platforms: AdPlatform[]
+  platformBudgetSplit?: PlatformBudgetSplit
+}
+
+export function buildCreateCampaignRequest({
+  brief,
+  platforms,
+  platformBudgetSplit,
+}: CreateAdCampaignInput): Record<string, unknown> {
+  const normalizedPlatforms = parseAdPlatforms(platforms)
+  if (normalizedPlatforms.length === 0) {
+    throw new Error('Select at least one platform: Google Ads, Facebook / Instagram, or Yelp.')
+  }
+
+  const split = budgetSplitForPlatforms(normalizedPlatforms, platformBudgetSplit)
+  const budgetSplit = budgetSplitPayload(normalizedPlatforms, split)
+
+  return {
+    brief,
+    platforms: normalizedPlatforms,
+    ...(budgetSplit ? { budget_split: budgetSplit } : {}),
+  }
+}
+
 export async function createAdCampaign(
   brief: string,
-  platforms: string[] = ['google', 'facebook'],
+  platforms: AdPlatform[] = ['google', 'facebook'],
+  platformBudgetSplit?: PlatformBudgetSplit,
 ): Promise<CampaignSnapshot> {
+  const body = buildCreateCampaignRequest({ brief, platforms, platformBudgetSplit })
+
   return request<CampaignSnapshot>('/v1/campaigns', {
     method: 'POST',
-    body: JSON.stringify({ brief, platforms }),
+    body: JSON.stringify(body),
   })
 }
 
@@ -69,6 +106,7 @@ export async function resumeAdCampaign(
     approved?: boolean
     publish?: boolean
     notes?: string
+    platform_credentials?: PlatformCredentialsPayload
   },
 ): Promise<CampaignSnapshot> {
   return request<CampaignSnapshot>(`/v1/campaigns/${threadId}/resume`, {

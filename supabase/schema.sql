@@ -371,6 +371,7 @@ create table if not exists public.google_ads_connections (
   user_id uuid primary key references auth.users (id) on delete cascade,
   ad_campaign_api_url text,
   campaign_brief jsonb,
+  platform_credentials jsonb,
   status text not null default 'disconnected'
     check (status in ('connected', 'disconnected', 'error')),
   connected_at timestamptz,

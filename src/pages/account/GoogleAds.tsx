@@ -1,42 +1,76 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import FormField from '../../components/FormField'
 import { CAMPAIGN_GOALS, type CampaignPlan, type CampaignSnapshot, type FacebookCampaignPlan, type YelpCampaignPlan } from '../../constants/adCampaigns'
+import {
+  AD_CAMPAIGN_BUDGET_DEFAULT,
+  AD_CAMPAIGN_BUDGET_MAX,
+  AD_CAMPAIGN_BUDGET_MIN,
+  AD_CAMPAIGN_BUDGET_STEP,
+  parseMonthlyBudget,
+} from '../../constants/googleAds'
 import { inputClass, textareaClass } from '../../constants/forms'
 import { useAuth } from '../../context/AuthContext'
 import { createAdCampaign, configureAdCampaignApi, isAdCampaignApiConfigured, resumeAdCampaign } from '../../lib/adCampaigns'
+import { fetchPlatformCredentialsForPublish } from '../../lib/googleAds/credentials'
+import { briefFormFromBackground, combineAdBriefForm } from '../../lib/googleAds/briefFromBackground'
 import {
   fetchGoogleAdsSettings,
   saveGoogleAdsCampaignBrief,
+  type GoogleAdsCampaignBrief,
 } from '../../lib/googleAds/settings'
-import { briefFormFromBackground, combineAdBriefForm } from '../../lib/googleAds/briefFromBackground'
+import {
+  AD_PLATFORM_LABELS,
+  DEFAULT_AD_PLATFORMS,
+  AD_PLATFORMS,
+  activeBudgetSplit,
+  budgetSplitForPlatforms,
+  composePlatformsBriefLines,
+  formatBudgetSplitLine,
+  parseAdPlatforms,
+  toggleAdPlatform,
+  updatePlatformBudgetShare,
+  type AdPlatform,
+  type PlatformBudgetSplit,
+} from '../../lib/googleAds/budgetSplit'
 import { clarifyingFieldHint } from '../../lib/googleAds/clarifyingHints'
 import { fetchUserPrompts } from '../../lib/prompts'
 
 type Step = 'brief' | 'clarifying' | 'review' | 'complete'
 
-type BriefForm = {
-  businessName: string
-  industry: string
-  websiteUrl: string
-  locations: string
-  monthlyBudget: string
-  goal: string
-  offerings: string
-  audience: string
-  notes: string
+type BriefForm = GoogleAdsCampaignBrief
+
+function emptyBrief(): BriefForm {
+  const platforms = [...DEFAULT_AD_PLATFORMS]
+  return {
+    businessName: '',
+    industry: '',
+    websiteUrl: '',
+    locations: '',
+    monthlyBudget: String(AD_CAMPAIGN_BUDGET_DEFAULT),
+    goal: 'leads',
+    offerings: '',
+    audience: '',
+    notes: '',
+    platforms,
+    platformBudgetSplit: budgetSplitForPlatforms(platforms),
+  }
 }
 
-const emptyBrief = (): BriefForm => ({
-  businessName: '',
-  industry: '',
-  websiteUrl: '',
-  locations: '',
-  monthlyBudget: '',
-  goal: 'leads',
-  offerings: '',
-  audience: '',
-  notes: '',
-})
+function mergeCampaignBrief(
+  ...sources: Array<Partial<BriefForm> | null | undefined>
+): BriefForm {
+  const stringFields = combineAdBriefForm(...sources)
+  const platforms =
+    [...sources].reverse().find((source) => source?.platforms?.length)?.platforms
+    ?? [...DEFAULT_AD_PLATFORMS]
+  const savedSplit = sources.find((source) => source?.platformBudgetSplit)?.platformBudgetSplit
+
+  return {
+    ...stringFields,
+    platforms,
+    platformBudgetSplit: budgetSplitForPlatforms(platforms, savedSplit),
+  }
+}
 
 function composeBrief(form: BriefForm): string {
   const lines: string[] = []
@@ -45,32 +79,21 @@ function composeBrief(form: BriefForm): string {
   if (form.websiteUrl.trim()) lines.push(`Website: ${form.websiteUrl.trim()}`)
   if (form.locations.trim()) lines.push(`Locations to target: ${form.locations.trim()}`)
   if (form.monthlyBudget.trim()) lines.push(`Monthly paid media budget: $${form.monthlyBudget.trim()} USD`)
+  lines.push(...composePlatformsBriefLines(form.platforms))
+  if (form.platforms.length > 1) {
+    lines.push(
+      `Platform budget split: ${formatBudgetSplitLine(
+        form.platforms,
+        form.platformBudgetSplit,
+        parseMonthlyBudget(form.monthlyBudget),
+      )}`,
+    )
+  }
   if (form.goal) lines.push(`Primary goal: ${form.goal.replaceAll('_', ' ')}`)
   if (form.offerings.trim()) lines.push(`Products or services: ${form.offerings.trim()}`)
   if (form.audience.trim()) lines.push(`Target audience: ${form.audience.trim()}`)
   if (form.notes.trim()) lines.push(`Additional background and goals:\n${form.notes.trim()}`)
   return lines.join('\n')
-}
-
-function togglePlatform(current: string[], name: string): string[] {
-  return current.includes(name)
-    ? current.filter((item) => item !== name)
-    : [...current, name]
-}
-
-function budgetSplitHint(platforms: string[]): string | null {
-  const google = platforms.includes('google')
-  const facebook = platforms.includes('facebook')
-  const yelp = platforms.includes('yelp')
-  const selected = Number(google) + Number(facebook) + Number(yelp)
-  if (selected < 2) return null
-  if (google && facebook && yelp) {
-    return 'The monthly budget is split 40% Google / 35% Meta / 25% Yelp when all three are selected.'
-  }
-  if (google && facebook) return 'The monthly budget is split 55% Google / 45% Meta when both are selected.'
-  if (google && yelp) return 'The monthly budget is split 60% Google / 40% Yelp when both are selected.'
-  if (facebook && yelp) return 'The monthly budget is split 55% Meta / 45% Yelp when both are selected.'
-  return null
 }
 
 function hasAnyPlan(snapshot: CampaignSnapshot): boolean {
@@ -105,12 +128,12 @@ export default function GoogleAds() {
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [revisionNotes, setRevisionNotes] = useState('')
   const [publish, setPublish] = useState(false)
-  const [platforms, setPlatforms] = useState<string[]>(['google', 'facebook'])
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [briefLoaded, setBriefLoaded] = useState(false)
   const [reloadingBackground, setReloadingBackground] = useState(false)
   const skipBriefSaveRef = useRef(true)
+  const requestedPlatformsRef = useRef<AdPlatform[]>([...DEFAULT_AD_PLATFORMS])
 
   useEffect(() => {
     if (!user) {
@@ -135,7 +158,21 @@ export default function GoogleAds() {
         const parsed = briefFormFromBackground(prompts.background, {
           companyName: profile?.company_name,
         })
-        setForm(combineAdBriefForm(parsed, settings.campaignBrief))
+        setForm((current) => {
+          const merged = mergeCampaignBrief(parsed, settings.campaignBrief)
+          if (!skipBriefSaveRef.current && current.platforms.length > 0) {
+            return {
+              ...merged,
+              platforms: current.platforms,
+              platformBudgetSplit: budgetSplitForPlatforms(
+                current.platforms,
+                current.platformBudgetSplit,
+              ),
+            }
+          }
+          requestedPlatformsRef.current = merged.platforms
+          return merged
+        })
       } catch {
         if (!cancelled) {
           configureAdCampaignApi(null)
@@ -168,7 +205,10 @@ export default function GoogleAds() {
     return () => window.clearTimeout(timer)
   }, [form, briefLoaded])
 
-  function applySnapshot(next: CampaignSnapshot) {
+  function applySnapshot(
+    next: CampaignSnapshot,
+    requestedPlatforms: AdPlatform[] = requestedPlatformsRef.current,
+  ) {
     setSnapshot(next)
     if (next.status === 'clarification') {
       const fields = next.missing_fields.length
@@ -181,22 +221,56 @@ export default function GoogleAds() {
       return
     }
     if (next.status === 'approval') {
+      if (requestedPlatforms.includes('yelp') && !next.yelp_plan) {
+        const agentPlatforms = next.platforms?.length
+          ? next.platforms.join(', ')
+          : 'not returned'
+        setError(
+          `Yelp was selected, but the campaign agent did not return a Yelp plan (agent platforms: ${agentPlatforms}). Confirm your campaign AI service is up to date and supports Yelp, then try again.`,
+        )
+      }
       setStep('review')
       return
     }
     if (next.status === 'complete') {
+      if (requestedPlatforms.includes('yelp') && !next.yelp_plan) {
+        const agentPlatforms = next.platforms?.length
+          ? next.platforms.join(', ')
+          : 'not returned'
+        setError(
+          `Yelp was selected, but the campaign agent did not return a Yelp plan (agent platforms: ${agentPlatforms}).`,
+        )
+      }
       setStep('complete')
     }
   }
 
-  async function handleCreate(event: FormEvent) {
+  function readSelectedPlatforms(formElement: HTMLFormElement): AdPlatform[] {
+    return parseAdPlatforms(
+      AD_PLATFORMS.filter((platform) => {
+        const input = formElement.querySelector<HTMLInputElement>(`#platform-${platform}`)
+        return input?.checked
+      }),
+    )
+  }
+
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const brief = composeBrief(form)
+    const selectedPlatforms = readSelectedPlatforms(event.currentTarget)
+    const briefForm: BriefForm = {
+      ...form,
+      platforms: selectedPlatforms,
+      platformBudgetSplit: budgetSplitForPlatforms(selectedPlatforms, form.platformBudgetSplit),
+    }
+    setForm(briefForm)
+    requestedPlatformsRef.current = briefForm.platforms
+
+    const brief = composeBrief(briefForm)
     if (brief.length < 12) {
       setError('Add your business name, offer, locations, budget, and goal so we can draft ads.')
       return
     }
-    if (platforms.length === 0) {
+    if (briefForm.platforms.length === 0) {
       setError('Select at least one platform: Google Ads, Facebook / Instagram, or Yelp.')
       return
     }
@@ -204,8 +278,11 @@ export default function GoogleAds() {
     setWorking(true)
     setError(null)
     try {
-      await saveGoogleAdsCampaignBrief(form)
-      applySnapshot(await createAdCampaign(brief, platforms))
+      await saveGoogleAdsCampaignBrief(briefForm)
+      applySnapshot(
+        await createAdCampaign(brief, briefForm.platforms, briefForm.platformBudgetSplit),
+        briefForm.platforms,
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to draft the campaign')
     } finally {
@@ -236,13 +313,20 @@ export default function GoogleAds() {
     setWorking(true)
     setError(null)
     try {
-      applySnapshot(
-        await resumeAdCampaign(snapshot.thread_id, {
-          approved,
-          publish: approved ? publish : false,
-          notes: revisionNotes,
-        }),
-      )
+      const resumeBody: Parameters<typeof resumeAdCampaign>[1] = {
+        approved,
+        publish: approved ? publish : false,
+        notes: revisionNotes,
+      }
+
+      if (approved && publish) {
+        const platformCredentials = await fetchPlatformCredentialsForPublish()
+        if (platformCredentials) {
+          resumeBody.platform_credentials = platformCredentials
+        }
+      }
+
+      applySnapshot(await resumeAdCampaign(snapshot.thread_id, resumeBody))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit your decision')
     } finally {
@@ -262,9 +346,11 @@ export default function GoogleAds() {
       const parsed = briefFormFromBackground(prompts.background, {
         companyName: profile?.company_name,
       })
-      const nextForm = combineAdBriefForm(parsed, {
+      const nextForm = mergeCampaignBrief(parsed, {
         monthlyBudget: form.monthlyBudget,
         goal: form.goal,
+        platforms: form.platforms,
+        platformBudgetSplit: form.platformBudgetSplit,
       })
       setForm(nextForm)
       await saveGoogleAdsCampaignBrief(nextForm)
@@ -282,7 +368,6 @@ export default function GoogleAds() {
     setAnswers({})
     setRevisionNotes('')
     setPublish(false)
-    setPlatforms(['google', 'facebook'])
     setError(null)
     if (!user) {
       setForm(emptyBrief())
@@ -295,7 +380,7 @@ export default function GoogleAds() {
         const parsed = briefFormFromBackground(prompts.background, {
           companyName: profile?.company_name,
         })
-        setForm(combineAdBriefForm(parsed, settings.campaignBrief))
+        setForm(mergeCampaignBrief(parsed, settings.campaignBrief))
       })
       .catch(() => {
         setForm(emptyBrief())
@@ -307,6 +392,30 @@ export default function GoogleAds() {
 
   function update<K extends keyof BriefForm>(key: K, value: BriefForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
+  }
+
+  function handlePlatformToggle(platform: AdPlatform) {
+    setForm((current) => {
+      const next = toggleAdPlatform(current.platforms, current.platformBudgetSplit, platform)
+      requestedPlatformsRef.current = next.platforms
+      return {
+        ...current,
+        platforms: next.platforms,
+        platformBudgetSplit: next.platformBudgetSplit,
+      }
+    })
+  }
+
+  function handleBudgetSplitChange(platform: AdPlatform, share: number) {
+    setForm((current) => ({
+      ...current,
+      platformBudgetSplit: updatePlatformBudgetShare(
+        current.platforms,
+        current.platformBudgetSplit,
+        platform,
+        share,
+      ),
+    }))
   }
 
   if (!settingsLoaded) {
@@ -335,7 +444,8 @@ export default function GoogleAds() {
     )
   }
 
-  const splitHint = budgetSplitHint(platforms)
+  const activeSplit = activeBudgetSplit(form.platforms, form.platformBudgetSplit)
+  const monthlyBudgetAmount = parseMonthlyBudget(form.monthlyBudget)
 
   return (
     <div className="space-y-6">
@@ -415,19 +525,15 @@ export default function GoogleAds() {
                   required
                 />
               </FormField>
-              <FormField label="Monthly budget (USD)" id="ads-budget" required>
-                <input
-                  id="ads-budget"
-                  type="number"
-                  min="50"
-                  step="50"
-                  value={form.monthlyBudget}
-                  onChange={(e) => update('monthlyBudget', e.target.value)}
-                  className={inputClass}
-                  disabled={working}
-                  required
-                />
-              </FormField>
+              <div className="sm:col-span-2">
+                <FormField label="Monthly budget (USD)" id="ads-budget" required>
+                  <MonthlyBudgetSlider
+                    value={form.monthlyBudget}
+                    onChange={(monthlyBudget) => update('monthlyBudget', monthlyBudget)}
+                    disabled={working}
+                  />
+                </FormField>
+              </div>
               <FormField label="Primary goal" id="ads-goal" required>
                 <select
                   id="ads-goal"
@@ -451,34 +557,43 @@ export default function GoogleAds() {
                 <div className="flex flex-wrap gap-4">
                   <label className="flex items-center gap-2 text-sm text-navy-800">
                     <input
+                      id="platform-google"
                       type="checkbox"
-                      checked={platforms.includes('google')}
-                      onChange={() => setPlatforms((current) => togglePlatform(current, 'google'))}
+                      checked={form.platforms.includes('google')}
+                      onChange={() => handlePlatformToggle('google')}
                       disabled={working}
                     />
                     Google Search
                   </label>
                   <label className="flex items-center gap-2 text-sm text-navy-800">
                     <input
+                      id="platform-facebook"
                       type="checkbox"
-                      checked={platforms.includes('facebook')}
-                      onChange={() => setPlatforms((current) => togglePlatform(current, 'facebook'))}
+                      checked={form.platforms.includes('facebook')}
+                      onChange={() => handlePlatformToggle('facebook')}
                       disabled={working}
                     />
                     Facebook / Instagram
                   </label>
                   <label className="flex items-center gap-2 text-sm text-navy-800">
                     <input
+                      id="platform-yelp"
                       type="checkbox"
-                      checked={platforms.includes('yelp')}
-                      onChange={() => setPlatforms((current) => togglePlatform(current, 'yelp'))}
+                      checked={form.platforms.includes('yelp')}
+                      onChange={() => handlePlatformToggle('yelp')}
                       disabled={working}
                     />
                     Yelp
                   </label>
                 </div>
-                {splitHint && (
-                  <p className="text-xs text-navy-500 mt-2">{splitHint}</p>
+                {form.platforms.length > 1 && (
+                  <PlatformBudgetSplitControls
+                    platforms={form.platforms}
+                    split={activeSplit}
+                    monthlyBudgetUsd={monthlyBudgetAmount}
+                    disabled={working}
+                    onChange={handleBudgetSplitChange}
+                  />
                 )}
               </fieldset>
               <FormField label="Products or services to advertise" id="ads-offerings" required>
@@ -1010,6 +1125,98 @@ function Info({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="text-navy-500">{label}</dt>
       <dd className="text-navy-900 font-medium">{value}</dd>
+    </div>
+  )
+}
+
+function PlatformBudgetSplitControls({
+  platforms,
+  split,
+  monthlyBudgetUsd,
+  disabled,
+  onChange,
+}: {
+  platforms: AdPlatform[]
+  split: PlatformBudgetSplit
+  monthlyBudgetUsd: number
+  disabled?: boolean
+  onChange: (platform: AdPlatform, share: number) => void
+}) {
+  return (
+    <div className="mt-4 rounded-xl border border-navy-900/10 bg-cream/40 p-4 space-y-4">
+      <div>
+        <p className="text-sm font-medium text-navy-900">Monthly budget split</p>
+        <p className="text-xs text-navy-500 mt-1">
+          Adjust how the ${monthlyBudgetUsd.toLocaleString()} monthly budget is allocated across platforms.
+        </p>
+      </div>
+      {platforms.map((platform) => {
+        const share = split[platform]
+        const platformBudget = Math.round((monthlyBudgetUsd * share) / 100)
+
+        return (
+          <div key={platform}>
+            <div className="flex items-center justify-between gap-4 mb-2">
+              <span className="text-sm font-medium text-navy-800">{AD_PLATFORM_LABELS[platform]}</span>
+              <span className="text-sm font-semibold text-teal-600 tabular-nums">
+                {share}% · ${platformBudget.toLocaleString()}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={5}
+              max={platforms.length === 2 ? 95 : 90}
+              step={5}
+              value={share}
+              onChange={(e) => onChange(platform, Number(e.target.value))}
+              className="w-full h-2 bg-cream-dark rounded-full appearance-none cursor-pointer accent-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={disabled}
+              aria-label={`${AD_PLATFORM_LABELS[platform]} budget share`}
+            />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function MonthlyBudgetSlider({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string
+  onChange: (monthlyBudget: string) => void
+  disabled?: boolean
+}) {
+  const amount = parseMonthlyBudget(value)
+  const formatted = amount.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-2xl font-semibold text-navy-900 tabular-nums">{formatted}</span>
+        <span className="text-xs text-navy-500">per month</span>
+      </div>
+      <input
+        id="ads-budget"
+        type="range"
+        min={AD_CAMPAIGN_BUDGET_MIN}
+        max={AD_CAMPAIGN_BUDGET_MAX}
+        step={AD_CAMPAIGN_BUDGET_STEP}
+        value={amount}
+        onChange={(e) => onChange(String(e.target.value))}
+        className="w-full h-2 bg-cream-dark rounded-full appearance-none cursor-pointer accent-teal-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={disabled}
+        aria-valuemin={AD_CAMPAIGN_BUDGET_MIN}
+        aria-valuemax={AD_CAMPAIGN_BUDGET_MAX}
+        aria-valuenow={amount}
+        aria-valuetext={formatted}
+      />
+      <div className="flex justify-between text-xs text-navy-500">
+        <span>${AD_CAMPAIGN_BUDGET_MIN.toLocaleString()}</span>
+        <span>${AD_CAMPAIGN_BUDGET_MAX.toLocaleString()}</span>
+      </div>
     </div>
   )
 }

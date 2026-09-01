@@ -1,5 +1,16 @@
 import { supabase } from '../supabase'
 import { getFunctionErrorMessage } from '../supabaseFunctions'
+import {
+  budgetSplitForPlatforms,
+  parseAdPlatforms,
+  parsePlatformBudgetSplit,
+  type AdPlatform,
+  type PlatformBudgetSplit,
+} from './budgetSplit'
+import {
+  emptyPlatformCredentialsStatus,
+  type PlatformCredentialsStatus,
+} from './credentials'
 
 export type GoogleAdsCampaignBrief = {
   businessName: string
@@ -11,6 +22,8 @@ export type GoogleAdsCampaignBrief = {
   offerings: string
   audience: string
   notes: string
+  platforms: AdPlatform[]
+  platformBudgetSplit: PlatformBudgetSplit
 }
 
 export type GoogleAdsSettings = {
@@ -19,6 +32,7 @@ export type GoogleAdsSettings = {
   usesDefaultApiUrl: boolean
   hasApiUrl: boolean
   campaignBrief: GoogleAdsCampaignBrief | null
+  platformCredentials: PlatformCredentialsStatus
 }
 
 const SETTINGS_TIMEOUT_MS = 30_000
@@ -48,6 +62,7 @@ export async function fetchGoogleAdsSettings(): Promise<GoogleAdsSettings> {
       usesDefaultApiUrl: false,
       hasApiUrl: false,
       campaignBrief: null,
+      platformCredentials: emptyPlatformCredentialsStatus(),
     }
   }
 
@@ -74,6 +89,7 @@ export async function fetchGoogleAdsSettings(): Promise<GoogleAdsSettings> {
     usesDefaultApiUrl: row.usesDefaultApiUrl === true,
     hasApiUrl: row.hasApiUrl === true,
     campaignBrief: parseCampaignBrief(row.campaignBrief),
+    platformCredentials: parsePlatformCredentialsStatus(row.platformCredentials),
   }
 }
 
@@ -157,6 +173,11 @@ function parseCampaignBrief(value: unknown): GoogleAdsCampaignBrief | null {
     offerings: stringField(row.offerings),
     audience: stringField(row.audience),
     notes: stringField(row.notes),
+    platforms: parseAdPlatforms(row.platforms),
+    platformBudgetSplit: budgetSplitForPlatforms(
+      parseAdPlatforms(row.platforms),
+      parsePlatformBudgetSplit(row.platformBudgetSplit),
+    ),
   }
 
   return isGoogleAdsCampaignBriefSaved(brief) ? brief : null
@@ -170,9 +191,64 @@ function hasFunctionFailure(data: unknown): boolean {
   if (data === null || typeof data !== 'object') return false
 
   const row = data as Record<string, unknown>
-  if ('success' in row || 'adCampaignApiUrl' in row || 'hasApiUrl' in row || 'campaignBrief' in row) {
+  if (
+    'success' in row
+    || 'adCampaignApiUrl' in row
+    || 'hasApiUrl' in row
+    || 'campaignBrief' in row
+    || 'platformCredentials' in row
+  ) {
     return false
   }
 
   return typeof row.error === 'string' && row.error.length > 0
+}
+
+function parsePlatformCredentialsStatus(value: unknown): PlatformCredentialsStatus {
+  if (!value || typeof value !== 'object') return emptyPlatformCredentialsStatus()
+
+  const row = value as Record<string, unknown>
+  const base = emptyPlatformCredentialsStatus()
+  const google = row.google && typeof row.google === 'object'
+    ? (row.google as Record<string, unknown>)
+    : null
+  const facebook = row.facebook && typeof row.facebook === 'object'
+    ? (row.facebook as Record<string, unknown>)
+    : null
+  const yelp = row.yelp && typeof row.yelp === 'object'
+    ? (row.yelp as Record<string, unknown>)
+    : null
+
+  return {
+    google: google
+      ? {
+          configured: google.configured === true,
+          hasDeveloperToken: google.hasDeveloperToken === true,
+          hasClientSecret: google.hasClientSecret === true,
+          hasRefreshToken: google.hasRefreshToken === true,
+          clientId: stringField(google.clientId),
+          customerId: stringField(google.customerId),
+          loginCustomerId: stringField(google.loginCustomerId),
+          useProtoPlus: google.useProtoPlus !== false,
+        }
+      : base.google,
+    facebook: facebook
+      ? {
+          configured: facebook.configured === true,
+          hasAccessToken: facebook.hasAccessToken === true,
+          adAccountId: stringField(facebook.adAccountId),
+          pageId: stringField(facebook.pageId),
+          pixelId: stringField(facebook.pixelId),
+        }
+      : base.facebook,
+    yelp: yelp
+      ? {
+          configured: yelp.configured === true,
+          hasPassword: yelp.hasPassword === true,
+          username: stringField(yelp.username),
+          businessId: stringField(yelp.businessId),
+          apiBase: stringField(yelp.apiBase),
+        }
+      : base.yelp,
+  }
 }

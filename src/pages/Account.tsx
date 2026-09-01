@@ -6,7 +6,9 @@ import ApiKeys from './account/ApiKeys'
 import Billing from './account/Billing'
 import GmailCallback from './account/GmailCallback'
 import GoogleAds from './account/GoogleAds'
+import GoogleAdsOAuthCallback from './account/GoogleAdsOAuthCallback'
 import Integrations from './account/Integrations'
+import MetaAdsCallback from './account/MetaAdsCallback'
 import OutlookCallback from './account/OutlookCallback'
 import Prompts from './account/Prompts'
 import ShopifyCallback from './account/ShopifyCallback'
@@ -23,6 +25,8 @@ export default function Account() {
         <Route path="integrations" element={<Integrations />} />
         <Route path="integrations/whatsapp" element={<WhatsAppLogin />} />
         <Route path="integrations/gmail/callback" element={<GmailCallback />} />
+        <Route path="integrations/google-ads/callback" element={<GoogleAdsOAuthCallback />} />
+        <Route path="integrations/meta/callback" element={<MetaAdsCallback />} />
         <Route path="integrations/outlook/callback" element={<OutlookCallback />} />
         <Route path="integrations/square/callback" element={<SquareCallback />} />
         <Route path="integrations/shopify/callback" element={<ShopifyCallback />} />
