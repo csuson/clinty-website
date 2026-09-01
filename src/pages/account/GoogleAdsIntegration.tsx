@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useState } from 'react'
 import FormField from '../../components/FormField'
+import IntegrationPanel, { type IntegrationStatusKind } from '../../components/IntegrationPanel'
 import { SecretInput } from '../../components/SecretField'
 import { GoogleAdsIcon } from '../../components/IntegrationIcons'
 import {
@@ -45,6 +46,11 @@ import {
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
 const metaAppId = import.meta.env.VITE_META_APP_ID ?? ''
 
+type GoogleAdsIntegrationProps = {
+  expanded: boolean
+  onToggle: () => void
+}
+
 function ConfigBadge({ configured }: { configured: boolean }) {
   return (
     <span
@@ -59,7 +65,7 @@ function ConfigBadge({ configured }: { configured: boolean }) {
   )
 }
 
-export default function GoogleAdsIntegration() {
+export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIntegrationProps) {
   const { user } = useAuth()
   const [settings, setSettings] = useState<GoogleAdsSettings>({
     adCampaignApiUrl: null,
@@ -307,20 +313,35 @@ export default function GoogleAdsIntegration() {
       && (metaPicker.adAccounts.length > 1 || metaPicker.pages.length > 1),
   )
 
+  const publishReady = creds.google.configured || creds.facebook.configured || creds.yelp.configured
+
+  let panelStatus: IntegrationStatusKind = 'disconnected'
+  let panelStatusLabel = 'Not configured'
+  if (loading) {
+    panelStatus = 'loading'
+    panelStatusLabel = 'Checking…'
+  } else if (publishReady) {
+    panelStatus = 'connected'
+    panelStatusLabel = 'Ready to publish'
+  } else if (integrationReady) {
+    panelStatus = 'partial'
+    panelStatusLabel = 'Setup in progress'
+  }
+
   return (
-    <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-      <div className="flex items-start gap-4 mb-6">
-        <div className="w-12 h-12 rounded-xl bg-[#4285F4]/10 flex items-center justify-center shrink-0">
-          <GoogleAdsIcon className="w-7 h-7" />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold text-navy-900 mb-1">Ad campaigns</h2>
-          <p className="text-sm text-navy-600">
-            Connect your campaign AI service and ad platform credentials so Clinty can draft campaigns
-            and publish paused ads to Google Ads, Meta, and Yelp after you approve.
-          </p>
-        </div>
-      </div>
+    <IntegrationPanel
+      title="Ad campaigns"
+      icon={<GoogleAdsIcon className="w-7 h-7" />}
+      iconWrapperClassName="bg-[#4285F4]/10"
+      status={panelStatus}
+      statusLabel={panelStatusLabel}
+      expanded={expanded}
+      onToggle={onToggle}
+    >
+      <p className="text-sm text-navy-600 mb-6">
+        Connect your campaign AI service and ad platform credentials so Clinty can draft campaigns
+        and publish paused ads to Google Ads, Meta, and Yelp after you approve.
+      </p>
 
       {error && (
         <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 mb-6">
@@ -793,6 +814,6 @@ export default function GoogleAdsIntegration() {
           </div>
         </div>
       )}
-    </section>
+    </IntegrationPanel>
   )
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import IntegrationPanel, { oauthIntegrationStatus } from '../../components/IntegrationPanel'
 import { SQUARE_SCOPES, isSquareOAuthConfigured } from '../../constants/square'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -10,7 +11,12 @@ import {
 
 const applicationId = import.meta.env.VITE_SQUARE_APPLICATION_ID ?? ''
 
-export default function SquareIntegration() {
+type SquareIntegrationProps = {
+  expanded: boolean
+  onToggle: () => void
+}
+
+export default function SquareIntegration({ expanded, onToggle }: SquareIntegrationProps) {
   const { user } = useAuth()
   const [connection, setConnection] = useState<SquareConnection | null>(null)
   const [loading, setLoading] = useState(true)
@@ -64,23 +70,26 @@ export default function SquareIntegration() {
   }
 
   const configured = isSquareOAuthConfigured()
+  const { status, statusLabel } = oauthIntegrationStatus(loading, configured, Boolean(connection))
 
   return (
-    <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-      <div className="flex items-start gap-4 mb-6">
-        <div className="w-12 h-12 rounded-xl bg-navy-900 flex items-center justify-center shrink-0">
-          <svg className="w-7 h-7 text-cream" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-            <path d="M4.01 0A4.01 4.01 0 0 0 0 4.01v15.98A4.01 4.01 0 0 0 4.01 24h15.98A4.01 4.01 0 0 0 24 19.99V4.01A4.01 4.01 0 0 0 19.99 0H4.01zm9.66 4.39c1.01 0 1.83.82 1.83 1.83s-.82 1.83-1.83 1.83-1.83-.82-1.83-1.83.82-1.83 1.83-1.83zm-5.66 2.74h11.32v1.83H8.01V7.13zm0 3.66h11.32v1.83H8.01v-1.83zm0 3.66h7.55v1.83H8.01v-1.83z" />
-          </svg>
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold text-navy-900 mb-1">Square Appointments</h2>
-          <p className="text-sm text-navy-600">
-            Connect your Square merchant account so Clinty can read availability, book appointments,
-            and manage your Square Appointments calendar on your behalf.
-          </p>
-        </div>
-      </div>
+    <IntegrationPanel
+      title="Square Appointments"
+      icon={(
+        <svg className="w-7 h-7 text-cream" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+          <path d="M4.01 0A4.01 4.01 0 0 0 0 4.01v15.98A4.01 4.01 0 0 0 4.01 24h15.98A4.01 4.01 0 0 0 24 19.99V4.01A4.01 4.01 0 0 0 19.99 0H4.01zm9.66 4.39c1.01 0 1.83.82 1.83 1.83s-.82 1.83-1.83 1.83-1.83-.82-1.83-1.83.82-1.83 1.83-1.83zm-5.66 2.74h11.32v1.83H8.01V7.13zm0 3.66h11.32v1.83H8.01v-1.83zm0 3.66h7.55v1.83H8.01v-1.83z" />
+        </svg>
+      )}
+      iconWrapperClassName="bg-navy-900"
+      status={status}
+      statusLabel={statusLabel}
+      expanded={expanded}
+      onToggle={onToggle}
+    >
+      <p className="text-sm text-navy-600 mb-6">
+        Connect your Square merchant account so Clinty can read availability, book appointments,
+        and manage your Square Appointments calendar on your behalf.
+      </p>
 
       {!configured && (
         <div className="rounded-xl bg-amber-400/10 border border-amber-400/20 text-sm px-4 py-3 mb-6 space-y-2">
@@ -205,7 +214,7 @@ export default function SquareIntegration() {
           ))}
         </ul>
       </div>
-    </section>
+    </IntegrationPanel>
   )
 }
 

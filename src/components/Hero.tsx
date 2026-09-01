@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import HeroStatsCharts from './HeroStatsCharts'
 
 export default function Hero() {
   return (
@@ -11,14 +12,14 @@ export default function Hero() {
           </div>
 
           <h1 className="font-serif text-5xl md:text-7xl leading-[1.1] text-navy-900 mb-6">
-            Email, WhatsApp, inventory, scheduling, and your calendar —{' '}
-            <em className="text-teal-500 not-italic">handled for you</em>.
+            Clinty AI helps small businesses reach their{' '}
+            <em className="text-teal-500 not-italic">full potential</em>.
           </h1>
 
           <p className="text-lg md:text-xl text-navy-600 leading-relaxed mb-10 max-w-2xl">
-            Clinty’s AI agent replies on email and WhatsApp, checks live inventory, books
-            appointments, and manages your calendar — so you can focus on the work that actually
-            matters.
+            Dedicated AI agents manage email, calendars, WhatsApp, and paid advertising — while
+            delivering appointment booking, product discovery, and customer support across the
+            channels your customers already use.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 mb-16">
@@ -40,23 +41,7 @@ export default function Hero() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {[
-            { value: '15+ hrs', label: 'saved per week', sub: 'on messaging & scheduling' },
-            { value: '$28K', label: 'avg. annual savings', sub: 'for a 5-person team' },
-            { value: '< 2 min', label: 'response time', sub: 'email, WhatsApp & inventory' },
-            { value: '94%', label: 'scheduling accuracy', sub: 'zero double-bookings' },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="bg-white rounded-2xl p-5 md:p-6 border border-navy-900/5 shadow-sm"
-            >
-              <div className="text-2xl md:text-3xl font-bold text-navy-900 mb-1">{stat.value}</div>
-              <div className="text-sm font-medium text-navy-900">{stat.label}</div>
-              <div className="text-xs text-navy-600 mt-1">{stat.sub}</div>
-            </div>
-          ))}
-        </div>
+        <HeroStatsCharts />
       </div>
     </section>
   )

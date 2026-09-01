@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import IntegrationPanel, { oauthIntegrationStatus } from '../../components/IntegrationPanel'
+import { GmailIcon } from '../../components/IntegrationIcons'
 import { GMAIL_SCOPES, isGoogleOAuthConfigured } from '../../constants/gmail'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -11,7 +13,12 @@ import {
 
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
 
-export default function GmailIntegration() {
+type GmailIntegrationProps = {
+  expanded: boolean
+  onToggle: () => void
+}
+
+export default function GmailIntegration({ expanded, onToggle }: GmailIntegrationProps) {
   const { user } = useAuth()
   const [connection, setConnection] = useState<GmailConnection | null>(null)
   const [loading, setLoading] = useState(true)
@@ -84,30 +91,24 @@ export default function GmailIntegration() {
   }
 
   const configured = isGoogleOAuthConfigured()
+  const { status, statusLabel } = oauthIntegrationStatus(loading, configured, Boolean(connection))
 
   return (
-    <div className="space-y-6">
-      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-        <div className="flex items-start gap-4 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-            <svg className="w-7 h-7" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="#EA4335"
-                d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"
-              />
-            </svg>
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-navy-900 mb-1">Gmail & Google Calendar</h2>
-            <p className="text-sm text-navy-600">
-              Connect your Google account so Clinty can read and respond to emails, manage your
-              calendar, and schedule appointments — the same permissions as the desktop setup
-              script.
-            </p>
-          </div>
-        </div>
+    <IntegrationPanel
+      title="Gmail & Google Calendar"
+      icon={<GmailIcon />}
+      iconWrapperClassName="bg-red-50"
+      status={status}
+      statusLabel={statusLabel}
+      expanded={expanded}
+      onToggle={onToggle}
+    >
+      <p className="text-sm text-navy-600 mb-6">
+        Connect your Google account so Clinty can read and respond to emails, manage your
+        calendar, and schedule appointments — the same permissions as the desktop setup script.
+      </p>
 
-        {!configured && (
+      {!configured && (
           <div className="rounded-xl bg-amber-400/10 border border-amber-400/20 text-sm px-4 py-3 mb-6 space-y-2">
             <p className="font-medium text-navy-900">Google OAuth not configured</p>
             <p className="text-navy-600">
@@ -213,9 +214,8 @@ export default function GmailIntegration() {
             </button>
           </div>
         )}
-      </section>
 
-      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+      <section className="mt-6 pt-6 border-t border-navy-900/5">
         <h3 className="text-sm font-semibold text-navy-900 mb-3">Requested permissions</h3>
         <ul className="space-y-2">
           {GMAIL_SCOPES.map((scope) => (
@@ -228,7 +228,7 @@ export default function GmailIntegration() {
           ))}
         </ul>
       </section>
-    </div>
+    </IntegrationPanel>
   )
 }
 

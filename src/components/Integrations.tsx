@@ -3,6 +3,7 @@ import {
   ExcelIcon,
   FacebookIcon,
   GmailIcon,
+  GoogleAdsIcon,
   GoogleCalendarIcon,
   GoogleDocsIcon,
   InstagramIcon,
@@ -15,7 +16,40 @@ import {
   WhatsAppIcon,
 } from './IntegrationIcons'
 
+function YelpIcon({ className = 'w-7 h-7' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <rect width="24" height="24" rx="6" fill="#FF1A1A" />
+      <path
+        fill="#fff"
+        d="M12.05 5.5 9.2 14.8c-.15.45.35.85.75.6l1.55-.95 1.55.95c.4.25.9-.15.75-.6L11.35 5.5c-.1-.3-.5-.3-.6 0zm-4.1 2.2L4.5 16.1c-.2.55.35 1.05.85.75L8 15.5v3.25c0 .55.65.85 1.05.45l2.2-2.2-4.3-9.3zm8.1 0-4.3 9.3 2.2 2.2c.4.4 1.05.1 1.05-.45V15.5l2.65 1.35c.5.3 1.05-.2.85-.75l-3.45-8.4z"
+      />
+    </svg>
+  )
+}
+
 const integrations = [
+  {
+    name: 'Google Ads',
+    category: 'Advertising',
+    description: 'Draft and publish paused search and display campaigns from your Clinty brief.',
+    icon: GoogleAdsIcon,
+    iconBg: 'bg-[#4285F4]/10',
+  },
+  {
+    name: 'Meta Ads',
+    category: 'Advertising',
+    description: 'Create Facebook and Instagram campaigns with OAuth connect and ad account pickers.',
+    icon: FacebookIcon,
+    iconBg: 'bg-blue-50',
+  },
+  {
+    name: 'Yelp Ads',
+    category: 'Advertising',
+    description: 'Manage local Yelp ad programs alongside Google and Meta from one workflow.',
+    icon: YelpIcon,
+    iconBg: 'bg-red-50',
+  },
   {
     name: 'Gmail',
     category: 'Email',
@@ -121,8 +155,8 @@ export default function Integrations() {
             Plugs into the tools you <em className="text-teal-500 not-italic">already</em> use
           </h2>
           <p className="text-navy-600 text-lg">
-            Clinty connects your inbox, social channels, calendar, bookings, and business documents —
-            so your AI agent works inside the stack you run every day.
+            Clinty connects your ad platforms, inbox, social channels, calendar, bookings, and
+            business documents — so your AI agent and campaign tools work in one stack.
           </p>
         </div>
 
@@ -160,7 +194,7 @@ export default function Integrations() {
             </svg>
           </Link>
           <p className="text-sm text-navy-600 mt-3">
-            Gmail, Outlook, Square, Shopify, WhatsApp, and more are available now in your account settings.
+            Google Ads, Meta, Yelp, Gmail, Outlook, Square, Shopify, WhatsApp, and more are available in your account settings.
           </p>
         </div>
       </div>

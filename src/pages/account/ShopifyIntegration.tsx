@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import FormField from '../../components/FormField'
+import IntegrationPanel, { oauthIntegrationStatus } from '../../components/IntegrationPanel'
 import { ShopifyIcon } from '../../components/IntegrationIcons'
 import { inputClass } from '../../constants/forms'
 import { SHOPIFY_SCOPES, isShopifyOAuthConfigured } from '../../constants/shopify'
@@ -14,7 +15,12 @@ import {
 
 const clientId = import.meta.env.VITE_SHOPIFY_CLIENT_ID ?? ''
 
-export default function ShopifyIntegration() {
+type ShopifyIntegrationProps = {
+  expanded: boolean
+  onToggle: () => void
+}
+
+export default function ShopifyIntegration({ expanded, onToggle }: ShopifyIntegrationProps) {
   const { user } = useAuth()
   const [connection, setConnection] = useState<ShopifyConnection | null>(null)
   const [shopInput, setShopInput] = useState('')
@@ -80,24 +86,24 @@ export default function ShopifyIntegration() {
 
   const configured = isShopifyOAuthConfigured()
   const normalizedShop = normalizeShopDomain(shopInput)
+  const { status, statusLabel } = oauthIntegrationStatus(loading, configured, Boolean(connection))
 
   return (
-    <div className="space-y-6">
-      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-        <div className="flex items-start gap-4 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-lime-50 flex items-center justify-center shrink-0">
-            <ShopifyIcon />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-navy-900 mb-1">Shopify</h2>
-            <p className="text-sm text-navy-600">
-              Connect your Shopify store so Clinty can answer product, inventory, and order questions
-              from live store data.
-            </p>
-          </div>
-        </div>
+    <IntegrationPanel
+      title="Shopify"
+      icon={<ShopifyIcon />}
+      iconWrapperClassName="bg-lime-50"
+      status={status}
+      statusLabel={statusLabel}
+      expanded={expanded}
+      onToggle={onToggle}
+    >
+      <p className="text-sm text-navy-600 mb-6">
+        Connect your Shopify store so Clinty can answer product, inventory, and order questions
+        from live store data.
+      </p>
 
-        {!configured && (
+      {!configured && (
           <div className="rounded-xl bg-amber-400/10 border border-amber-400/20 text-sm px-4 py-3 mb-6 space-y-2">
             <p className="font-medium text-navy-900">Shopify OAuth not configured</p>
             <p className="text-navy-600">
@@ -198,9 +204,8 @@ export default function ShopifyIntegration() {
             </button>
           </div>
         )}
-      </section>
 
-      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+      <section className="mt-6 pt-6 border-t border-navy-900/5">
         <h3 className="text-sm font-semibold text-navy-900 mb-3">Requested permissions</h3>
         <ul className="space-y-2">
           {SHOPIFY_SCOPES.map((scope) => (
@@ -213,7 +218,7 @@ export default function ShopifyIntegration() {
           ))}
         </ul>
       </section>
-    </div>
+    </IntegrationPanel>
   )
 }
 

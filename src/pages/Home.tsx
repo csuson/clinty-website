@@ -1,4 +1,5 @@
 import Hero from '../components/Hero'
+import AdCampaigns from '../components/AdCampaigns'
 import Features from '../components/Features'
 import Integrations from '../components/Integrations'
 import ROICalculator from '../components/ROICalculator'
@@ -11,6 +12,7 @@ export default function Home() {
   return (
     <>
       <Hero />
+      <AdCampaigns />
       <Features />
       <Integrations />
       <ROICalculator />

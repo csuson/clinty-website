@@ -8,6 +8,7 @@ interface NavLink {
 }
 
 const links: NavLink[] = [
+  { label: 'Ad Campaigns', to: '/#ad-campaigns' },
   { label: 'Features', to: '/#features' },
   { label: 'Integrations', to: '/#integrations' },
   { label: 'ROI Calculator', to: '/#roi' },

@@ -58,7 +58,7 @@ export default function Stats() {
           {[
             { value: '2.1M+', label: 'Emails handled' },
             { value: '340K+', label: 'Appointments booked' },
-            { value: '4.9/5', label: 'Customer rating' },
+            { value: '3', label: 'Ad platforms supported' },
             { value: '99.7%', label: 'Uptime' },
           ].map((stat) => (
             <div key={stat.label}>

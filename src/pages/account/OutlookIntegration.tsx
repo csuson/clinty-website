@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import IntegrationPanel, { oauthIntegrationStatus } from '../../components/IntegrationPanel'
 import { OutlookIcon } from '../../components/IntegrationIcons'
 import { OUTLOOK_SCOPES, isMicrosoftOAuthConfigured } from '../../constants/outlook'
 import { useAuth } from '../../context/AuthContext'
@@ -11,7 +12,12 @@ import {
 
 const clientId = import.meta.env.VITE_MICROSOFT_CLIENT_ID ?? ''
 
-export default function OutlookIntegration() {
+type OutlookIntegrationProps = {
+  expanded: boolean
+  onToggle: () => void
+}
+
+export default function OutlookIntegration({ expanded, onToggle }: OutlookIntegrationProps) {
   const { user } = useAuth()
   const [connection, setConnection] = useState<OutlookConnection | null>(null)
   const [loading, setLoading] = useState(true)
@@ -65,28 +71,28 @@ export default function OutlookIntegration() {
   }
 
   const configured = isMicrosoftOAuthConfigured()
+  const { status, statusLabel } = oauthIntegrationStatus(loading, configured, Boolean(connection))
 
   return (
-    <div className="space-y-6">
-      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-        <div className="flex items-start gap-4 mb-6">
-          <div className="w-12 h-12 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
-            <OutlookIcon />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-navy-900 mb-1">Microsoft Outlook & Calendar</h2>
-            <p className="text-sm text-navy-600">
-              Connect your Microsoft account so Clinty can read and respond to Outlook emails,
-              manage your calendar, and schedule appointments via Microsoft Graph.
-            </p>
-            <p className="text-xs text-navy-600 mt-2">
-              Works with Microsoft 365 and Outlook.com mailboxes (Exchange Online). On-premises
-              Exchange requires hybrid setup with Microsoft 365.
-            </p>
-          </div>
-        </div>
+    <IntegrationPanel
+      title="Microsoft Outlook & Calendar"
+      icon={<OutlookIcon />}
+      iconWrapperClassName="bg-sky-50"
+      status={status}
+      statusLabel={statusLabel}
+      expanded={expanded}
+      onToggle={onToggle}
+    >
+      <p className="text-sm text-navy-600 mb-2">
+        Connect your Microsoft account so Clinty can read and respond to Outlook emails,
+        manage your calendar, and schedule appointments via Microsoft Graph.
+      </p>
+      <p className="text-xs text-navy-600 mb-6">
+        Works with Microsoft 365 and Outlook.com mailboxes (Exchange Online). On-premises
+        Exchange requires hybrid setup with Microsoft 365.
+      </p>
 
-        {!configured && (
+      {!configured && (
           <div className="rounded-xl bg-amber-400/10 border border-amber-400/20 text-sm px-4 py-3 mb-6 space-y-2">
             <p className="font-medium text-navy-900">Microsoft OAuth not configured</p>
             <p className="text-navy-600">
@@ -173,9 +179,8 @@ export default function OutlookIntegration() {
             </button>
           </div>
         )}
-      </section>
 
-      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+      <section className="mt-6 pt-6 border-t border-navy-900/5">
         <h3 className="text-sm font-semibold text-navy-900 mb-3">Requested permissions</h3>
         <ul className="space-y-2">
           {OUTLOOK_SCOPES.map((scope) => (
@@ -188,7 +193,7 @@ export default function OutlookIntegration() {
           ))}
         </ul>
       </section>
-    </div>
+    </IntegrationPanel>
   )
 }
 

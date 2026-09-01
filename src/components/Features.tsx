@@ -2,6 +2,18 @@ const features = [
   {
     icon: (
       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+      </svg>
+    ),
+    title: 'Multi-Platform Ad Campaigns',
+    description:
+      'Draft Google Ads, Meta, and Yelp campaigns from one brief. Set your monthly budget, split spend across channels, review AI-generated copy, and publish paused campaigns when you approve.',
+    savings: 'Google, Meta & Yelp',
+    color: 'teal',
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
       </svg>
     ),
@@ -92,11 +104,12 @@ export default function Features() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h2 className="font-serif text-4xl md:text-5xl text-navy-900 mb-4">
-            One agent. <em className="text-teal-500 not-italic">Every</em> customer touchpoint.
+            Communication, operations, and{' '}
+            <em className="text-teal-500 not-italic">paid media</em>
           </h2>
           <p className="text-navy-600 text-lg">
-            Clinty handles the repetitive communication that eats your day — so your team
-            can focus on delivering great service.
+            From inbox replies to multi-platform ad campaigns — Clinty keeps every channel
+            on-brand and on schedule without extra tools or headcount.
           </p>
         </div>
 

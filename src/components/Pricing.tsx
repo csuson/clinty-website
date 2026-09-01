@@ -8,6 +8,7 @@ const plans = [
     features: [
       '1 AI agent',
       'Up to 50 emails/day',
+      'Campaign drafts (Google, Meta, Yelp)',
       'Calendar sync (1 calendar)',
       'Appointment scheduling',
       'Email in your brand voice',
@@ -23,6 +24,7 @@ const plans = [
     features: [
       '3 AI agents',
       'Unlimited emails',
+      'Multi-platform ad publish (paused)',
       'Multi-calendar sync',
       'Smart follow-ups',
       'Custom booking rules',
@@ -39,6 +41,7 @@ const plans = [
     features: [
       'Unlimited AI agents',
       'Unlimited emails',
+      'Full ad campaign management',
       'Team calendar management',
       'CRM integrations',
       'Custom workflows',

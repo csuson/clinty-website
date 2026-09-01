@@ -3,21 +3,21 @@ const steps = [
     number: '01',
     title: 'Connect your tools',
     description:
-      'Link your email, WhatsApp, inventory, and calendar in under 5 minutes. Clinty integrates with Gmail, Shopify, Square, and more.',
+      'Link Google Ads, Meta, Yelp, email, WhatsApp, inventory, and calendar in under 5 minutes. OAuth handles ad platform credentials.',
     time: '5 min setup',
   },
   {
     number: '02',
-    title: 'Train your agent',
+    title: 'Draft campaigns & train your agent',
     description:
-      'Tell Clinty about your business — services, tone of voice, booking rules, and availability. The agent learns your preferences instantly.',
+      'Build multi-platform ad campaigns from your business brief — budget, goals, and channel split included. Tell Clinty your tone and booking rules too.',
     time: '10 min onboarding',
   },
   {
     number: '03',
-    title: 'Let it run',
+    title: 'Approve and go live',
     description:
-      'Your AI agent starts handling emails and scheduling appointments immediately. Review its work anytime, or let it run fully autonomous.',
+      'Review AI-drafted ads, publish paused campaigns to Google, Meta, and Yelp, and let your agent handle email and scheduling in the background.',
     time: 'Saves 15+ hrs/week',
   },
 ]
@@ -61,6 +61,7 @@ export default function HowItWorks() {
               </p>
             </div>
             <div className="space-y-4">
+              <BeforeAfterRow task="Launch Google + Meta + Yelp ads" before="Days of setup" after="One brief" />
               <BeforeAfterRow task="Reply to customer inquiry" before="45 min" after="< 2 min" />
               <BeforeAfterRow task="Check product availability" before="15 min" after="Instant" />
               <BeforeAfterRow task="Answer WhatsApp message" before="20 min" after="< 1 min" />
