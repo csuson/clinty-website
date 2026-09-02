@@ -829,6 +829,13 @@ export default function GoogleAds() {
             </Link>
             <button
               type="button"
+              onClick={() => setPageView('performance')}
+              className="border border-navy-900/15 text-navy-900 font-medium px-6 py-3 rounded-xl hover:bg-navy-900/5 transition-colors"
+            >
+              View performance
+            </button>
+            <button
+              type="button"
               onClick={handleReset}
               className="border border-navy-900/15 text-navy-900 font-medium px-6 py-3 rounded-xl hover:bg-navy-900/5 transition-colors"
             >
