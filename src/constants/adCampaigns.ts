@@ -196,6 +196,16 @@ export type AdCampaignAnalyticsReport = {
   note: string | null
 }
 
+export type SavedCampaignDraft = {
+  step: 'brief' | 'clarifying' | 'review' | 'complete'
+  snapshot: CampaignSnapshot
+  answers: Record<string, string>
+  revisionNotes: string
+  publish: boolean
+  requestedPlatforms: Array<'google' | 'facebook' | 'yelp'>
+  savedAt: string
+}
+
 export type CampaignSnapshot = {
   thread_id: string
   status: AdCampaignStatus

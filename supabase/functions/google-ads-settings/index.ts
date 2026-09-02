@@ -18,6 +18,8 @@ type SettingsAction =
   | 'get_settings'
   | 'save_settings'
   | 'save_brief'
+  | 'save_draft'
+  | 'clear_draft'
   | 'save_credentials'
   | 'get_publish_credentials'
   | 'clear_credentials'
@@ -81,18 +83,20 @@ Deno.serve(async (req) => {
     if (action === 'get_settings') {
       const { data } = await admin
         .from('google_ads_connections')
-        .select('ad_campaign_api_url, status, campaign_brief, platform_credentials')
+        .select('ad_campaign_api_url, status, campaign_brief, campaign_draft, platform_credentials')
         .eq('user_id', user.id)
         .maybeSingle()
 
-      const defaultUrl = Deno.env.get('AD_CAMPAIGN_API_URL')?.trim() ?? null
+      const defaultUrl = Deno.env.get('AD_CAMPAIGN_API_URL')?.trim().replace(/\/$/, '') || null
 
       return json({
         adCampaignApiUrl: data?.ad_campaign_api_url ?? null,
+        defaultAdCampaignApiUrl: defaultUrl,
         status: data?.status ?? 'disconnected',
         usesDefaultApiUrl: Boolean(!data?.ad_campaign_api_url && defaultUrl),
         hasApiUrl: Boolean(data?.ad_campaign_api_url || defaultUrl),
         campaignBrief: parseCampaignBrief(data?.campaign_brief),
+        campaignDraft: parseCampaignDraft(data?.campaign_draft),
         platformCredentials: publicPlatformCredentialsStatus(data?.platform_credentials),
       })
     }
@@ -144,6 +148,36 @@ Deno.serve(async (req) => {
       }
 
       return json({ success: true, campaignBrief })
+    }
+
+    if (action === 'save_draft') {
+      const campaignDraft = parseCampaignDraftInput(body.campaignDraft)
+      if (!campaignDraft) {
+        return json({ error: 'campaignDraft is required.' }, 400)
+      }
+      const now = new Date().toISOString()
+      const { error: upsertError } = await admin.from('google_ads_connections').upsert({
+        user_id: user.id,
+        campaign_draft: campaignDraft,
+        updated_at: now,
+      })
+      if (upsertError) {
+        throw new Error(`Failed to save campaign draft: ${upsertError.message}`)
+      }
+      return json({ success: true, campaignDraft })
+    }
+
+    if (action === 'clear_draft') {
+      const now = new Date().toISOString()
+      const { error: upsertError } = await admin.from('google_ads_connections').upsert({
+        user_id: user.id,
+        campaign_draft: null,
+        updated_at: now,
+      })
+      if (upsertError) {
+        throw new Error(`Failed to clear campaign draft: ${upsertError.message}`)
+      }
+      return json({ success: true, campaignDraft: null })
     }
 
     if (action === 'save_credentials') {
@@ -267,7 +301,7 @@ Deno.serve(async (req) => {
     }
 
     return json({
-      error: 'Missing or invalid action (get_settings, save_settings, save_brief, save_credentials, get_publish_credentials, clear_credentials, list_google_customers, disconnect)',
+      error: 'Missing or invalid action (get_settings, save_settings, save_brief, save_draft, clear_draft, save_credentials, get_publish_credentials, clear_credentials, list_google_customers, disconnect)',
     }, 400)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -326,6 +360,51 @@ function parseCampaignBriefInput(value: unknown): CampaignBrief {
     platforms: ['google', 'facebook'],
     platformBudgetSplit: { google: 55, facebook: 45, yelp: 0 },
   }
+}
+
+type CampaignDraft = {
+  step: string
+  snapshot: Record<string, unknown> | null
+  answers: Record<string, string>
+  revisionNotes: string
+  publish: boolean
+  requestedPlatforms: string[]
+  savedAt: string
+}
+
+function parseCampaignDraft(value: unknown): CampaignDraft | null {
+  if (!value || typeof value !== 'object') return null
+
+  const row = value as Record<string, unknown>
+  const snapshot = row.snapshot && typeof row.snapshot === 'object' && !Array.isArray(row.snapshot)
+    ? row.snapshot as Record<string, unknown>
+    : null
+  const stepRaw = typeof row.step === 'string' ? row.step : ''
+  const step = ['brief', 'clarifying', 'review', 'complete'].includes(stepRaw) ? stepRaw : 'review'
+  if (!snapshot) return null
+
+  return {
+    step,
+    snapshot,
+    answers: parseStringRecord(row.answers),
+    revisionNotes: stringField(row.revisionNotes),
+    publish: row.publish === true,
+    requestedPlatforms: parsePlatforms(row.requestedPlatforms),
+    savedAt: stringField(row.savedAt) || new Date().toISOString(),
+  }
+}
+
+function parseCampaignDraftInput(value: unknown): CampaignDraft | null {
+  return parseCampaignDraft(value)
+}
+
+function parseStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const out: Record<string, string> = {}
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof item === 'string') out[key] = item
+  }
+  return out
 }
 
 function parsePlatforms(value: unknown): string[] {

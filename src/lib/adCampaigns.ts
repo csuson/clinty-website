@@ -1,5 +1,6 @@
 import type { AdCampaignAnalyticsReport, CampaignSnapshot } from '../constants/adCampaigns'
 import { getDefaultAdCampaignApiUrl } from '../constants/googleAds'
+import { supabase } from './supabase'
 import {
   budgetSplitForPlatforms,
   budgetSplitPayload,
@@ -32,6 +33,14 @@ export function isAdCampaignApiConfigured(): boolean {
   return resolveAdCampaignApiUrl().length > 0
 }
 
+async function campaignAuthHeaders(): Promise<Record<string, string>> {
+  if (!supabase) return {}
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  if (!token) return {}
+  return { Authorization: `Bearer ${token}` }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const base = resolveAdCampaignApiUrl()
   if (!base) {
@@ -44,12 +53,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(await campaignAuthHeaders()),
       ...(init?.headers ?? {}),
     },
     signal: init?.signal ?? AbortSignal.timeout(180_000),
   })
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Sign in to Clinty again, then retry. The campaign agent could not verify your account.')
+    }
     let detail = `Request failed (${response.status})`
     const payload = (await response.json().catch(() => null)) as { detail?: unknown } | null
     if (typeof payload?.detail === 'string') detail = payload.detail
@@ -115,6 +128,13 @@ export async function fetchAdCampaignAnalytics(
   })
 }
 
+export async function restoreAdCampaign(snapshot: CampaignSnapshot): Promise<CampaignSnapshot> {
+  return request<CampaignSnapshot>(`/v1/campaigns/${snapshot.thread_id}/restore`, {
+    method: 'POST',
+    body: JSON.stringify(snapshot),
+  })
+}
+
 export async function resumeAdCampaign(
   threadId: string,
   body: {
@@ -124,9 +144,20 @@ export async function resumeAdCampaign(
     notes?: string
     platform_credentials?: PlatformCredentialsPayload
   },
+  snapshot?: CampaignSnapshot | null,
 ): Promise<CampaignSnapshot> {
-  return request<CampaignSnapshot>(`/v1/campaigns/${threadId}/resume`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
+  try {
+    return await request<CampaignSnapshot>(`/v1/campaigns/${threadId}/resume`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : ''
+    if (!snapshot || !/not found/i.test(message)) throw err
+    await restoreAdCampaign(snapshot)
+    return request<CampaignSnapshot>(`/v1/campaigns/${threadId}/resume`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  }
 }

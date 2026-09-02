@@ -19,7 +19,6 @@ import { inputClass } from '../../constants/forms'
 import { useAuth } from '../../context/AuthContext'
 import {
   clearPlatformCredentials,
-  emptyPlatformCredentialsStatus,
   savePlatformCredentials,
   type PlatformCredentialsStatus,
 } from '../../lib/googleAds/credentials'
@@ -30,6 +29,7 @@ import {
 } from '../../lib/googleAds/oauth'
 import {
   disconnectGoogleAds,
+  emptyGoogleAdsSettings,
   fetchGoogleAdsSettings,
   isGoogleAdsIntegrationConfigured,
   saveGoogleAdsSettings,
@@ -67,14 +67,7 @@ function ConfigBadge({ configured }: { configured: boolean }) {
 
 export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIntegrationProps) {
   const { user } = useAuth()
-  const [settings, setSettings] = useState<GoogleAdsSettings>({
-    adCampaignApiUrl: null,
-    status: 'disconnected',
-    usesDefaultApiUrl: false,
-    hasApiUrl: false,
-    campaignBrief: null,
-    platformCredentials: emptyPlatformCredentialsStatus(),
-  })
+  const [settings, setSettings] = useState<GoogleAdsSettings>(emptyGoogleAdsSettings())
   const [apiUrlInput, setApiUrlInput] = useState('')
   const [googleForm, setGoogleForm] = useState<GoogleAdsCredentialForm>(emptyGoogleAdsCredentialForm())
   const [facebookForm, setFacebookForm] = useState<FacebookCredentialForm>(emptyFacebookCredentialForm())
@@ -281,14 +274,7 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
     setSuccess(null)
     try {
       await disconnectGoogleAds()
-      setSettings({
-        adCampaignApiUrl: null,
-        status: 'disconnected',
-        usesDefaultApiUrl: false,
-        hasApiUrl: Boolean(getDefaultAdCampaignApiUrl()),
-        campaignBrief: null,
-        platformCredentials: emptyPlatformCredentialsStatus(),
-      })
+      setSettings(await fetchGoogleAdsSettings())
       setApiUrlInput('')
       setGoogleForm(emptyGoogleAdsCredentialForm())
       setFacebookForm(emptyFacebookCredentialForm())
@@ -302,7 +288,7 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
   }
 
   const integrationReady = isGoogleAdsIntegrationConfigured(settings)
-  const defaultApiUrl = getDefaultAdCampaignApiUrl()
+  const defaultApiUrl = settings.defaultAdCampaignApiUrl || getDefaultAdCampaignApiUrl()
   const creds = settings.platformCredentials
   const googleOAuthConfigured = isGoogleAdsOAuthConfigured()
   const metaOAuthConfigured = isMetaAdsOAuthConfigured()
@@ -363,7 +349,8 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
             <div>
               <h3 className="text-sm font-semibold text-navy-900 mb-1">Ad campaign AI URL</h3>
               <p className="text-sm text-navy-600">
-                Base URL of your campaign agent API. Clinty calls{' '}
+                Optional override. Every Clinty account uses the shared campaign agent unless you
+                paste a different URL. Clinty calls{' '}
                 <code className="text-xs bg-white px-1 py-0.5 rounded">POST /v1/campaigns</code> here
                 to draft ads.
               </p>
@@ -371,7 +358,7 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
 
             {settings.usesDefaultApiUrl && !settings.adCampaignApiUrl && defaultApiUrl && (
               <div className="rounded-lg bg-teal-400/10 border border-teal-400/20 text-teal-700 text-sm px-4 py-3">
-                Using the site default campaign AI URL.
+                Using the shared Clinty campaign agent. You do not need to paste a URL.
               </div>
             )}
 
@@ -379,7 +366,7 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
               <input
                 id="google-ads-api-url"
                 type="url"
-                placeholder="https://your-campaign-agent.example.com:8100"
+                placeholder="Leave blank to use the shared Clinty agent"
                 value={apiUrlInput}
                 onChange={(e) => setApiUrlInput(e.target.value)}
                 className={inputClass}

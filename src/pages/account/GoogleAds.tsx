@@ -18,6 +18,8 @@ import { briefFormFromBackground, combineAdBriefForm } from '../../lib/googleAds
 import {
   fetchGoogleAdsSettings,
   saveGoogleAdsCampaignBrief,
+  saveGoogleAdsCampaignDraft,
+  clearGoogleAdsCampaignDraft,
   type GoogleAdsCampaignBrief,
 } from '../../lib/googleAds/settings'
 import {
@@ -137,7 +139,9 @@ export default function GoogleAds() {
   const [reloadingBackground, setReloadingBackground] = useState(false)
   const [pageView, setPageView] = useState<PageView>('draft')
   const skipBriefSaveRef = useRef(true)
+  const skipDraftSaveRef = useRef(true)
   const requestedPlatformsRef = useRef<AdPlatform[]>([...DEFAULT_AD_PLATFORMS])
+  const [restoredDraft, setRestoredDraft] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -157,13 +161,13 @@ export default function GoogleAds() {
 
         if (cancelled) return
 
-        configureAdCampaignApi(settings.adCampaignApiUrl)
+        configureAdCampaignApi(settings.adCampaignApiUrl || settings.defaultAdCampaignApiUrl)
 
         const parsed = briefFormFromBackground(prompts.background, {
           companyName: profile?.company_name,
         })
+        const merged = mergeCampaignBrief(parsed, settings.campaignBrief)
         setForm((current) => {
-          const merged = mergeCampaignBrief(parsed, settings.campaignBrief)
           if (!skipBriefSaveRef.current && current.platforms.length > 0) {
             return {
               ...merged,
@@ -177,6 +181,22 @@ export default function GoogleAds() {
           requestedPlatformsRef.current = merged.platforms
           return merged
         })
+
+        if (settings.campaignDraft?.snapshot) {
+          skipDraftSaveRef.current = true
+          requestedPlatformsRef.current = settings.campaignDraft.requestedPlatforms.length
+            ? settings.campaignDraft.requestedPlatforms
+            : merged.platforms
+          setAnswers(settings.campaignDraft.answers)
+          setRevisionNotes(settings.campaignDraft.revisionNotes)
+          setPublish(settings.campaignDraft.publish)
+          applySnapshot(
+            settings.campaignDraft.snapshot,
+            requestedPlatformsRef.current,
+            { persist: false },
+          )
+          setRestoredDraft(true)
+        }
       } catch {
         if (!cancelled) {
           configureAdCampaignApi(null)
@@ -184,6 +204,7 @@ export default function GoogleAds() {
       } finally {
         if (!cancelled) {
           skipBriefSaveRef.current = false
+          skipDraftSaveRef.current = false
           setBriefLoaded(true)
           setSettingsLoaded(true)
         }
@@ -209,9 +230,29 @@ export default function GoogleAds() {
     return () => window.clearTimeout(timer)
   }, [form, briefLoaded])
 
+  function persistDraft(
+    next: CampaignSnapshot,
+    step: Step,
+    extras?: { answers?: Record<string, string> },
+  ) {
+    if (skipDraftSaveRef.current || step === 'brief') return
+    saveGoogleAdsCampaignDraft({
+      step,
+      snapshot: next,
+      answers: extras?.answers ?? answers,
+      revisionNotes,
+      publish,
+      requestedPlatforms: requestedPlatformsRef.current,
+      savedAt: new Date().toISOString(),
+    }).catch(() => {
+      /* Best-effort draft persist. */
+    })
+  }
+
   function applySnapshot(
     next: CampaignSnapshot,
     requestedPlatforms: AdPlatform[] = requestedPlatformsRef.current,
+    options: { persist?: boolean } = {},
   ) {
     setSnapshot(next)
     if (next.status === 'clarification') {
@@ -219,9 +260,10 @@ export default function GoogleAds() {
         ? next.missing_fields
         : (next.interrupt?.missing_fields ?? [])
       const nextAnswers: Record<string, string> = {}
-      for (const field of fields) nextAnswers[field] = ''
+      for (const field of fields) nextAnswers[field] = answers[field] ?? ''
       setAnswers(nextAnswers)
       setStep('clarifying')
+      if (options.persist !== false) persistDraft(next, 'clarifying', { answers: nextAnswers })
       return
     }
     if (next.status === 'approval') {
@@ -234,6 +276,7 @@ export default function GoogleAds() {
         )
       }
       setStep('review')
+      if (options.persist !== false) persistDraft(next, 'review')
       return
     }
     if (next.status === 'complete') {
@@ -246,6 +289,7 @@ export default function GoogleAds() {
         )
       }
       setStep('complete')
+      if (options.persist !== false) persistDraft(next, 'complete')
     }
   }
 
@@ -300,7 +344,7 @@ export default function GoogleAds() {
     setWorking(true)
     setError(null)
     try {
-      applySnapshot(await resumeAdCampaign(snapshot.thread_id, { answers }))
+      applySnapshot(await resumeAdCampaign(snapshot.thread_id, { answers }, snapshot))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to continue')
     } finally {
@@ -330,7 +374,7 @@ export default function GoogleAds() {
         }
       }
 
-      applySnapshot(await resumeAdCampaign(snapshot.thread_id, resumeBody))
+      applySnapshot(await resumeAdCampaign(snapshot.thread_id, resumeBody, snapshot))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit your decision')
     } finally {
@@ -373,6 +417,10 @@ export default function GoogleAds() {
     setRevisionNotes('')
     setPublish(false)
     setError(null)
+    setRestoredDraft(false)
+    void clearGoogleAdsCampaignDraft().catch(() => {
+      /* Best-effort. */
+    })
     if (!user) {
       setForm(emptyBrief())
       return
@@ -457,18 +505,27 @@ export default function GoogleAds() {
 
       {pageView === 'performance' ? <CampaignAnalytics /> : null}
 
+      {pageView === 'draft' && restoredDraft && snapshot ? (
+        <div className="rounded-xl bg-teal-400/10 border border-teal-400/20 text-navy-800 text-sm px-4 py-3">
+          Picked up your saved draft from this account. Approve, send back, or start over — it stays
+          in Supabase until you draft another campaign.
+        </div>
+      ) : null}
+
       {pageView === 'draft' && !apiReady ? (
         <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
           <h2 className="text-lg font-semibold text-navy-900 mb-1">Ad campaigns</h2>
           <p className="text-sm text-navy-600 mb-4">
-            Save your ad campaign AI URL in{' '}
+            Clinty hosts a shared campaign agent for every account. If this page cannot reach it,
+            save the Campaign AI URL in{' '}
             <a href="/account/integrations" className="text-[#4285F4] hover:underline">
               Integrations
-            </a>{' '}
-            before drafting campaigns. For local development you can also set{' '}
-            <code className="text-xs bg-cream px-1 py-0.5 rounded">VITE_AD_CAMPAIGN_API_URL</code> or
-            use the Vite proxy at{' '}
-            <code className="text-xs bg-cream px-1 py-0.5 rounded">/api/ad-campaigns</code>.
+            </a>
+            , or set{' '}
+            <code className="text-xs bg-cream px-1 py-0.5 rounded">VITE_AD_CAMPAIGN_API_URL</code> /
+            the Vite proxy at{' '}
+            <code className="text-xs bg-cream px-1 py-0.5 rounded">/api/ad-campaigns</code> for local
+            development.
           </p>
         </section>
       ) : null}

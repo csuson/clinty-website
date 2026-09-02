@@ -168,6 +168,7 @@ export type GoogleAdsConnection = {
   user_id: string
   ad_campaign_api_url: string | null
   campaign_brief: Record<string, string> | null
+  campaign_draft: Record<string, unknown> | null
   status: 'connected' | 'disconnected' | 'error'
   connected_at: string | null
   updated_at: string
@@ -451,6 +452,7 @@ export type Database = {
           user_id: string
           ad_campaign_api_url?: string | null
           campaign_brief?: Record<string, string> | null
+          campaign_draft?: Record<string, unknown> | null
           status?: 'connected' | 'disconnected' | 'error'
           connected_at?: string | null
           updated_at?: string
@@ -458,6 +460,7 @@ export type Database = {
         Update: {
           ad_campaign_api_url?: string | null
           campaign_brief?: Record<string, string> | null
+          campaign_draft?: Record<string, unknown> | null
           status?: 'connected' | 'disconnected' | 'error'
           connected_at?: string | null
           updated_at?: string
