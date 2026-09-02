@@ -59,10 +59,16 @@ Deno.serve(async (req) => {
       }, 400)
     }
 
+    const keyFormatError = validateApiKeyFormat(apiKey)
+    if (keyFormatError) {
+      return json({ error: keyFormatError }, 400)
+    }
+
     const summaryUrl = `${assistantUrl}/analytics/summary?days=${days}`
     const response = await fetch(summaryUrl, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
+        'X-Clinty-Api-Key': apiKey,
         Accept: 'application/json',
       },
     })
@@ -74,7 +80,10 @@ Deno.serve(async (req) => {
         : typeof payload?.error === 'string'
           ? payload.error
           : `Assistant returned ${response.status}`
-      return json({ error: detail }, response.status === 401 ? 401 : 502)
+      const hint = /invalid or missing api key/i.test(detail)
+        ? ' Confirm the Clinty API key linked in Agent Settings matches a live key from Account → API Keys. If you edited the key in Admin, paste the full clinty_sk_… value (not a masked preview).'
+        : ''
+      return json({ error: `${detail}${hint}` }, response.status === 401 ? 401 : 502)
     }
 
     return json(payload)
@@ -146,6 +155,16 @@ async function fetchUserDefaultApiKey(
 
   const key = typeof data?.key_secret === 'string' ? data.key_secret.trim() : ''
   return key || null
+}
+
+function validateApiKeyFormat(apiKey: string): string | null {
+  if (apiKey.includes('•') || apiKey.includes('…')) {
+    return 'The linked Clinty API key looks masked or incomplete. In Admin → Agent Settings, paste the full clinty_sk_… key from Account → API Keys.'
+  }
+  if (!apiKey.startsWith('clinty_sk_')) {
+    return 'The linked Clinty API key has an invalid format. Generate a new key under Account → API Keys and link it in Agent Settings.'
+  }
+  return null
 }
 
 function normalizeBaseUrl(raw: unknown): string {

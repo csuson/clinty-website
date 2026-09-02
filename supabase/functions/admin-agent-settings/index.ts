@@ -50,6 +50,9 @@ async function updateClintyApiKeySecret(
   if (!trimmed.startsWith('clinty_sk_')) {
     return json({ error: 'Clinty API key must start with clinty_sk_' }, 400)
   }
+  if (trimmed.includes('•') || trimmed.includes('…')) {
+    return json({ error: 'Clinty API key looks masked. Paste the full clinty_sk_… value.' }, 400)
+  }
 
   const keyHash = await hashApiKey(trimmed)
   const keyPrefix = trimmed.slice(0, 16)

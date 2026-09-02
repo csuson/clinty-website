@@ -1,4 +1,4 @@
-import type { CampaignSnapshot } from '../constants/adCampaigns'
+import type { AdCampaignAnalyticsReport, CampaignSnapshot } from '../constants/adCampaigns'
 import { getDefaultAdCampaignApiUrl } from '../constants/googleAds'
 import {
   budgetSplitForPlatforms,
@@ -96,6 +96,22 @@ export async function createAdCampaign(
   return request<CampaignSnapshot>('/v1/campaigns', {
     method: 'POST',
     body: JSON.stringify(body),
+  })
+}
+
+export async function fetchAdCampaignAnalytics(
+  days = 30,
+  platforms: AdPlatform[] = ['google', 'facebook', 'yelp'],
+  platformCredentials?: PlatformCredentialsPayload | null,
+): Promise<AdCampaignAnalyticsReport> {
+  return request<AdCampaignAnalyticsReport>('/v1/analytics', {
+    method: 'POST',
+    body: JSON.stringify({
+      days,
+      platforms,
+      ...(platformCredentials ? { platform_credentials: platformCredentials } : {}),
+    }),
+    signal: AbortSignal.timeout(60_000),
   })
 }
 

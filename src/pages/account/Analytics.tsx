@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchAnalyticsSummary, type AnalyticsSummary } from '../../lib/analytics'
 
 const PERIOD_OPTIONS = [
@@ -159,8 +160,20 @@ export default function Analytics() {
         {loading ? (
           <p className="text-sm text-navy-600">Loading analytics…</p>
         ) : error ? (
-          <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">
-            {error}
+          <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 space-y-3">
+            <p>{error}</p>
+            {/api key/i.test(error) ? (
+              <ul className="list-disc pl-5 space-y-1 text-red-800/90">
+                <li>
+                  Generate a key in{' '}
+                  <Link to="/account/api-keys" className="underline font-medium">
+                    Account → API Keys
+                  </Link>
+                </li>
+                <li>Ask your admin to link that key in Agent Settings (Clinty API Key field)</li>
+                <li>Confirm the assistant LangGraph URL is set in Agent Settings</li>
+              </ul>
+            ) : null}
           </div>
         ) : summary ? (
           <div className="space-y-8">

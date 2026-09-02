@@ -11,6 +11,7 @@ import {
 } from '../../constants/googleAds'
 import { inputClass, textareaClass } from '../../constants/forms'
 import { useAuth } from '../../context/AuthContext'
+import CampaignAnalytics from './CampaignAnalytics'
 import { createAdCampaign, configureAdCampaignApi, isAdCampaignApiConfigured, resumeAdCampaign } from '../../lib/adCampaigns'
 import { fetchPlatformCredentialsForPublish } from '../../lib/googleAds/credentials'
 import { briefFormFromBackground, combineAdBriefForm } from '../../lib/googleAds/briefFromBackground'
@@ -37,6 +38,7 @@ import { clarifyingFieldHint } from '../../lib/googleAds/clarifyingHints'
 import { fetchUserPrompts } from '../../lib/prompts'
 
 type Step = 'brief' | 'clarifying' | 'review' | 'complete'
+type PageView = 'draft' | 'performance'
 
 type BriefForm = GoogleAdsCampaignBrief
 
@@ -133,6 +135,7 @@ export default function GoogleAds() {
   const [error, setError] = useState<string | null>(null)
   const [briefLoaded, setBriefLoaded] = useState(false)
   const [reloadingBackground, setReloadingBackground] = useState(false)
+  const [pageView, setPageView] = useState<PageView>('draft')
   const skipBriefSaveRef = useRef(true)
   const requestedPlatformsRef = useRef<AdPlatform[]>([...DEFAULT_AD_PLATFORMS])
 
@@ -427,29 +430,51 @@ export default function GoogleAds() {
     )
   }
 
-  if (!apiReady) {
-    return (
-      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-        <h2 className="text-lg font-semibold text-navy-900 mb-1">Ad campaigns</h2>
-        <p className="text-sm text-navy-600 mb-4">
-          Save your ad campaign AI URL in{' '}
-          <a href="/account/integrations" className="text-[#4285F4] hover:underline">
-            Integrations
-          </a>{' '}
-          before drafting campaigns. For local development you can also set{' '}
-          <code className="text-xs bg-cream px-1 py-0.5 rounded">VITE_AD_CAMPAIGN_API_URL</code> or
-          use the Vite proxy at{' '}
-          <code className="text-xs bg-cream px-1 py-0.5 rounded">/api/ad-campaigns</code>.
-        </p>
-      </section>
-    )
-  }
-
   const activeSplit = activeBudgetSplit(form.platforms, form.platformBudgetSplit)
   const monthlyBudgetAmount = parseMonthlyBudget(form.monthlyBudget)
 
   return (
     <div className="space-y-6">
+      <div className="flex gap-2">
+        {([
+          { id: 'draft', label: 'Draft' },
+          { id: 'performance', label: 'Performance' },
+        ] as const).map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => setPageView(option.id)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              pageView === option.id
+                ? 'bg-navy-900 text-cream'
+                : 'bg-navy-900/5 text-navy-700 hover:bg-navy-900/10'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {pageView === 'performance' ? <CampaignAnalytics /> : null}
+
+      {pageView === 'draft' && !apiReady ? (
+        <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+          <h2 className="text-lg font-semibold text-navy-900 mb-1">Ad campaigns</h2>
+          <p className="text-sm text-navy-600 mb-4">
+            Save your ad campaign AI URL in{' '}
+            <a href="/account/integrations" className="text-[#4285F4] hover:underline">
+              Integrations
+            </a>{' '}
+            before drafting campaigns. For local development you can also set{' '}
+            <code className="text-xs bg-cream px-1 py-0.5 rounded">VITE_AD_CAMPAIGN_API_URL</code> or
+            use the Vite proxy at{' '}
+            <code className="text-xs bg-cream px-1 py-0.5 rounded">/api/ad-campaigns</code>.
+          </p>
+        </section>
+      ) : null}
+
+      {pageView === 'draft' && apiReady && (
+      <>
       {error && <Alert type="error" message={error} />}
       {working && (
         <Alert
@@ -811,6 +836,8 @@ export default function GoogleAds() {
             </button>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   )

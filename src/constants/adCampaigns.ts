@@ -141,6 +141,61 @@ export type ReviewIssue = {
   message: string
 }
 
+export type AdCampaignMetricTotals = {
+  impressions: number
+  clicks: number
+  spend_usd: number
+  conversions: number
+  ctr: number
+  cpc_usd: number
+  cpa_usd: number
+  conversion_rate: number
+}
+
+export type AdCampaignPerformanceRow = AdCampaignMetricTotals & {
+  id: string
+  name: string
+  status: string
+}
+
+export type AdCampaignKeywordRow = {
+  text: string
+  match_type: string
+  impressions: number
+  clicks: number
+  spend_usd: number
+  conversions: number
+  ctr: number
+  cpc_usd: number
+}
+
+export type AdCampaignDailyPoint = {
+  date: string
+  impressions: number
+  clicks: number
+  spend_usd: number
+  conversions: number
+}
+
+export type AdPlatformAnalytics = AdCampaignMetricTotals & {
+  platform: string
+  label: string
+  connected: boolean
+  error: string | null
+  campaigns: AdCampaignPerformanceRow[]
+  keywords: AdCampaignKeywordRow[]
+}
+
+export type AdCampaignAnalyticsReport = {
+  period_days: number
+  start_date: string
+  end_date: string
+  totals: AdCampaignMetricTotals
+  platforms: AdPlatformAnalytics[]
+  daily: AdCampaignDailyPoint[]
+  note: string | null
+}
+
 export type CampaignSnapshot = {
   thread_id: string
   status: AdCampaignStatus
