@@ -14,6 +14,7 @@ function agentSettingsToForm(settings: AdminAgentSettings): CreateAgentSettingsI
     user_id: settings.user_id,
     name: settings.name,
     clinty_api_key_id: settings.clinty_api_key_id ?? '',
+    clinty_api_key_secret: settings.clinty_api_key_secret ?? '',
     langgraph_api_key: settings.langgraph_api_key ?? '',
     url: settings.url ?? '',
     graph_id: settings.graph_id ?? '',
@@ -145,6 +146,7 @@ export default function AdminAgentSettingsEdit() {
             saving={saving}
             submitLabel="Save Changes"
             savingLabel="Saving…"
+            editableClintyApiKey
             onSubmit={handleSubmit}
           />
         )}

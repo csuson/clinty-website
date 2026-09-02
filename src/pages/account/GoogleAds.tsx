@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import FormField from '../../components/FormField'
 import { CAMPAIGN_GOALS, type CampaignPlan, type CampaignSnapshot, type FacebookCampaignPlan, type YelpCampaignPlan } from '../../constants/adCampaigns'
 import {
@@ -776,7 +777,7 @@ export default function GoogleAds() {
           {snapshot.yelp_plan && (
             <YelpPlanView plan={snapshot.yelp_plan} review={reviewForPlan('yelp', snapshot)} />
           )}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 items-center">
             {hasAnyPlan(snapshot) && (
               <button
                 type="button"
@@ -795,6 +796,12 @@ export default function GoogleAds() {
                 Download JSON
               </button>
             )}
+            <Link
+              to="/faq/manual-ad-campaign-import"
+              className="text-sm font-medium text-teal-600 hover:text-teal-700 hover:underline"
+            >
+              How to import manually →
+            </Link>
             <button
               type="button"
               onClick={handleReset}

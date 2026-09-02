@@ -10,6 +10,7 @@ export const emptyAgentSettingsForm: CreateAgentSettingsInput = {
   user_id: '',
   name: '',
   clinty_api_key_id: '',
+  clinty_api_key_secret: '',
   langgraph_api_key: '',
   url: '',
   graph_id: '',
@@ -37,6 +38,7 @@ export function toAgentSettingsPayload(form: CreateAgentSettingsInput): CreateAg
   return {
     ...form,
     clinty_api_key_id: form.clinty_api_key_id || null,
+    clinty_api_key_secret: form.clinty_api_key_secret?.trim() || null,
     langgraph_api_key: form.langgraph_api_key || null,
     url: form.url || null,
     graph_id: form.graph_id || null,
@@ -84,22 +86,8 @@ function formatApiKeyLabel(key: AdminApiKey): string {
   return key.name
 }
 
-function ClintyApiKeyDisplay({ apiKey }: { apiKey: AdminApiKey }) {
-  const value = apiKey.key_secret ?? maskApiKey(apiKey.key_prefix)
-
-  if (apiKey.key_secret) {
-    return (
-      <div className="bg-cream border border-navy-900/10 rounded-lg px-4 py-3">
-        <SecretValue value={value} truncateLength={24} />
-      </div>
-    )
-  }
-
-  return (
-    <code className="block text-xs font-mono bg-cream border border-navy-900/10 rounded-lg px-4 py-3 break-all text-navy-800">
-      {value}
-    </code>
-  )
+function apiKeySecretValue(apiKey: AdminApiKey): string {
+  return apiKey.key_secret ?? maskApiKey(apiKey.key_prefix)
 }
 
 export function getUserApiKeys(apiKeys: AdminApiKey[], userId: string): AdminApiKey[] {
@@ -116,6 +104,7 @@ type AdminAgentSettingsFormProps = {
   saving: boolean
   submitLabel: string
   savingLabel: string
+  editableClintyApiKey?: boolean
   onSubmit: (payload: CreateAgentSettingsInput) => Promise<void>
 }
 
@@ -127,6 +116,7 @@ export default function AdminAgentSettingsForm({
   saving,
   submitLabel,
   savingLabel,
+  editableClintyApiKey = false,
   onSubmit,
 }: AdminAgentSettingsFormProps) {
   const userApiKeys = useMemo(
@@ -150,12 +140,24 @@ export default function AdminAgentSettingsForm({
     const keysForUser = getUserApiKeys(apiKeys, userId)
     setForm((current) => {
       const keepCurrentKey = keysForUser.some((key) => key.id === current.clinty_api_key_id)
+      const nextKeyId = keepCurrentKey ? current.clinty_api_key_id : (keysForUser[0]?.id ?? '')
+      const nextKey = keysForUser.find((key) => key.id === nextKeyId) ?? null
       return {
         ...current,
         user_id: userId,
-        clinty_api_key_id: keepCurrentKey ? current.clinty_api_key_id : (keysForUser[0]?.id ?? ''),
+        clinty_api_key_id: nextKeyId,
+        clinty_api_key_secret: nextKey ? apiKeySecretValue(nextKey) : '',
       }
     })
+  }
+
+  function handleApiKeyChange(apiKeyId: string) {
+    const apiKey = userApiKeys.find((key) => key.id === apiKeyId) ?? null
+    setForm((current) => ({
+      ...current,
+      clinty_api_key_id: apiKeyId,
+      clinty_api_key_secret: apiKey ? apiKeySecretValue(apiKey) : '',
+    }))
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -208,7 +210,7 @@ export default function AdminAgentSettingsForm({
                 <select
                   id="agent-clinty-api-key"
                   value={form.clinty_api_key_id ?? ''}
-                  onChange={(e) => updateField('clinty_api_key_id', e.target.value)}
+                  onChange={(e) => handleApiKeyChange(e.target.value)}
                   className={inputClass}
                   disabled={saving}
                 >
@@ -218,9 +220,20 @@ export default function AdminAgentSettingsForm({
                     </option>
                   ))}
                 </select>
-                {selectedApiKey && (
-                  <ClintyApiKeyDisplay apiKey={selectedApiKey} />
-                )}
+                {selectedApiKey && editableClintyApiKey ? (
+                  <SecretInput
+                    id="agent-clinty-api-key-secret"
+                    value={form.clinty_api_key_secret ?? ''}
+                    onChange={(value) => updateField('clinty_api_key_secret', value)}
+                    className={inputClass}
+                    disabled={saving}
+                    placeholder="clinty_sk_..."
+                  />
+                ) : selectedApiKey ? (
+                  <div className="bg-cream border border-navy-900/10 rounded-lg px-4 py-3">
+                    <SecretValue value={apiKeySecretValue(selectedApiKey)} truncateLength={24} />
+                  </div>
+                ) : null}
               </div>
             )}
           </FormField>

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AccountLayout from './account/AccountLayout'
 import AccountSettings from './account/AccountSettings'
+import Analytics from './account/Analytics'
 import ApiKeys from './account/ApiKeys'
 import Billing from './account/Billing'
 import GmailCallback from './account/GmailCallback'
@@ -22,6 +23,7 @@ export default function Account() {
     <Routes>
       <Route element={<AccountLayout />}>
         <Route index element={<AccountSettings />} />
+        <Route path="analytics" element={<Analytics />} />
         <Route path="integrations" element={<Integrations />} />
         <Route path="integrations/whatsapp" element={<WhatsAppLogin />} />
         <Route path="integrations/gmail/callback" element={<GmailCallback />} />

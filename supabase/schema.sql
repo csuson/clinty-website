@@ -180,66 +180,37 @@ create policy "Users can view own square connection"
   on public.square_connections for select
   using (auth.uid() = user_id);
 
--- Microsoft Outlook OAuth tokens (server-side only — no user RLS policies)
-create table if not exists public.outlook_tokens (
+-- Yahoo OAuth tokens (server-side only — no user RLS policies)
+create table if not exists public.yahoo_tokens (
   user_id uuid primary key references auth.users (id) on delete cascade,
   access_token text not null,
   refresh_token text,
-  token_uri text not null default 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+  token_uri text not null default 'https://api.login.yahoo.com/oauth2/get_token',
   client_id text not null,
   client_secret text not null,
   scopes text[] not null default '{}',
-  outlook_account text,
+  yahoo_account text,
   expiry timestamptz,
   updated_at timestamptz not null default now()
 );
 
-alter table public.outlook_tokens enable row level security;
+alter table public.yahoo_tokens enable row level security;
 
--- Microsoft Outlook connection status (visible to the account owner)
-create table if not exists public.outlook_connections (
+-- Yahoo connection status (visible to the account owner)
+create table if not exists public.yahoo_connections (
   user_id uuid primary key references auth.users (id) on delete cascade,
-  outlook_email text,
+  yahoo_email text,
   scopes text[] not null default '{}',
   connected_at timestamptz not null default now(),
   token_expiry timestamptz,
   status text not null default 'connected' check (status in ('connected', 'disconnected', 'error'))
 );
 
-alter table public.outlook_connections enable row level security;
+alter table public.yahoo_connections enable row level security;
 
-drop policy if exists "Users can view own outlook connection" on public.outlook_connections;
-create policy "Users can view own outlook connection"
-  on public.outlook_connections for select
-  using (auth.uid() = user_id);
-
--- Shopify OAuth tokens (server-side only — no user RLS policies)
-create table if not exists public.shopify_tokens (
-  user_id uuid primary key references auth.users (id) on delete cascade,
-  shop_domain text not null,
-  access_token text not null,
-  client_id text not null,
-  scopes text[] not null default '{}',
-  updated_at timestamptz not null default now()
-);
-
-alter table public.shopify_tokens enable row level security;
-
--- Shopify connection status (visible to the account owner)
-create table if not exists public.shopify_connections (
-  user_id uuid primary key references auth.users (id) on delete cascade,
-  shop_domain text,
-  shop_name text,
-  scopes text[] not null default '{}',
-  connected_at timestamptz not null default now(),
-  status text not null default 'connected' check (status in ('connected', 'disconnected', 'error'))
-);
-
-alter table public.shopify_connections enable row level security;
-
-drop policy if exists "Users can view own shopify connection" on public.shopify_connections;
-create policy "Users can view own shopify connection"
-  on public.shopify_connections for select
+drop policy if exists "Users can view own yahoo connection" on public.yahoo_connections;
+create policy "Users can view own yahoo connection"
+  on public.yahoo_connections for select
   using (auth.uid() = user_id);
 
 -- Admin dashboard: set ADMIN_EMAILS in Supabase Edge Function secrets and
@@ -355,9 +326,7 @@ create table if not exists public.whatsapp_connections (
   connected_at timestamptz not null default now(),
   status text not null default 'disconnected'
     check (status in ('connected', 'disconnected', 'pairing', 'error')),
-  last_error text,
-  gateway_url text,
-  gateway_api_key text
+  last_error text
 );
 
 alter table public.whatsapp_connections enable row level security;
@@ -365,24 +334,6 @@ alter table public.whatsapp_connections enable row level security;
 drop policy if exists "Users can view own whatsapp connection" on public.whatsapp_connections;
 create policy "Users can view own whatsapp connection"
   on public.whatsapp_connections for select
-  using (auth.uid() = user_id);
-
-create table if not exists public.google_ads_connections (
-  user_id uuid primary key references auth.users (id) on delete cascade,
-  ad_campaign_api_url text,
-  campaign_brief jsonb,
-  platform_credentials jsonb,
-  status text not null default 'disconnected'
-    check (status in ('connected', 'disconnected', 'error')),
-  connected_at timestamptz,
-  updated_at timestamptz not null default now()
-);
-
-alter table public.google_ads_connections enable row level security;
-
-drop policy if exists "Users can view own google ads connection" on public.google_ads_connections;
-create policy "Users can view own google ads connection"
-  on public.google_ads_connections for select
   using (auth.uid() = user_id);
 
 -- User-editable AI prompt text (background, calendar rules, message footer)

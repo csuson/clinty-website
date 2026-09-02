@@ -3,17 +3,15 @@ import { Link, useNavigate } from 'react-router-dom'
 import { WHATSAPP_POLL_MS } from '../../constants/whatsapp'
 import { useAuth } from '../../context/AuthContext'
 import {
-  fetchWhatsAppGatewaySettings,
   fetchWhatsAppLoginStatus,
   formatPhone,
   formatWhatsAppLinkError,
-  isWhatsAppGatewayConfigured,
   restartWhatsAppLogin,
   startWhatsAppLogin,
   stopWhatsAppLogin,
 } from '../../lib/whatsapp/web'
 
-type Phase = 'starting' | 'pairing' | 'connected' | 'error' | 'no_gateway'
+type Phase = 'starting' | 'pairing' | 'connected' | 'error'
 
 export default function WhatsAppLogin() {
   const { user } = useAuth()
@@ -59,12 +57,6 @@ export default function WhatsAppLogin() {
 
     async function begin() {
       try {
-        const settings = await fetchWhatsAppGatewaySettings()
-        if (!isWhatsAppGatewayConfigured(settings)) {
-          setPhase('no_gateway')
-          return
-        }
-
         const status = await startWhatsAppLogin()
         if (status.status === 'connected' && status.phone) {
           setPhone(status.phone)
@@ -93,8 +85,6 @@ export default function WhatsAppLogin() {
 
   useEffect(() => {
     if (phase !== 'pairing') return
-
-    void pollStatus()
 
     const timer = window.setInterval(() => {
       pollStatus()
@@ -190,20 +180,6 @@ export default function WhatsAppLogin() {
           <div className="flex flex-col items-center py-12 gap-4">
             <div className="w-10 h-10 border-2 border-navy-900/20 border-t-navy-900 rounded-full animate-spin" />
             <p className="text-sm text-navy-600">Preparing QR code...</p>
-          </div>
-        )}
-
-        {phase === 'no_gateway' && (
-          <div className="flex flex-col items-center gap-4 py-6">
-            <p className="text-sm text-navy-600 text-center max-w-md">
-              Save your WhatsApp gateway URL and API key in Integrations before scanning a QR code.
-            </p>
-            <Link
-              to="/account/integrations"
-              className="inline-flex items-center gap-2 bg-[#25D366] text-white font-medium px-6 py-3 rounded-xl hover:bg-[#20bd5a] transition-colors text-sm"
-            >
-              Configure gateway
-            </Link>
           </div>
         )}
 

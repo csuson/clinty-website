@@ -37,6 +37,9 @@ verify_jwt = false
 [functions.generate-prompt-background]
 verify_jwt = false
 
+[functions.analytics-summary]
+verify_jwt = false
+
 # Remote auth config for the linked Supabase project (pushed via `npm run supabase -- config push`)
 [remotes.production]
 project_id = "bzwloufsgzcecrqpgcxp"

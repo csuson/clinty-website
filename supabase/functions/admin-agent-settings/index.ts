@@ -35,6 +35,41 @@ function parseBoolean(value: unknown): boolean | null {
   return null
 }
 
+async function hashApiKey(key: string): Promise<string> {
+  const data = new TextEncoder().encode(key)
+  const hash = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hash), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function updateClintyApiKeySecret(
+  admin: ReturnType<typeof createClient>,
+  apiKeyId: string,
+  secret: string,
+) {
+  const trimmed = secret.trim()
+  if (!trimmed.startsWith('clinty_sk_')) {
+    return json({ error: 'Clinty API key must start with clinty_sk_' }, 400)
+  }
+
+  const keyHash = await hashApiKey(trimmed)
+  const keyPrefix = trimmed.slice(0, 16)
+
+  const { error } = await admin
+    .from('api_keys')
+    .update({
+      key_secret: trimmed,
+      key_hash: keyHash,
+      key_prefix: keyPrefix,
+    })
+    .eq('id', apiKeyId)
+
+  if (error) {
+    return json({ error: error.message }, 500)
+  }
+
+  return null
+}
+
 async function authorizeAdmin(req: Request) {
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) {
@@ -186,6 +221,14 @@ Deno.serve(async (req) => {
     const apiKeyError = await validateApiKeyOwnership(admin, payload.user_id, payload.clinty_api_key_id)
     if (apiKeyError) {
       return apiKeyError
+    }
+
+    const apiKeySecret = emptyToNull(body.clinty_api_key_secret)
+    if (apiKeySecret && payload.clinty_api_key_id) {
+      const secretError = await updateClintyApiKeySecret(admin, payload.clinty_api_key_id, apiKeySecret)
+      if (secretError) {
+        return secretError
+      }
     }
 
     if (req.method === 'POST') {

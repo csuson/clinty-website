@@ -30,11 +30,14 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="font-semibold text-sm text-navy-900 mb-4">Company</h4>
+            <h4 className="font-semibold text-sm text-navy-900 mb-4">FAQ</h4>
             <ul className="space-y-2 text-sm text-navy-600">
-              <li><a href="#" className="hover:text-navy-900 transition-colors">About</a></li>
-              <li><a href="#" className="hover:text-navy-900 transition-colors">Blog</a></li>
-              <li><a href="#" className="hover:text-navy-900 transition-colors">Careers</a></li>
+              <li><Link to="/faq" className="hover:text-navy-900 transition-colors">Help center</Link></li>
+              <li>
+                <Link to="/faq/manual-ad-campaign-import" className="hover:text-navy-900 transition-colors">
+                  Manual ad campaign import
+                </Link>
+              </li>
               <li><Link to="/contact" className="hover:text-navy-900 transition-colors">Contact</Link></li>
             </ul>
           </div>

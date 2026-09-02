@@ -14,6 +14,42 @@ type LoginAction =
   | 'save_gateway'
   | 'get_settings'
 
+function parseRequestBody(raw: unknown): Record<string, unknown> {
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      return {}
+    }
+  }
+  if (raw && typeof raw === 'object') {
+    const row = raw as Record<string, unknown>
+    if (row.body && typeof row.body === 'object') {
+      return row.body as Record<string, unknown>
+    }
+    return row
+  }
+  return {}
+}
+
+function normalizeAction(value: unknown): LoginAction | undefined {
+  const action = String(value ?? '').trim().toLowerCase()
+  if (action === 'link' || action === 'connect') {
+    return 'start'
+  }
+  if (
+    action === 'start'
+    || action === 'stop'
+    || action === 'disconnect'
+    || action === 'status'
+    || action === 'save_gateway'
+    || action === 'get_settings'
+  ) {
+    return action
+  }
+  return undefined
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -51,8 +87,8 @@ Deno.serve(async (req) => {
       return json({ error: 'Method not allowed' }, 405)
     }
 
-    const body = await req.json().catch(() => ({}))
-    const action = body.action as LoginAction | undefined
+    const body = parseRequestBody(await req.json().catch(() => ({})))
+    const action = normalizeAction(body.action)
 
     if (action === 'get_settings') {
       const { data } = await admin
@@ -155,7 +191,8 @@ Deno.serve(async (req) => {
       try {
         status = await callGateway(gatewayUrl, gatewayKey, 'POST', '/v1/login/start', {
           user_id: user.id,
-        }, { timeoutMs: 40_000, attempts: 1 })
+          force: true,
+        }, { timeoutMs: 45_000, attempts: 1 })
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
         const timedOut = /timed out|TimeoutError|operation was aborted/i.test(message)
@@ -220,7 +257,7 @@ Deno.serve(async (req) => {
     }
 
     return json({
-      error: 'Missing or invalid action (start, stop, disconnect, save_gateway, get_settings)',
+      error: `Missing or invalid action (received: ${JSON.stringify(body.action ?? null)}). Use start, stop, disconnect, status, save_gateway, or get_settings.`,
     }, 400)
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)

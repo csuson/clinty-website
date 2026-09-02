@@ -62,6 +62,7 @@ export type CreateAgentSettingsInput = {
   user_id: string
   name: string
   clinty_api_key_id?: string | null
+  clinty_api_key_secret?: string | null
   langgraph_api_key?: string | null
   url?: string | null
   graph_id?: string | null

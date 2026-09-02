@@ -4,6 +4,16 @@ import { useAuth } from '../../context/AuthContext'
 
 const tabs = [
   {
+    to: '/account/analytics',
+    label: 'Analytics',
+    end: false,
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+  },
+  {
     to: '/account',
     label: 'Account Settings',
     end: true,
@@ -76,7 +86,7 @@ const tabs = [
 ]
 
 export default function AccountLayout() {
-  const { profile, user, signOut } = useAuth()
+  const { profile, user } = useAuth()
   const showAdmin = isAdminEmail(user?.email)
   const navTabs = showAdmin
     ? [
@@ -97,19 +107,11 @@ export default function AccountLayout() {
   return (
     <div className="pt-28 pb-24 px-6">
       <div className="max-w-5xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
-          <div>
-            <h1 className="font-serif text-3xl md:text-4xl text-navy-900 mb-1">
-              {profile?.full_name ? `${profile.full_name.split(' ')[0]}'s Account` : 'Your Account'}
-            </h1>
-            <p className="text-navy-600 text-sm">{profile?.email}</p>
-          </div>
-          <button
-            onClick={() => signOut()}
-            className="text-sm font-medium border border-navy-900/15 text-navy-900 px-4 py-2 rounded-lg hover:bg-navy-900/5 transition-colors self-start"
-          >
-            Sign Out
-          </button>
+        <div className="mb-10">
+          <h1 className="font-serif text-3xl md:text-4xl text-navy-900 mb-1">
+            {profile?.full_name ? `${profile.full_name.split(' ')[0]}'s Account` : 'Your Account'}
+          </h1>
+          <p className="text-navy-600 text-sm">{profile?.email}</p>
         </div>
 
         <div className="flex flex-col md:flex-row gap-8">

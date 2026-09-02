@@ -6,6 +6,8 @@ import ProtectedRoute, { GuestRoute } from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import Home from './pages/Home'
 import Contact from './pages/Contact'
+import Faq from './pages/Faq'
+import ManualAdCampaignImport from './pages/faq/ManualAdCampaignImport'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
 import SignIn from './pages/SignIn'
@@ -25,6 +27,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/faq" element={<Faq />} />
+          <Route path="/faq/manual-ad-campaign-import" element={<ManualAdCampaignImport />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route
