@@ -5,7 +5,12 @@ const LAST_UPDATED = 'July 10, 2026'
 
 export default function PrivacyPolicy() {
   return (
-    <LegalPageLayout title="Privacy Policy" lastUpdated={LAST_UPDATED}>
+    <LegalPageLayout
+      title="Privacy Policy"
+      lastUpdated={LAST_UPDATED}
+      path="/privacy"
+      description="Clinty Privacy Policy — how we collect, use, and protect data for AI email, calendar, WhatsApp, and ad campaign services."
+    >
       <p>
         Clinty, Inc. (&ldquo;Clinty,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) provides AI-powered
         email and calendar automation services for small businesses. This Privacy Policy explains how we
@@ -105,6 +110,16 @@ export default function PrivacyPolicy() {
           To exercise these rights, please{' '}
           <Link to="/contact" className="text-teal-500 hover:underline">
             contact us
+          </Link>
+          . If you connected Meta (Facebook) for ad publishing and remove the Clinty app from your
+          Facebook account, Meta sends us a data deletion request automatically; you can check status at{' '}
+          <Link to="/meta/data-deletion" className="text-teal-500 hover:underline">
+            Meta data deletion status
+          </Link>
+          . For Shopify, mandatory compliance webhooks cover customer data requests, customer
+          redaction, and shop redaction after uninstall — see{' '}
+          <Link to="/shopify/compliance" className="text-teal-500 hover:underline">
+            Shopify compliance status
           </Link>
           .
         </p>

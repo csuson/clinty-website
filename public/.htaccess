@@ -9,6 +9,8 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  RewriteRule ^webhooks/shopify-compliance/?$ webhooks/shopify-compliance.php [L]
+  RewriteRule ^webhooks/meta-data-deletion/?$ webhooks/meta-data-deletion.php [L]
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

@@ -1,5 +1,3 @@
-import { Link } from 'react-router-dom'
-
 const plans = [
   {
     name: 'Starter',
@@ -14,7 +12,6 @@ const plans = [
       'Email in your brand voice',
       'Basic analytics',
     ],
-    cta: 'Start 30-Day Free Trial',
     popular: false,
   },
   {
@@ -31,7 +28,6 @@ const plans = [
       'Priority support',
       'Advanced ROI dashboard',
     ],
-    cta: 'Start 30-Day Free Trial',
     popular: true,
   },
   {
@@ -48,7 +44,6 @@ const plans = [
       'Dedicated account manager',
       'SLA guarantee',
     ],
-    cta: 'Contact Sales',
     popular: false,
   },
 ]
@@ -102,7 +97,7 @@ export default function Pricing() {
                   /month after trial
                 </span>
               </div>
-              <ul className="space-y-3 mb-8 flex-1">
+              <ul className="space-y-3 flex-1">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2 text-sm">
                     <svg
@@ -121,16 +116,6 @@ export default function Pricing() {
                   </li>
                 ))}
               </ul>
-              <Link
-                to="/sign-up"
-                className={`block text-center font-medium px-6 py-3 rounded-xl transition-colors ${
-                  plan.popular
-                    ? 'bg-teal-400 text-navy-900 hover:bg-teal-300'
-                    : 'bg-navy-900 text-cream hover:bg-navy-800'
-                }`}
-              >
-                {plan.cta}
-              </Link>
             </div>
           ))}
         </div>

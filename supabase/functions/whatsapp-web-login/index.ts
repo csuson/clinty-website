@@ -161,18 +161,25 @@ Deno.serve(async (req) => {
 
     if (action === 'status' || !action) {
       const status = await callGateway(gatewayUrl, gatewayKey, 'GET', `/v1/login/status?user_id=${user.id}`)
-      if (status.status === 'connected' && status.phone) {
-        await mergeWhatsAppConnection(admin, user.id, {
-          phone: status.phone,
-          status: 'connected',
-          connected_at: new Date().toISOString(),
-          last_error: null,
-        })
-      } else if (status.status === 'error' || status.error) {
-        await mergeWhatsAppConnection(admin, user.id, {
-          status: 'error',
-          last_error: typeof status.error === 'string' ? status.error : 'Link failed',
-        })
+      const patch: Record<string, unknown> = {}
+      if (status.status === 'connected') {
+        patch.status = 'connected'
+        patch.connected_at = new Date().toISOString()
+        patch.last_error = null
+        if (typeof status.phone === 'string' && status.phone.trim()) {
+          patch.phone = status.phone.trim()
+        }
+      } else if (status.status === 'pairing') {
+        patch.status = 'pairing'
+      } else if (typeof status.phone === 'string' && status.phone.trim()) {
+        patch.phone = status.phone.trim()
+      }
+      if (status.status === 'error' || status.error) {
+        patch.status = 'error'
+        patch.last_error = typeof status.error === 'string' ? status.error : 'Link failed'
+      }
+      if (Object.keys(patch).length > 0) {
+        await mergeWhatsAppConnection(admin, user.id, patch)
       }
       return json({
         status: status.status,
@@ -218,7 +225,9 @@ Deno.serve(async (req) => {
 
       await mergeWhatsAppConnection(admin, user.id, {
         status: connectionStatus,
-        phone: status.phone ?? null,
+        ...(typeof status.phone === 'string' && status.phone.trim()
+          ? { phone: status.phone.trim() }
+          : {}),
         ...(status.status === 'connected'
           ? { connected_at: new Date().toISOString() }
           : {}),
@@ -347,11 +356,19 @@ async function mergeWhatsAppConnection(
     user_id: userId,
     gateway_url: existing?.gateway_url ?? null,
     gateway_api_key: existing?.gateway_api_key ?? null,
-    phone: existing?.phone ?? null,
-    status: existing?.status ?? 'disconnected',
-    connected_at: existing?.connected_at ?? new Date().toISOString(),
-    last_error: existing?.last_error ?? null,
-    ...patch,
+    phone:
+      typeof patch.phone === 'string' && patch.phone.trim()
+        ? patch.phone.trim()
+        : existing?.phone ?? null,
+    status: typeof patch.status === 'string' ? patch.status : existing?.status ?? 'disconnected',
+    connected_at:
+      typeof patch.connected_at === 'string'
+        ? patch.connected_at
+        : existing?.connected_at ?? new Date().toISOString(),
+    last_error:
+      patch.last_error !== undefined
+        ? (typeof patch.last_error === 'string' ? patch.last_error : null)
+        : existing?.last_error ?? null,
   })
 
   if (error) {

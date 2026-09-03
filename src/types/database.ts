@@ -73,6 +73,7 @@ export type OutlookToken = {
 export type ShopifyConnection = {
   user_id: string
   shop_domain: string | null
+  shop_id: number | null
   shop_name: string | null
   scopes: string[]
   connected_at: string
@@ -82,6 +83,7 @@ export type ShopifyConnection = {
 export type ShopifyToken = {
   user_id: string
   shop_domain: string
+  shop_id: number | null
   access_token: string
   client_id: string
   scopes: string[]
@@ -318,6 +320,7 @@ export type Database = {
         Insert: {
           user_id: string
           shop_domain?: string | null
+          shop_id?: number | null
           shop_name?: string | null
           scopes?: string[]
           connected_at?: string
@@ -325,6 +328,7 @@ export type Database = {
         }
         Update: {
           shop_domain?: string | null
+          shop_id?: number | null
           shop_name?: string | null
           scopes?: string[]
           status?: 'connected' | 'disconnected' | 'error'
@@ -336,6 +340,7 @@ export type Database = {
         Insert: {
           user_id: string
           shop_domain: string
+          shop_id?: number | null
           access_token: string
           client_id: string
           scopes?: string[]
@@ -343,6 +348,7 @@ export type Database = {
         }
         Update: {
           shop_domain?: string
+          shop_id?: number | null
           access_token?: string
           client_id?: string
           scopes?: string[]

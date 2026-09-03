@@ -1,15 +1,35 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import PageMeta from './PageMeta'
 
 interface LegalPageLayoutProps {
   title: string
   lastUpdated: string
+  description?: string
+  path?: string
+  noindex?: boolean
   children: ReactNode
 }
 
-export default function LegalPageLayout({ title, lastUpdated, children }: LegalPageLayoutProps) {
+export default function LegalPageLayout({
+  title,
+  lastUpdated,
+  description,
+  path,
+  noindex = false,
+  children,
+}: LegalPageLayoutProps) {
   return (
     <div className="pt-32 pb-24 px-6">
+      <PageMeta
+        title={title}
+        description={
+          description ??
+          `${title} for Clinty AI agents — how we handle your data, service terms, and customer rights.`
+        }
+        path={path}
+        noindex={noindex}
+      />
       <div className="max-w-3xl mx-auto">
         <Link
           to="/"

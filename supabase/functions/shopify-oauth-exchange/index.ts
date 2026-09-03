@@ -103,6 +103,7 @@ Deno.serve(async (req) => {
       : SCOPES
 
     let shopName: string | null = null
+    let shopId: number | null = null
     const shopRes = await fetch(`https://${shopDomain}/admin/api/${API_VERSION}/shop.json`, {
       headers: {
         'X-Shopify-Access-Token': accessToken,
@@ -113,11 +114,15 @@ Deno.serve(async (req) => {
     if (shopRes.ok) {
       const shopData = await shopRes.json()
       shopName = shopData?.shop?.name ?? null
+      if (typeof shopData?.shop?.id === 'number') {
+        shopId = shopData.shop.id
+      }
     }
 
     const { error: tokenError } = await admin.from('shopify_tokens').upsert({
       user_id: user.id,
       shop_domain: shopDomain,
+      shop_id: shopId,
       access_token: accessToken,
       client_id: effectiveClientId,
       scopes: grantedScopes,
@@ -131,6 +136,7 @@ Deno.serve(async (req) => {
     const { error: connError } = await admin.from('shopify_connections').upsert({
       user_id: user.id,
       shop_domain: shopDomain,
+      shop_id: shopId,
       shop_name: shopName,
       scopes: grantedScopes,
       status: 'connected',

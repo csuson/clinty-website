@@ -94,6 +94,8 @@ Deno.serve(async (req) => {
 
     const accessToken = longTokenData.access_token as string
 
+    const metaUserId = await fetchMetaUserId(accessToken)
+
     const [adAccounts, pages] = await Promise.all([
       fetchMetaAdAccounts(accessToken),
       fetchMetaPages(accessToken),
@@ -116,6 +118,7 @@ Deno.serve(async (req) => {
       facebook: {
         ...facebook,
         access_token: accessToken,
+        meta_user_id: metaUserId ?? facebook.meta_user_id ?? '',
         ad_account_id: autoAdAccount || facebook.ad_account_id || '',
         page_id: autoPage || facebook.page_id || '',
       },
@@ -142,6 +145,19 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }
 })
+
+async function fetchMetaUserId(accessToken: string): Promise<string | null> {
+  const params = new URLSearchParams({
+    fields: 'id',
+    access_token: accessToken,
+  })
+
+  const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/me?${params.toString()}`)
+  const data = await res.json() as { id?: string }
+
+  if (!res.ok || typeof data.id !== 'string' || !data.id.trim()) return null
+  return data.id.trim()
+}
 
 async function fetchMetaAdAccounts(accessToken: string): Promise<Array<{ id: string; name: string; accountId: string }>> {
   const params = new URLSearchParams({
@@ -201,6 +217,7 @@ type StoredGoogleCredentials = {
 
 type StoredFacebookCredentials = {
   access_token?: string
+  meta_user_id?: string
   ad_account_id?: string
   page_id?: string
   pixel_id?: string

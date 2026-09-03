@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import PageMeta from '../../components/PageMeta'
 import { isAdminEmail } from '../../constants/admin'
 import { useAuth } from '../../context/AuthContext'
 
@@ -106,6 +107,7 @@ export default function AccountLayout() {
 
   return (
     <div className="pt-28 pb-24 px-6">
+      <PageMeta title="Account" description="Clinty account dashboard" noindex />
       <div className="max-w-5xl mx-auto">
         <div className="mb-10">
           <h1 className="font-serif text-3xl md:text-4xl text-navy-900 mb-1">

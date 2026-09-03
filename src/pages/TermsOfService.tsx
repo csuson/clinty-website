@@ -5,7 +5,12 @@ const LAST_UPDATED = 'July 10, 2026'
 
 export default function TermsOfService() {
   return (
-    <LegalPageLayout title="Terms of Service" lastUpdated={LAST_UPDATED}>
+    <LegalPageLayout
+      title="Terms of Service"
+      lastUpdated={LAST_UPDATED}
+      path="/terms"
+      description="Clinty Terms of Service — rules for using AI agents, connected accounts, subscriptions, and ad campaign features."
+    >
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of the Clinty platform
         and services provided by Clinty, Inc. (&ldquo;Clinty,&rdquo; &ldquo;we,&rdquo; &ldquo;us,&rdquo; or

@@ -8,6 +8,8 @@ import Home from './pages/Home'
 import Contact from './pages/Contact'
 import Faq from './pages/Faq'
 import ManualAdCampaignImport from './pages/faq/ManualAdCampaignImport'
+import MetaDataDeletionStatus from './pages/MetaDataDeletionStatus'
+import ShopifyComplianceStatus from './pages/ShopifyComplianceStatus'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
 import SignIn from './pages/SignIn'
@@ -30,6 +32,8 @@ export default function App() {
           <Route path="/faq" element={<Faq />} />
           <Route path="/faq/manual-ad-campaign-import" element={<ManualAdCampaignImport />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/meta/data-deletion" element={<MetaDataDeletionStatus />} />
+          <Route path="/shopify/compliance" element={<ShopifyComplianceStatus />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route
             path="/sign-in"

@@ -1,9 +1,25 @@
 import { Link } from 'react-router-dom'
+import PageMeta from '../components/PageMeta'
 import { FAQ_ARTICLES, faqArticlePath } from '../constants/faq'
+import { absoluteUrl, faqPageJsonLd } from '../constants/seo'
+
+const FAQ_JSON_LD = faqPageJsonLd(
+  FAQ_ARTICLES.map((article) => ({
+    title: article.title,
+    summary: article.summary,
+    url: absoluteUrl(faqArticlePath(article.slug)),
+  })),
+)
 
 export default function Faq() {
   return (
     <div className="pt-32 pb-24 px-6">
+      <PageMeta
+        title="FAQ"
+        description="Help center for Clinty AI agents, integrations, and multi-platform ad campaigns."
+        path="/faq"
+        jsonLd={FAQ_JSON_LD}
+      />
       <div className="max-w-3xl mx-auto">
         <header className="mb-12">
           <h1 className="font-serif text-4xl md:text-5xl text-navy-900 mb-4">

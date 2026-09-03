@@ -6,13 +6,30 @@ import FaqPageLayout, {
   FaqSubsection,
   FaqTable,
 } from '../../components/FaqPageLayout'
+import PageMeta from '../../components/PageMeta'
+import { articleJsonLd } from '../../constants/seo'
+
+const ARTICLE_PATH = '/faq/manual-ad-campaign-import'
+const ARTICLE_DESCRIPTION =
+  'Step-by-step guide to manually import Clinty ad campaign exports into Google Ads, Meta Ads Manager, and Yelp Ads.'
 
 export default function ManualAdCampaignImport() {
   return (
-    <FaqPageLayout
-      title="Manual ad campaign import"
-      description="How to build Google Ads, Meta, and Yelp campaigns from Clinty’s media-plan.json export."
-    >
+    <>
+      <PageMeta
+        title="Manual ad campaign import"
+        description={ARTICLE_DESCRIPTION}
+        path={ARTICLE_PATH}
+        jsonLd={articleJsonLd({
+          title: 'Manual ad campaign import',
+          description: ARTICLE_DESCRIPTION,
+          path: ARTICLE_PATH,
+        })}
+      />
+      <FaqPageLayout
+        title="Manual ad campaign import"
+        description="How to build Google Ads, Meta, and Yelp campaigns from Clinty’s media-plan.json export."
+      >
       <FaqCallout>
         After Clinty drafts your campaigns, download <strong className="text-navy-900">media-plan.json</strong>{' '}
         from{' '}
@@ -250,5 +267,6 @@ export default function ManualAdCampaignImport() {
         </p>
       </FaqSection>
     </FaqPageLayout>
+    </>
   )
 }

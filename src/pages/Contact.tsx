@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import PageMeta from '../components/PageMeta'
 import { SUPPORT_EMAIL, WHATSAPP_PHONE_DISPLAY, WHATSAPP_URL } from '../constants/contact'
 
 const whatsappContactUrl = `${WHATSAPP_URL}?text=${encodeURIComponent('Hi Clinty — I have a question about your AI agents.')}`
@@ -40,6 +41,11 @@ export default function Contact() {
 
   return (
     <div className="pt-32 pb-24 px-6">
+      <PageMeta
+        title="Contact"
+        description="Contact Clinty for demos, support, billing questions, and partnership inquiries about AI agents for small business."
+        path="/contact"
+      />
       <div className="max-w-6xl mx-auto">
         <div className="max-w-2xl mx-auto text-center mb-16">
           <h1 className="font-serif text-4xl md:text-5xl text-navy-900 mb-4">

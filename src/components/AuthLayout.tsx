@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import PageMeta from './PageMeta'
 
 interface AuthLayoutProps {
   title: string
@@ -11,6 +12,7 @@ interface AuthLayoutProps {
 export default function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProps) {
   return (
     <div className="pt-32 pb-24 px-6 min-h-[80vh] flex items-start justify-center">
+      <PageMeta title={title} description={subtitle} noindex />
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2.5 mb-8">

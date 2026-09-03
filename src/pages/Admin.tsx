@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import PageMeta from '../components/PageMeta'
 import { useAuth } from '../context/AuthContext'
 import { fetchAdminData, deleteAdminRecord, type AdminData, type AdminDeleteResource } from '../lib/admin'
 import AdminAgentSettingsTable from '../components/AdminAgentSettingsTable'
@@ -80,6 +81,7 @@ export default function Admin() {
 
   return (
     <div className="pt-28 pb-24 px-6">
+      <PageMeta title="Admin" description="Clinty admin dashboard" noindex />
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

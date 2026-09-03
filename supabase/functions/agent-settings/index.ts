@@ -55,34 +55,46 @@ Deno.serve(async (req) => {
 
     const keyHash = await hashApiKey(clintyApiKey)
 
-    const { data: apiKeyRow, error: apiKeyError } = await admin
+    const { data: apiKeyRows, error: apiKeyError } = await admin
       .from('api_keys')
-      .select('id, revoked_at')
+      .select('id, user_id, revoked_at')
       .eq('key_hash', keyHash)
-      .maybeSingle()
+      .is('revoked_at', null)
+      .order('created_at', { ascending: true })
+      .limit(1)
 
     if (apiKeyError) {
       return json({ error: apiKeyError.message }, 500)
     }
 
-    if (!apiKeyRow || apiKeyRow.revoked_at) {
+    const apiKeyRow = apiKeyRows?.[0] ?? null
+
+    if (!apiKeyRow) {
       return json({ error: 'Invalid or revoked Clinty API key' }, 401)
     }
 
-    const { data: agentSettings, error: settingsError } = await admin
-      .from('agent_settings')
-      .select('*')
-      .eq('clinty_api_key_id', apiKeyRow.id)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (settingsError) {
-      return json({ error: settingsError.message }, 500)
-    }
+    let agentSettings = await loadAgentSettingsForApiKey(admin, apiKeyRow.id, apiKeyRow.user_id)
 
     if (!agentSettings) {
-      return json({ error: 'No agent settings found for this API key' }, 404)
+      const { data: userPrompts } = await admin
+        .from('user_prompts')
+        .select('background, calendar_preference, default_footer')
+        .eq('user_id', apiKeyRow.user_id)
+        .maybeSingle()
+
+      if (!userPrompts) {
+        return json({ error: 'No agent settings found for this API key' }, 404)
+      }
+
+      const prompts = resolveUserPrompts(userPrompts)
+      return json({
+        user_id: apiKeyRow.user_id,
+        clinty_api_key_id: apiKeyRow.id,
+        prompts,
+        prompt_background: prompts.background,
+        prompt_calendar_preference: prompts.calendar_preference,
+        email_footer: prompts.default_footer,
+      })
     }
 
     const { data: userPrompts } = await admin
@@ -94,7 +106,7 @@ Deno.serve(async (req) => {
     const prompts = resolveUserPrompts(userPrompts)
 
     return json({
-      ...agentSettings,
+      ...serializeRow(agentSettings),
       prompts,
       // Flat keys for env / agent runtimes that map directly to email_assistant variables.
       prompt_background: prompts.background,
@@ -105,6 +117,48 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }
 })
+
+async function loadAgentSettingsForApiKey(
+  admin: ReturnType<typeof createClient>,
+  apiKeyId: string,
+  userId: string,
+) {
+  const { data: linkedRows, error: linkedError } = await admin
+    .from('agent_settings')
+    .select('*')
+    .eq('clinty_api_key_id', apiKeyId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+
+  if (linkedError) {
+    throw new Error(linkedError.message)
+  }
+
+  if (linkedRows?.[0]) {
+    return linkedRows[0]
+  }
+
+  const { data: userRows, error: userError } = await admin
+    .from('agent_settings')
+    .select('*')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+
+  if (userError) {
+    throw new Error(userError.message)
+  }
+
+  return userRows?.[0] ?? null
+}
+
+function serializeRow(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(row)) {
+    out[key] = typeof value === 'bigint' ? value.toString() : value
+  }
+  return out
+}
 
 function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+Disallow: /account/
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /webhooks/
+
+Sitemap: https://clinty.net/sitemap.xml
