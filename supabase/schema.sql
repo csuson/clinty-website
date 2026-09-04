@@ -390,7 +390,12 @@ alter table public.shopify_connections
   add column if not exists shop_id bigint;
 
 alter table public.shopify_tokens
-  add column if not exists shop_id bigint;
+  add column if not exists shop_id bigint,
+  add column if not exists storefront_access_token text,
+  add column if not exists storefront_token_type text not null default 'public';
+
+alter table public.shopify_connections
+  add column if not exists storefront_ready boolean not null default false;
 
 create table if not exists public.shopify_compliance_requests (
   id uuid primary key default gen_random_uuid(),

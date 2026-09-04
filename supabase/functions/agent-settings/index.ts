@@ -94,6 +94,7 @@ Deno.serve(async (req) => {
         prompt_background: prompts.background,
         prompt_calendar_preference: prompts.calendar_preference,
         email_footer: prompts.default_footer,
+        ...await loadShopifyStorefront(admin, apiKeyRow.user_id),
       })
     }
 
@@ -112,6 +113,7 @@ Deno.serve(async (req) => {
       prompt_background: prompts.background,
       prompt_calendar_preference: prompts.calendar_preference,
       email_footer: prompts.default_footer,
+      ...await loadShopifyStorefront(admin, agentSettings.user_id as string),
     })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
@@ -150,6 +152,31 @@ async function loadAgentSettingsForApiKey(
   }
 
   return userRows?.[0] ?? null
+}
+
+async function loadShopifyStorefront(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<Record<string, string>> {
+  const { data } = await admin
+    .from('shopify_tokens')
+    .select('shop_domain, storefront_access_token, storefront_token_type')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  const domain = typeof data?.shop_domain === 'string' ? data.shop_domain.trim() : ''
+  const token = typeof data?.storefront_access_token === 'string'
+    ? data.storefront_access_token.trim()
+    : ''
+  if (!domain || !token) {
+    return {}
+  }
+
+  return {
+    shopify_store_domain: domain,
+    shopify_storefront_token: token,
+    shopify_token_type: data?.storefront_token_type === 'private' ? 'private' : 'public',
+  }
 }
 
 function serializeRow(row: Record<string, unknown>): Record<string, unknown> {

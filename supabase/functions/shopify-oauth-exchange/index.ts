@@ -133,6 +133,8 @@ Deno.serve(async (req) => {
       }
     }
 
+    const storefront = await createStorefrontAccessToken(shopDomain, accessToken)
+
     const { error: tokenError } = await admin.from('shopify_tokens').upsert({
       user_id: user.id,
       shop_domain: shopDomain,
@@ -140,6 +142,8 @@ Deno.serve(async (req) => {
       access_token: accessToken,
       client_id: effectiveClientId,
       scopes: grantedScopes,
+      storefront_access_token: storefront?.token ?? null,
+      storefront_token_type: storefront?.tokenType ?? 'public',
       updated_at: new Date().toISOString(),
     })
 
@@ -154,6 +158,7 @@ Deno.serve(async (req) => {
       shop_name: shopName,
       scopes: grantedScopes,
       status: 'connected',
+      storefront_ready: Boolean(storefront?.token),
       connected_at: new Date().toISOString(),
     })
 
@@ -166,6 +171,41 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }
 })
+
+async function createStorefrontAccessToken(
+  shopDomain: string,
+  adminToken: string,
+): Promise<{ token: string; tokenType: string } | null> {
+  try {
+    const response = await fetch(`https://${shopDomain}/admin/api/${API_VERSION}/graphql.json`, {
+      method: 'POST',
+      headers: {
+        'X-Shopify-Access-Token': adminToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: `mutation ClintyStorefrontToken {
+          storefrontAccessTokenCreate(input: { title: "Clinty storefront" }) {
+            storefrontAccessToken { accessToken }
+            userErrors { field message }
+          }
+        }`,
+      }),
+    })
+    const payload = await response.json()
+    const created = payload?.data?.storefrontAccessTokenCreate?.storefrontAccessToken?.accessToken
+    if (typeof created === 'string' && created) {
+      return { token: created, tokenType: 'public' }
+    }
+    const errors = payload?.data?.storefrontAccessTokenCreate?.userErrors
+      ?? payload?.errors
+    console.warn('storefrontAccessTokenCreate failed', errors)
+    return null
+  } catch (err) {
+    console.warn('storefrontAccessTokenCreate error', err)
+    return null
+  }
+}
 
 function normalizeShopDomain(raw: string): string | null {
   let value = raw.trim().toLowerCase()

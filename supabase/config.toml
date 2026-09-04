@@ -28,6 +28,9 @@ verify_jwt = false
 [functions.shopify-oauth-disconnect]
 verify_jwt = false
 
+[functions.shopify-storefront-token]
+verify_jwt = false
+
 [functions.whatsapp-web-login]
 verify_jwt = false
 

@@ -78,15 +78,18 @@ export type ShopifyConnection = {
   scopes: string[]
   connected_at: string
   status: 'connected' | 'disconnected' | 'error'
+  storefront_ready: boolean
 }
 
 export type ShopifyToken = {
   user_id: string
   shop_domain: string
   shop_id: number | null
-  access_token: string
-  client_id: string
+  access_token: string | null
+  client_id: string | null
   scopes: string[]
+  storefront_access_token: string | null
+  storefront_token_type: string
   updated_at: string
 }
 
@@ -325,6 +328,7 @@ export type Database = {
           scopes?: string[]
           connected_at?: string
           status?: 'connected' | 'disconnected' | 'error'
+          storefront_ready?: boolean
         }
         Update: {
           shop_domain?: string | null
@@ -332,6 +336,7 @@ export type Database = {
           shop_name?: string | null
           scopes?: string[]
           status?: 'connected' | 'disconnected' | 'error'
+          storefront_ready?: boolean
         }
         Relationships: []
       }
@@ -341,9 +346,11 @@ export type Database = {
           user_id: string
           shop_domain: string
           shop_id?: number | null
-          access_token: string
-          client_id: string
+          access_token?: string | null
+          client_id?: string | null
           scopes?: string[]
+          storefront_access_token?: string | null
+          storefront_token_type?: string
           updated_at?: string
         }
         Update: {
@@ -352,6 +359,8 @@ export type Database = {
           access_token?: string
           client_id?: string
           scopes?: string[]
+          storefront_access_token?: string | null
+          storefront_token_type?: string
           updated_at?: string
         }
         Relationships: []

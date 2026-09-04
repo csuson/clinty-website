@@ -39,6 +39,7 @@ Deno.serve(async (req) => {
       shop_domain: null,
       shop_name: null,
       scopes: [],
+      storefront_ready: false,
     })
 
     return json({ success: true })

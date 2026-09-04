@@ -16,6 +16,7 @@ export type ShopifyConnection = {
   scopes: string[]
   connected_at: string
   status: 'connected' | 'disconnected' | 'error'
+  storefront_ready?: boolean
 }
 
 export type ShopifyOAuthCallbackQuery = Record<string, string>
