@@ -18,13 +18,7 @@ export type ShopifyConnection = {
   status: 'connected' | 'disconnected' | 'error'
 }
 
-export type ShopifyOAuthCallbackQuery = {
-  code: string
-  shop: string
-  hmac: string
-  timestamp: string
-  host?: string
-}
+export type ShopifyOAuthCallbackQuery = Record<string, string>
 
 function createOAuthState(userId: string, shopDomain: string): string {
   const nonce = crypto.randomUUID()
@@ -67,27 +61,20 @@ export function startShopifyOAuth(userId: string, shopInput: string, clientId: s
   window.location.href = getShopifyAuthorizeUrl(shopDomain, clientId, state)
 }
 
-export async function exchangeShopifyCode(
-  code: string,
-  callback: ShopifyOAuthCallbackQuery,
-): Promise<void> {
+export async function exchangeShopifyCode(callbackQuery: ShopifyOAuthCallbackQuery): Promise<void> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
   }
 
-  const shopDomain = normalizeShopDomain(callback.shop)
-  if (!shopDomain) {
+  const shop = callbackQuery.shop
+  if (!shop || !normalizeShopDomain(shop)) {
     throw new Error('Invalid Shopify store domain in callback.')
   }
 
   const result = await supabase.functions.invoke('shopify-oauth-exchange', {
     body: {
-      code,
-      shop: shopDomain,
+      callbackQuery,
       clientId: SHOPIFY_CLIENT_ID,
-      hmac: callback.hmac,
-      timestamp: callback.timestamp,
-      host: callback.host ?? null,
     },
   })
 

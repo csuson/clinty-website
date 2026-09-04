@@ -36,7 +36,17 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json()
-    const { code, shop, clientId, hmac, timestamp, host } = body
+    const { callbackQuery, clientId } = body
+
+    if (!callbackQuery || typeof callbackQuery !== 'object') {
+      return json({ error: 'Missing Shopify callback query parameters' }, 400)
+    }
+
+    const query = callbackQuery as Record<string, string>
+    const code = query.code
+    const shop = query.shop
+    const hmac = query.hmac
+    const timestamp = query.timestamp
 
     if (!code || !shop || !hmac || !timestamp) {
       return json({ error: 'Missing code, shop, hmac, or timestamp' }, 400)
@@ -48,8 +58,9 @@ Deno.serve(async (req) => {
     }
 
     const clientSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET')
-    const envClientId = Deno.env.get('SHOPIFY_CLIENT_ID')
-    const effectiveClientId = clientId || envClientId
+    const envClientId = Deno.env.get('SHOPIFY_CLIENT_ID')?.trim() || null
+    const requestClientId = typeof clientId === 'string' ? clientId.trim() : ''
+    const effectiveClientId = requestClientId || envClientId
 
     if (!effectiveClientId || !clientSecret) {
       return json({
@@ -57,23 +68,26 @@ Deno.serve(async (req) => {
       }, 500)
     }
 
-    if (envClientId && clientId && envClientId !== clientId) {
-      return json({
-        error: 'SHOPIFY_CLIENT_ID in Supabase secrets must match VITE_SHOPIFY_CLIENT_ID in your website .env',
-      }, 400)
+    // Token exchange must use the same client_id as the authorize redirect (sent by the frontend).
+    // SHOPIFY_CLIENT_ID in Supabase is optional; if it is stale, prefer the request value.
+    if (envClientId && requestClientId && envClientId !== requestClientId) {
+      console.warn(
+        'SHOPIFY_CLIENT_ID secret does not match VITE_SHOPIFY_CLIENT_ID; using request client_id for token exchange.',
+      )
     }
 
-    const callbackQuery: Record<string, string> = {
-      code: String(code),
-      shop: shopDomain,
-      timestamp: String(timestamp),
-      hmac: String(hmac),
+    const hmacQuery: Record<string, string> = {}
+    for (const [key, value] of Object.entries(query)) {
+      if (typeof value === 'string') {
+        hmacQuery[key] = value
+      }
     }
-    if (host) callbackQuery.host = String(host)
 
-    const hmacValid = await verifyShopifyHmac(callbackQuery, clientSecret)
+    const hmacValid = await verifyShopifyOAuthHmac(hmacQuery, clientSecret)
     if (!hmacValid) {
-      return json({ error: 'Invalid Shopify callback signature' }, 400)
+      return json({
+        error: 'Invalid Shopify callback signature. Confirm SHOPIFY_CLIENT_SECRET in Supabase matches the Client secret for this app in Shopify Partners.',
+      }, 400)
     }
 
     const tokenRes = await fetch(`https://${shopDomain}/admin/oauth/access_token`, {
@@ -169,7 +183,7 @@ function normalizeShopDomain(raw: string): string | null {
   return value
 }
 
-async function verifyShopifyHmac(
+async function verifyShopifyOAuthHmac(
   query: Record<string, string>,
   secret: string,
 ): Promise<boolean> {

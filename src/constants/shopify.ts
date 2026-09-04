@@ -10,10 +10,18 @@ export const SHOPIFY_OAUTH_STATE_KEY = 'shopify_oauth_state'
 
 export const SHOPIFY_API_VERSION = '2024-10'
 
+export const SHOPIFY_OAUTH_CALLBACK_PATH = '/account/integrations/shopify/callback'
+
+/** Canonical production callback — must match Shopify Partners redirect URL list exactly. */
+export const SHOPIFY_PRODUCTION_REDIRECT_URI = `https://clinty.net${SHOPIFY_OAUTH_CALLBACK_PATH}`
+
 export function getShopifyRedirectUri(): string {
   const override = import.meta.env.VITE_SHOPIFY_REDIRECT_URI
   if (override) return override
-  return `${window.location.origin}/account/integrations/shopify/callback`
+  if (import.meta.env.DEV) {
+    return `${window.location.origin}${SHOPIFY_OAUTH_CALLBACK_PATH}`
+  }
+  return SHOPIFY_PRODUCTION_REDIRECT_URI
 }
 
 export function isShopifyOAuthConfigured(): boolean {

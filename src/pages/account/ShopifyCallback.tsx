@@ -22,7 +22,6 @@ export default function ShopifyCallback() {
     const state = searchParams.get('state')
     const hmac = searchParams.get('hmac')
     const timestamp = searchParams.get('timestamp')
-    const host = searchParams.get('host')
 
     if (!code || !shop || !state || !hmac || !timestamp) {
       navigate(
@@ -32,13 +31,7 @@ export default function ShopifyCallback() {
       return
     }
 
-    const authCode = code
-    const shopDomain = shop
-    const authHmac = hmac
-    const authTimestamp = timestamp
-    const authHost = host
-
-    if (!validateOAuthState(state, user.id, shopDomain)) {
+    if (!validateOAuthState(state, user.id, shop)) {
       navigate(
         `/account/integrations?shopify_error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`,
         { replace: true },
@@ -49,13 +42,11 @@ export default function ShopifyCallback() {
     async function complete() {
       try {
         setMessage('Exchanging authorization code and storing credentials...')
-        await exchangeShopifyCode(authCode, {
-          code: authCode,
-          shop: shopDomain,
-          hmac: authHmac,
-          timestamp: authTimestamp,
-          host: authHost ?? undefined,
+        const callbackQuery: Record<string, string> = {}
+        searchParams.forEach((value, key) => {
+          callbackQuery[key] = value
         })
+        await exchangeShopifyCode(callbackQuery)
         navigate('/account/integrations?shopify_connected=1', { replace: true })
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Shopify authorization failed'
