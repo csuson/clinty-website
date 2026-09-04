@@ -1,3 +1,6 @@
+/** Official Headless sales channel — used to create Storefront API tokens. */
+export const SHOPIFY_HEADLESS_APP_URL = 'https://apps.shopify.com/headless'
+
 /** Shopify Admin API scopes for inventory and order lookups */
 export const SHOPIFY_SCOPES = [
   'read_products',

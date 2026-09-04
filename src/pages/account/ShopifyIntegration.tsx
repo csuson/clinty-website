@@ -3,7 +3,7 @@ import FormField from '../../components/FormField'
 import IntegrationPanel from '../../components/IntegrationPanel'
 import { ShopifyIcon } from '../../components/IntegrationIcons'
 import { inputClass } from '../../constants/forms'
-import { normalizeShopDomain } from '../../constants/shopify'
+import { SHOPIFY_HEADLESS_APP_URL, normalizeShopDomain } from '../../constants/shopify'
 import { useAuth } from '../../context/AuthContext'
 import { disconnectShopify, fetchShopifyConnection, type ShopifyConnection } from '../../lib/shopify/oauth'
 import { saveShopifyStorefront } from '../../lib/shopify/storefrontSettings'
@@ -98,8 +98,8 @@ export default function ShopifyIntegration({ expanded, onToggle }: ShopifyIntegr
       onToggle={onToggle}
     >
       <p className="text-sm text-navy-600 mb-6">
-        Add your Storefront domain and access token. Clinty uses them when a customer asks about
-        products or services on WhatsApp or email — not from this website.
+        Add your store domain and Storefront access token. Clinty uses them when a customer asks
+        about products or services on WhatsApp or email — not from this website.
       </p>
 
       {error && (
@@ -126,6 +126,8 @@ export default function ShopifyIntegration({ expanded, onToggle }: ShopifyIntegr
               <p className="text-sm text-navy-900 font-medium">{connection?.shop_domain}</p>
             </div>
           )}
+
+          <ShopifyHeadlessSetup />
 
           <FormField label="Shopify store" id="shopify-shop-domain">
             <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
@@ -168,14 +170,14 @@ export default function ShopifyIntegration({ expanded, onToggle }: ShopifyIntegr
               className={inputClass}
               disabled={working}
             >
-              <option value="public">Public (32-character Headless token)</option>
-              <option value="private">Private (server token, often starts with shpat_)</option>
+              <option value="public">Public Storefront token (32 characters)</option>
+              <option value="private">Private Storefront token (server)</option>
             </select>
           </FormField>
 
           <p className="text-sm text-navy-600">
-            Create a token in Shopify admin → Headless channel → your storefront. Use the public
-            token unless you generated a private one for server use.
+            Use the public token from Headless unless you copied the private server token from the
+            same storefront page.
           </p>
 
           <div className="flex flex-wrap items-center gap-4">
@@ -202,5 +204,82 @@ export default function ShopifyIntegration({ expanded, onToggle }: ShopifyIntegr
         </div>
       )}
     </IntegrationPanel>
+  )
+}
+
+function ShopifyHeadlessSetup() {
+  return (
+    <div className="rounded-xl bg-cream border border-navy-900/5 p-5 space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-navy-900 mb-1">Install Headless and copy your token</h3>
+        <p className="text-sm text-navy-600">
+          Clinty does not install itself from the Shopify App Store. Create a Storefront token with
+          Shopify&apos;s free{' '}
+          <a
+            href={SHOPIFY_HEADLESS_APP_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="text-teal-600 hover:underline"
+          >
+            Headless
+          </a>{' '}
+          sales channel, then paste it below.
+        </p>
+      </div>
+      <ol className="text-sm text-navy-600 space-y-3 list-decimal pl-5">
+        <li>
+          In Shopify admin, go to{' '}
+          <strong className="font-medium text-navy-900">Settings → Apps and sales channels</strong>,
+          then open the Shopify App Store.
+        </li>
+        <li>
+          Search for <strong className="font-medium text-navy-900">Headless</strong> and click{' '}
+          <strong className="font-medium text-navy-900">Install</strong> (or{' '}
+          <strong className="font-medium text-navy-900">Add sales channel</strong>). You can also
+          open the{' '}
+          <a
+            href={SHOPIFY_HEADLESS_APP_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="text-teal-600 hover:underline"
+          >
+            Headless listing
+          </a>{' '}
+          and install from there.
+        </li>
+        <li>
+          After install, open{' '}
+          <strong className="font-medium text-navy-900">Sales channels → Headless</strong>. If it
+          is not pinned, search for Headless in the admin search bar.
+        </li>
+        <li>
+          Click <strong className="font-medium text-navy-900">Create storefront</strong> or{' '}
+          <strong className="font-medium text-navy-900">Add storefront</strong>. You can rename it
+          to Clinty.
+        </li>
+        <li>
+          Next to <strong className="font-medium text-navy-900">Storefront API</strong>, click{' '}
+          <strong className="font-medium text-navy-900">Manage</strong>. Copy the{' '}
+          <strong className="font-medium text-navy-900">Public access token</strong> (32 characters).
+          If you need the server token instead, copy{' '}
+          <strong className="font-medium text-navy-900">Private access token</strong> from the same
+          page and choose Private below.
+        </li>
+        <li>
+          Publish the products Clinty should look up to the Headless channel:{' '}
+          <strong className="font-medium text-navy-900">
+            Products → select products → More actions → Add to sales channels → Headless
+          </strong>
+          .
+        </li>
+        <li>
+          Your store name is the{' '}
+          <strong className="font-medium text-navy-900">your-store.myshopify.com</strong> hostname
+          under <strong className="font-medium text-navy-900">Settings → Domains</strong>. Enter
+          just <strong className="font-medium text-navy-900">your-store</strong> in the field
+          below, paste the token, and save.
+        </li>
+      </ol>
+    </div>
   )
 }
