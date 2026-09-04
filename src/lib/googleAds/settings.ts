@@ -1,4 +1,6 @@
 import type { CampaignSnapshot, SavedCampaignDraft } from '../../constants/adCampaigns'
+import type { LocationScope } from '../../constants/locationScope'
+import { parseLocationScope } from '../../constants/locationScope'
 import { getDefaultAdCampaignApiUrl } from '../../constants/googleAds'
 import { supabase } from '../supabase'
 import { getFunctionErrorMessage } from '../supabaseFunctions'
@@ -18,6 +20,7 @@ export type GoogleAdsCampaignBrief = {
   businessName: string
   industry: string
   websiteUrl: string
+  locationScope: LocationScope
   locations: string
   monthlyBudget: string
   goal: string
@@ -26,6 +29,7 @@ export type GoogleAdsCampaignBrief = {
   notes: string
   platforms: AdPlatform[]
   platformBudgetSplit: PlatformBudgetSplit
+  clarifyingAnswers?: Record<string, string>
 }
 
 export type GoogleAdsSettings = {
@@ -213,10 +217,12 @@ function parseCampaignBrief(value: unknown): GoogleAdsCampaignBrief | null {
   if (!value || typeof value !== 'object') return null
 
   const row = value as Record<string, unknown>
+  const clarifyingAnswers = parseStringRecord(row.clarifyingAnswers)
   const brief: GoogleAdsCampaignBrief = {
     businessName: stringField(row.businessName),
     industry: stringField(row.industry),
     websiteUrl: stringField(row.websiteUrl),
+    locationScope: parseLocationScope(row.locationScope),
     locations: stringField(row.locations),
     monthlyBudget: stringField(row.monthlyBudget),
     goal: stringField(row.goal) || 'leads',
@@ -228,9 +234,12 @@ function parseCampaignBrief(value: unknown): GoogleAdsCampaignBrief | null {
       parseAdPlatforms(row.platforms),
       parsePlatformBudgetSplit(row.platformBudgetSplit),
     ),
+    clarifyingAnswers,
   }
 
-  return isGoogleAdsCampaignBriefSaved(brief) ? brief : null
+  return isGoogleAdsCampaignBriefSaved(brief) || Object.keys(clarifyingAnswers).length > 0
+    ? brief
+    : null
 }
 
 function parseCampaignDraft(value: unknown): SavedCampaignDraft | null {
@@ -254,6 +263,7 @@ function parseCampaignDraft(value: unknown): SavedCampaignDraft | null {
     publish: row.publish === true,
     requestedPlatforms: parseAdPlatforms(row.requestedPlatforms),
     savedAt: stringField(row.savedAt),
+    briefForm: parseCampaignBrief(row.briefForm),
   }
 }
 

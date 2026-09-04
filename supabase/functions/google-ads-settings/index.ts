@@ -30,6 +30,7 @@ type CampaignBrief = {
   businessName: string
   industry: string
   websiteUrl: string
+  locationScope: string
   locations: string
   monthlyBudget: string
   goal: string
@@ -42,6 +43,7 @@ type CampaignBrief = {
     facebook: number
     yelp: number
   }
+  clarifyingAnswers?: Record<string, string>
 }
 
 Deno.serve(async (req) => {
@@ -327,10 +329,12 @@ function parseCampaignBrief(value: unknown): CampaignBrief | null {
   if (!value || typeof value !== 'object') return null
 
   const row = value as Record<string, unknown>
+  const clarifyingAnswers = parseStringRecord(row.clarifyingAnswers)
   const brief: CampaignBrief = {
     businessName: stringField(row.businessName),
     industry: stringField(row.industry),
     websiteUrl: stringField(row.websiteUrl),
+    locationScope: parseLocationScopeField(row.locationScope),
     locations: stringField(row.locations),
     monthlyBudget: stringField(row.monthlyBudget),
     goal: stringField(row.goal) || 'leads',
@@ -339,18 +343,33 @@ function parseCampaignBrief(value: unknown): CampaignBrief | null {
     notes: stringField(row.notes),
     platforms: parsePlatforms(row.platforms),
     platformBudgetSplit: parsePlatformBudgetSplit(row.platformBudgetSplit, parsePlatforms(row.platforms)),
+    clarifyingAnswers,
   }
 
-  const hasContent = Object.entries(brief).some(([key, field]) => key !== 'goal' && field.trim())
+  const hasContent = Boolean(
+    brief.businessName.trim()
+    || brief.industry.trim()
+    || brief.websiteUrl.trim()
+    || brief.locations.trim()
+    || brief.monthlyBudget.trim()
+    || brief.offerings.trim()
+    || brief.audience.trim()
+    || brief.notes.trim()
+    || Object.keys(clarifyingAnswers).length > 0,
+  )
   return hasContent ? brief : null
 }
 
 function parseCampaignBriefInput(value: unknown): CampaignBrief {
   const parsed = parseCampaignBrief(value)
-  return parsed ?? {
+  if (parsed) return parsed
+
+  const row = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+  return {
     businessName: '',
     industry: '',
     websiteUrl: '',
+    locationScope: 'local',
     locations: '',
     monthlyBudget: '',
     goal: 'leads',
@@ -359,6 +378,7 @@ function parseCampaignBriefInput(value: unknown): CampaignBrief {
     notes: '',
     platforms: ['google', 'facebook'],
     platformBudgetSplit: { google: 55, facebook: 45, yelp: 0 },
+    clarifyingAnswers: parseStringRecord(row.clarifyingAnswers),
   }
 }
 
@@ -370,6 +390,7 @@ type CampaignDraft = {
   publish: boolean
   requestedPlatforms: string[]
   savedAt: string
+  briefForm?: CampaignBrief | null
 }
 
 function parseCampaignDraft(value: unknown): CampaignDraft | null {
@@ -391,6 +412,7 @@ function parseCampaignDraft(value: unknown): CampaignDraft | null {
     publish: row.publish === true,
     requestedPlatforms: parsePlatforms(row.requestedPlatforms),
     savedAt: stringField(row.savedAt) || new Date().toISOString(),
+    briefForm: parseCampaignBrief(row.briefForm),
   }
 }
 
@@ -502,6 +524,13 @@ function normalizeBudgetSplit(
 
 function stringField(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+function parseLocationScopeField(value: unknown): string {
+  if (value === 'local' || value === 'regional' || value === 'us' || value === 'global') {
+    return value
+  }
+  return 'local'
 }
 
 function json(body: Record<string, unknown>, status = 200) {

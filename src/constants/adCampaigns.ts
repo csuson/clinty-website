@@ -204,6 +204,7 @@ export type SavedCampaignDraft = {
   publish: boolean
   requestedPlatforms: Array<'google' | 'facebook' | 'yelp'>
   savedAt: string
+  briefForm?: import('../lib/googleAds/settings').GoogleAdsCampaignBrief | null
 }
 
 export type CampaignSnapshot = {

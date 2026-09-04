@@ -1,4 +1,3 @@
-import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AccountLayout from './account/AccountLayout'
 import AccountSettings from './account/AccountSettings'
@@ -16,8 +15,6 @@ import ShopifyCallback from './account/ShopifyCallback'
 import SquareCallback from './account/SquareCallback'
 import WhatsAppLogin from './account/WhatsAppLogin'
 
-const ShopifyTools = lazy(() => import('./account/ShopifyTools'))
-
 export default function Account() {
   return (
     <Routes>
@@ -32,14 +29,6 @@ export default function Account() {
         <Route path="integrations/outlook/callback" element={<OutlookCallback />} />
         <Route path="integrations/square/callback" element={<SquareCallback />} />
         <Route path="integrations/shopify/callback" element={<ShopifyCallback />} />
-        <Route
-          path="shopify-tools"
-          element={
-            <Suspense fallback={<p className="text-sm text-navy-600">Loading Shopify tools...</p>}>
-              <ShopifyTools />
-            </Suspense>
-          }
-        />
         <Route path="prompts" element={<Prompts />} />
         <Route path="google-ads" element={<GoogleAds />} />
         <Route path="billing" element={<Billing />} />

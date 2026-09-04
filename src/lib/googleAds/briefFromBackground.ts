@@ -62,6 +62,63 @@ function isSectionHeader(line: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9\s/&,'()-]+$/.test(header)
 }
 
+const EXCLUDED_PARSED_LINE_KEYWORDS = [
+  'email',
+  'phone',
+  'location',
+  'website',
+  'business name',
+] as const
+
+const EXCLUDED_SECTION_KEYWORDS = ['policies', 'customers'] as const
+
+function lineContainsExcludedKeyword(line: string): boolean {
+  const lower = line.toLowerCase()
+  return EXCLUDED_PARSED_LINE_KEYWORDS.some((keyword) => lower.includes(keyword))
+}
+
+function sectionHeaderIsExcluded(headerLine: string): boolean {
+  const trimmed = headerLine.trim()
+  if (!isSectionHeader(trimmed)) return false
+  const header = trimmed.slice(0, -1).toLowerCase()
+  return EXCLUDED_SECTION_KEYWORDS.some((keyword) => header.includes(keyword))
+}
+
+function sectionHeaderLabelIsExcluded(header: string): boolean {
+  const lower = header.toLowerCase()
+  return EXCLUDED_SECTION_KEYWORDS.some((keyword) => lower.includes(keyword))
+}
+
+function filteredBulletLines(section: string): string[] {
+  return bulletLines(section).filter((line) => !lineContainsExcludedKeyword(line))
+}
+
+function bulletLinesOutsideExcludedSections(text: string): string[] {
+  const results: string[] = []
+  let skipSection = false
+
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    if (isSectionHeader(trimmed)) {
+      skipSection = sectionHeaderIsExcluded(trimmed)
+      continue
+    }
+
+    if (skipSection) continue
+
+    if (/^[-•*]\s+/.test(trimmed)) {
+      const content = trimmed.replace(/^[-•*]\s+/, '').trim()
+      if (content && !lineContainsExcludedKeyword(content)) {
+        results.push(content)
+      }
+    }
+  }
+
+  return results
+}
+
 function openingParagraph(text: string): string {
   const lines = text.split('\n')
   const parts: string[] = []
@@ -188,7 +245,6 @@ function parseIndustry(opening: string): string {
 function supplementalNotes(text: string): string {
   const sections = [
     sectionBody(text, ['Lesson packages and pricing', 'Services and pricing']),
-    sectionBody(text, ['Policies']),
     sectionBody(text, ['Response template']),
   ].filter(Boolean)
 
@@ -215,10 +271,10 @@ export function briefFormFromBackground(
   const locations = parseLocations(locationSection, opening)
   const industry = parseIndustry(opening)
   const offerings = joinBullets(
-    bulletLines(sectionBody(text, ['What we offer', 'Products and services', 'Services'])),
+    filteredBulletLines(sectionBody(text, ['What we offer', 'Products and services', 'Services'])),
   )
   const audience = joinBullets(
-    bulletLines(sectionBody(text, ['Why students choose us', 'Why customers choose us'])),
+    filteredBulletLines(sectionBody(text, ['Why students choose us'])),
     220,
   )
 
@@ -261,4 +317,122 @@ export function mergeAdBriefForm(
   parsed: Partial<AdBriefFormFields>,
 ): AdBriefFormFields {
   return combineAdBriefForm(current, parsed)
+}
+
+/** Structured brief fields plus the full background text in notes. */
+export function campaignBriefFieldsFromBackground(
+  background: string,
+  options?: { companyName?: string | null },
+): Partial<AdBriefFormFields> {
+  const text = background.trim()
+  if (!text) return {}
+
+  const parsed = briefFormFromBackground(text, options)
+  return combineAdBriefForm(parsed, { notes: text })
+}
+
+const OFFERING_SECTION_HEADERS = [
+  'What we offer',
+  'Products and services',
+  'Services',
+  'Lesson packages and pricing',
+  'Services and pricing',
+]
+
+export function splitOfferings(value: string): string[] {
+  return value
+    .split(/;\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+export function offeringOptionsFromBackground(background: string): string[] {
+  const text = background.trim()
+  if (!text) return []
+
+  const items: string[] = []
+  const seen = new Set<string>()
+
+  function add(option: string) {
+    const trimmed = option.trim()
+    if (!trimmed || lineContainsExcludedKeyword(trimmed)) return
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    items.push(trimmed)
+  }
+
+  function addSplitList(value: string) {
+    for (const part of value.split(/[,;]/)) {
+      add(part)
+    }
+  }
+
+  for (const header of OFFERING_SECTION_HEADERS) {
+    if (sectionHeaderLabelIsExcluded(header)) continue
+
+    const section = sectionBody(text, [header])
+    for (const line of filteredBulletLines(section)) {
+      add(line)
+    }
+    for (const line of section.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed || /^[-•*]\s+/.test(trimmed)) continue
+      if (isSectionHeader(trimmed)) continue
+      add(trimmed)
+    }
+  }
+
+  for (const line of bulletLinesOutsideExcludedSections(text)) {
+    add(line)
+  }
+
+  const labeledOfferings = labeledValue(text, [
+    'Products or services',
+    'Products or services to advertise',
+    'What we offer',
+  ])
+  if (labeledOfferings) addSplitList(labeledOfferings)
+
+  return items
+}
+
+export const OFFERING_CUSTOM_SELECT_VALUE = '__custom_offering__'
+
+export function offeringOptionsForSelect(
+  background: string,
+  currentOfferings: string,
+): string[] {
+  const seen = new Set<string>()
+  const items: string[] = []
+
+  function add(option: string) {
+    const trimmed = option.trim()
+    if (!trimmed) return
+    const key = trimmed.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    items.push(trimmed)
+  }
+
+  for (const option of offeringOptionsFromBackground(background)) {
+    add(option)
+  }
+  for (const option of splitOfferings(currentOfferings)) {
+    add(option)
+  }
+
+  return items
+}
+
+export function selectedOfferingValue(offerings: string, options: string[]): string {
+  const trimmed = offerings.trim()
+  if (!trimmed) return ''
+  if (options.includes(trimmed)) return trimmed
+
+  for (const part of splitOfferings(trimmed)) {
+    if (options.includes(part)) return part
+  }
+
+  return trimmed
 }

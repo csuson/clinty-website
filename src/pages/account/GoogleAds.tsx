@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import FormField from '../../components/FormField'
 import { CAMPAIGN_GOALS, type CampaignPlan, type CampaignSnapshot, type FacebookCampaignPlan, type YelpCampaignPlan } from '../../constants/adCampaigns'
@@ -10,11 +10,25 @@ import {
   parseMonthlyBudget,
 } from '../../constants/googleAds'
 import { inputClass, textareaClass } from '../../constants/forms'
+import {
+  DEFAULT_LOCATION_SCOPE,
+  LOCATION_SCOPE_DEFAULTS,
+  LOCATION_SCOPE_LABELS,
+  LOCATION_SCOPES,
+  type LocationScope,
+} from '../../constants/locationScope'
 import { useAuth } from '../../context/AuthContext'
 import CampaignAnalytics from './CampaignAnalytics'
 import { createAdCampaign, configureAdCampaignApi, isAdCampaignApiConfigured, resumeAdCampaign } from '../../lib/adCampaigns'
 import { fetchPlatformCredentialsForPublish } from '../../lib/googleAds/credentials'
-import { briefFormFromBackground, combineAdBriefForm } from '../../lib/googleAds/briefFromBackground'
+import {
+  campaignBriefFieldsFromBackground,
+  combineAdBriefForm,
+  OFFERING_CUSTOM_SELECT_VALUE,
+  offeringOptionsForSelect,
+  selectedOfferingValue,
+} from '../../lib/googleAds/briefFromBackground'
+import { detectLocalArea } from '../../lib/googleAds/geolocation'
 import {
   fetchGoogleAdsSettings,
   saveGoogleAdsCampaignBrief,
@@ -50,6 +64,7 @@ function emptyBrief(): BriefForm {
     businessName: '',
     industry: '',
     websiteUrl: '',
+    locationScope: DEFAULT_LOCATION_SCOPE,
     locations: '',
     monthlyBudget: String(AD_CAMPAIGN_BUDGET_DEFAULT),
     goal: 'leads',
@@ -69,12 +84,41 @@ function mergeCampaignBrief(
     [...sources].reverse().find((source) => source?.platforms?.length)?.platforms
     ?? [...DEFAULT_AD_PLATFORMS]
   const savedSplit = sources.find((source) => source?.platformBudgetSplit)?.platformBudgetSplit
+  const locationScope =
+    [...sources].reverse().find((source) => source?.locationScope)?.locationScope
+    ?? DEFAULT_LOCATION_SCOPE
+  const clarifyingAnswers = mergeClarifyingAnswers(...sources)
 
   return {
     ...stringFields,
+    locationScope,
     platforms,
     platformBudgetSplit: budgetSplitForPlatforms(platforms, savedSplit),
+    ...(Object.keys(clarifyingAnswers).length > 0 ? { clarifyingAnswers } : {}),
   }
+}
+
+function mergeClarifyingAnswers(
+  ...sources: Array<Partial<BriefForm> | null | undefined>
+): Record<string, string> {
+  const result: Record<string, string> = {}
+
+  for (const source of sources) {
+    if (!source?.clarifyingAnswers) continue
+    for (const [key, value] of Object.entries(source.clarifyingAnswers)) {
+      const trimmed = value.trim()
+      if (trimmed) result[key] = trimmed
+    }
+  }
+
+  return result
+}
+
+/** Saved campaign/draft brief wins over business-background defaults. */
+function defaultBriefForNewCampaign(
+  ...sources: Array<Partial<BriefForm> | null | undefined>
+): BriefForm {
+  return mergeCampaignBrief(...sources)
 }
 
 function composeBrief(form: BriefForm): string {
@@ -82,6 +126,7 @@ function composeBrief(form: BriefForm): string {
   if (form.businessName.trim()) lines.push(`Business name: ${form.businessName.trim()}`)
   if (form.industry.trim()) lines.push(`Industry: ${form.industry.trim()}`)
   if (form.websiteUrl.trim()) lines.push(`Website: ${form.websiteUrl.trim()}`)
+  lines.push(`Location targeting: ${LOCATION_SCOPE_LABELS[form.locationScope]}`)
   if (form.locations.trim()) lines.push(`Locations to target: ${form.locations.trim()}`)
   if (form.monthlyBudget.trim()) lines.push(`Monthly paid media budget: $${form.monthlyBudget.trim()} USD`)
   lines.push(...composePlatformsBriefLines(form.platforms))
@@ -123,6 +168,114 @@ function downloadJson(filename: string, data: unknown) {
   URL.revokeObjectURL(url)
 }
 
+function clarifyingFields(
+  snapshot: CampaignSnapshot,
+): { field: string; question: string; hint: string }[] {
+  const fields = snapshot.missing_fields.length
+    ? snapshot.missing_fields
+    : (snapshot.interrupt?.missing_fields ?? [])
+  const questions = snapshot.clarifying_questions.length
+    ? snapshot.clarifying_questions
+    : (snapshot.interrupt?.questions ?? [])
+  if (fields.length === 0) {
+    return questions.map((question, index) => {
+      const field = `q${index + 1}`
+      return {
+        field,
+        question,
+        hint: clarifyingFieldHint(field, question),
+      }
+    })
+  }
+  return fields.map((field, index) => {
+    const question = questions[index] ?? field.replaceAll('_', ' ')
+    return {
+      field,
+      question,
+      hint: clarifyingFieldHint(field, question),
+    }
+  })
+}
+
+function normalizeClarifyingQuestion(question: string): string {
+  return question.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ')
+}
+
+function normalizeFieldKey(field: string): string {
+  return field.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_')
+}
+
+function answersFromSnapshotBrief(snapshot: CampaignSnapshot | null | undefined): Record<string, string> {
+  if (!snapshot?.brief || typeof snapshot.brief !== 'object' || Array.isArray(snapshot.brief)) {
+    return {}
+  }
+
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(snapshot.brief)) {
+    if (typeof value === 'string' && value.trim()) {
+      out[key] = value.trim()
+    }
+  }
+  return out
+}
+
+function priorClarifyingAnswer(
+  field: string,
+  question: string,
+  ...stores: Array<Record<string, string> | undefined>
+): string {
+  const keys = [
+    field,
+    field.toLowerCase(),
+    normalizeFieldKey(field),
+    normalizeClarifyingQuestion(question),
+  ]
+
+  for (const store of stores) {
+    if (!store) continue
+    for (const key of keys) {
+      const value = store[key]?.trim()
+      if (value) return value
+    }
+
+    const normalizedQuestion = normalizeClarifyingQuestion(question)
+    for (const [storeKey, storeValue] of Object.entries(store)) {
+      const trimmed = storeValue.trim()
+      if (!trimmed) continue
+      if (normalizeClarifyingQuestion(storeKey) === normalizedQuestion) return trimmed
+      if (normalizeFieldKey(storeKey) === normalizeFieldKey(field)) return trimmed
+    }
+  }
+
+  return ''
+}
+
+function resolveClarifyingAnswers(
+  snapshot: CampaignSnapshot,
+  ...stores: Array<Record<string, string> | undefined>
+): Record<string, string> {
+  const nextAnswers: Record<string, string> = {}
+  for (const { field, question } of clarifyingFields(snapshot)) {
+    nextAnswers[field] = priorClarifyingAnswer(field, question, ...stores)
+  }
+  return nextAnswers
+}
+
+function expandedClarifyingAnswers(
+  snapshot: CampaignSnapshot,
+  answerValues: Record<string, string>,
+): Record<string, string> {
+  const expanded = { ...answerValues }
+  for (const { field, question } of clarifyingFields(snapshot)) {
+    const value = answerValues[field]?.trim()
+    if (!value) continue
+    expanded[field] = value
+    expanded[normalizeClarifyingQuestion(question)] = value
+    expanded[normalizeFieldKey(field)] = value
+  }
+  return expanded
+}
+
 export default function GoogleAds() {
   const { user, profile } = useAuth()
   const [settingsLoaded, setSettingsLoaded] = useState(false)
@@ -142,6 +295,32 @@ export default function GoogleAds() {
   const skipDraftSaveRef = useRef(true)
   const requestedPlatformsRef = useRef<AdPlatform[]>([...DEFAULT_AD_PLATFORMS])
   const [restoredDraft, setRestoredDraft] = useState(false)
+  const [draftNotice, setDraftNotice] = useState<string | null>(null)
+  const [draftAction, setDraftAction] = useState<'save' | 'discard' | null>(null)
+  const [geolocating, setGeolocating] = useState(false)
+  const geolocateAttemptedRef = useRef(false)
+  const formRef = useRef(form)
+  const [offeringCustom, setOfferingCustom] = useState(false)
+  const clarifyingAnswersRef = useRef<Record<string, string>>({})
+  const answersRef = useRef(answers)
+
+  useEffect(() => {
+    answersRef.current = answers
+  }, [answers])
+
+  function briefForSave(brief: BriefForm = formRef.current): BriefForm {
+    const clarifyingAnswers = mergeClarifyingAnswers(brief, {
+      clarifyingAnswers: clarifyingAnswersRef.current,
+    })
+    return {
+      ...brief,
+      ...(Object.keys(clarifyingAnswers).length > 0 ? { clarifyingAnswers } : {}),
+    }
+  }
+
+  useEffect(() => {
+    formRef.current = form
+  }, [form])
 
   useEffect(() => {
     if (!user) {
@@ -163,10 +342,14 @@ export default function GoogleAds() {
 
         configureAdCampaignApi(settings.adCampaignApiUrl || settings.defaultAdCampaignApiUrl)
 
-        const parsed = briefFormFromBackground(prompts.background, {
+        const parsed = campaignBriefFieldsFromBackground(prompts.background, {
           companyName: profile?.company_name,
         })
-        const merged = mergeCampaignBrief(parsed, settings.campaignBrief)
+        const merged = defaultBriefForNewCampaign(
+          parsed,
+          settings.campaignBrief,
+          settings.campaignDraft?.briefForm,
+        )
         setForm((current) => {
           if (!skipBriefSaveRef.current && current.platforms.length > 0) {
             return {
@@ -182,19 +365,46 @@ export default function GoogleAds() {
           return merged
         })
 
+        clarifyingAnswersRef.current = mergeClarifyingAnswers(
+          merged,
+          { clarifyingAnswers: settings.campaignBrief?.clarifyingAnswers },
+          { clarifyingAnswers: settings.campaignDraft?.answers },
+          { clarifyingAnswers: answersFromSnapshotBrief(settings.campaignDraft?.snapshot) },
+        )
+
         if (settings.campaignDraft?.snapshot) {
           skipDraftSaveRef.current = true
           requestedPlatformsRef.current = settings.campaignDraft.requestedPlatforms.length
             ? settings.campaignDraft.requestedPlatforms
             : merged.platforms
-          setAnswers(settings.campaignDraft.answers)
           setRevisionNotes(settings.campaignDraft.revisionNotes)
           setPublish(settings.campaignDraft.publish)
+
+          const restoredAnswers = resolveClarifyingAnswers(
+            settings.campaignDraft.snapshot,
+            settings.campaignDraft.answers,
+            clarifyingAnswersRef.current,
+            answersFromSnapshotBrief(settings.campaignDraft.snapshot),
+          )
+          clarifyingAnswersRef.current = expandedClarifyingAnswers(
+            settings.campaignDraft.snapshot,
+            restoredAnswers,
+          )
+          setAnswers(restoredAnswers)
+
           applySnapshot(
             settings.campaignDraft.snapshot,
             requestedPlatformsRef.current,
-            { persist: false },
+            {
+              persist: false,
+              answers: restoredAnswers,
+            },
           )
+
+          if (settings.campaignDraft.step === 'clarifying') {
+            setStep('clarifying')
+          }
+
           setRestoredDraft(true)
         }
       } catch {
@@ -222,13 +432,65 @@ export default function GoogleAds() {
     if (!briefLoaded || skipBriefSaveRef.current) return
 
     const timer = window.setTimeout(() => {
-      saveGoogleAdsCampaignBrief(form).catch(() => {
+      saveGoogleAdsCampaignBrief(briefForSave()).catch(() => {
         /* Best-effort autosave for campaign brief fields. */
       })
     }, 900)
 
     return () => window.clearTimeout(timer)
   }, [form, briefLoaded])
+
+  useEffect(() => {
+    if (!briefLoaded || skipBriefSaveRef.current || step !== 'clarifying' || !snapshot) return
+
+    const expanded = expandedClarifyingAnswers(snapshot, answersRef.current)
+    clarifyingAnswersRef.current = expanded
+
+    const timer = window.setTimeout(() => {
+      saveGoogleAdsCampaignBrief(briefForSave()).catch(() => {
+        /* Best-effort autosave for clarifying answers. */
+      })
+      saveGoogleAdsCampaignDraft({
+        step: 'clarifying',
+        snapshot,
+        answers: expanded,
+        revisionNotes,
+        publish,
+        requestedPlatforms: requestedPlatformsRef.current,
+        savedAt: new Date().toISOString(),
+        briefForm: formRef.current,
+      }).catch(() => {
+        /* Best-effort autosave for clarifying draft answers. */
+      })
+    }, 900)
+
+    return () => window.clearTimeout(timer)
+  }, [answers, step, briefLoaded, snapshot, revisionNotes, publish])
+
+  useEffect(() => {
+    if (!briefLoaded || geolocateAttemptedRef.current) return
+    if (form.locationScope !== 'local' || form.locations.trim()) return
+
+    geolocateAttemptedRef.current = true
+    let cancelled = false
+
+    setGeolocating(true)
+    detectLocalArea()
+      .then((location) => {
+        if (cancelled || !location) return
+        setForm((current) => ({ ...current, locations: location }))
+      })
+      .catch(() => {
+        /* Best-effort auto-detect on first load. */
+      })
+      .finally(() => {
+        if (!cancelled) setGeolocating(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [briefLoaded, form.locationScope, form.locations])
 
   function persistDraft(
     next: CampaignSnapshot,
@@ -239,29 +501,89 @@ export default function GoogleAds() {
     saveGoogleAdsCampaignDraft({
       step,
       snapshot: next,
-      answers: extras?.answers ?? answers,
+      answers: extras?.answers ?? answersRef.current,
       revisionNotes,
       publish,
       requestedPlatforms: requestedPlatformsRef.current,
       savedAt: new Date().toISOString(),
+      briefForm: formRef.current,
     }).catch(() => {
       /* Best-effort draft persist. */
     })
   }
 
+  async function handleSaveDraft() {
+    if (!snapshot || step === 'brief') {
+      setError('Nothing to save yet. Draft campaigns first.')
+      return
+    }
+
+    setDraftAction('save')
+    setError(null)
+    setDraftNotice(null)
+    try {
+      const expanded = expandedClarifyingAnswers(snapshot, answersRef.current)
+      await saveGoogleAdsCampaignDraft({
+        step,
+        snapshot,
+        answers: expanded,
+        revisionNotes,
+        publish,
+        requestedPlatforms: requestedPlatformsRef.current,
+        savedAt: new Date().toISOString(),
+        briefForm: formRef.current,
+      })
+      setRestoredDraft(true)
+      setDraftNotice('Draft saved. You can leave and pick up where you left off.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save draft')
+    } finally {
+      setDraftAction(null)
+    }
+  }
+
+  async function handleDiscardDraft() {
+    if (!snapshot) {
+      setError('No campaign draft to discard.')
+      return
+    }
+
+    setDraftAction('discard')
+    setError(null)
+    setDraftNotice(null)
+    try {
+      await saveGoogleAdsCampaignBrief(briefForSave())
+      await clearGoogleAdsCampaignDraft()
+      setStep('brief')
+      setSnapshot(null)
+      setAnswers({})
+      setRevisionNotes('')
+      setPublish(false)
+      setRestoredDraft(false)
+      setDraftNotice('Draft discarded.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to discard draft')
+    } finally {
+      setDraftAction(null)
+    }
+  }
+
   function applySnapshot(
     next: CampaignSnapshot,
     requestedPlatforms: AdPlatform[] = requestedPlatformsRef.current,
-    options: { persist?: boolean } = {},
+    options: { persist?: boolean; answers?: Record<string, string> } = {},
   ) {
     setSnapshot(next)
     if (next.status === 'clarification') {
-      const fields = next.missing_fields.length
-        ? next.missing_fields
-        : (next.interrupt?.missing_fields ?? [])
-      const nextAnswers: Record<string, string> = {}
-      for (const field of fields) nextAnswers[field] = answers[field] ?? ''
+      const nextAnswers = resolveClarifyingAnswers(
+        next,
+        options.answers,
+        answersRef.current,
+        clarifyingAnswersRef.current,
+        answersFromSnapshotBrief(next),
+      )
       setAnswers(nextAnswers)
+      clarifyingAnswersRef.current = expandedClarifyingAnswers(next, nextAnswers)
       setStep('clarifying')
       if (options.persist !== false) persistDraft(next, 'clarifying', { answers: nextAnswers })
       return
@@ -326,11 +648,11 @@ export default function GoogleAds() {
     setWorking(true)
     setError(null)
     try {
-      await saveGoogleAdsCampaignBrief(briefForm)
-      applySnapshot(
-        await createAdCampaign(brief, briefForm.platforms, briefForm.platformBudgetSplit),
-        briefForm.platforms,
-      )
+      await saveGoogleAdsCampaignBrief(briefForSave(briefForm))
+      const created = await createAdCampaign(brief, briefForm.platforms, briefForm.platformBudgetSplit)
+      applySnapshot(created, briefForm.platforms, {
+        answers: resolveClarifyingAnswers(created, clarifyingAnswersRef.current),
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to draft the campaign')
     } finally {
@@ -344,7 +666,14 @@ export default function GoogleAds() {
     setWorking(true)
     setError(null)
     try {
-      applySnapshot(await resumeAdCampaign(snapshot.thread_id, { answers }, snapshot))
+      const expanded = expandedClarifyingAnswers(snapshot, answers)
+      clarifyingAnswersRef.current = expanded
+      await saveGoogleAdsCampaignBrief(briefForSave())
+      applySnapshot(
+        await resumeAdCampaign(snapshot.thread_id, { answers }, snapshot),
+        undefined,
+        { answers: expanded },
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to continue')
     } finally {
@@ -387,11 +716,18 @@ export default function GoogleAds() {
 
     setReloadingBackground(true)
     setError(null)
+    setDraftNotice(null)
     skipBriefSaveRef.current = true
 
     try {
       const prompts = await fetchUserPrompts(user.id)
-      const parsed = briefFormFromBackground(prompts.background, {
+      const background = prompts.background.trim()
+      if (!background) {
+        setError('No business background saved yet. Add one under Account → Prompts.')
+        return
+      }
+
+      const parsed = campaignBriefFieldsFromBackground(background, {
         companyName: profile?.company_name,
       })
       const nextForm = mergeCampaignBrief(parsed, {
@@ -399,9 +735,11 @@ export default function GoogleAds() {
         goal: form.goal,
         platforms: form.platforms,
         platformBudgetSplit: form.platformBudgetSplit,
+        locationScope: form.locationScope,
       })
       setForm(nextForm)
-      await saveGoogleAdsCampaignBrief(nextForm)
+      await saveGoogleAdsCampaignBrief(briefForSave(nextForm))
+      setDraftNotice('Campaign brief updated from your saved business background.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reload business background')
     } finally {
@@ -418,6 +756,9 @@ export default function GoogleAds() {
     setPublish(false)
     setError(null)
     setRestoredDraft(false)
+    void saveGoogleAdsCampaignBrief(briefForSave()).catch(() => {
+      /* Best-effort. */
+    })
     void clearGoogleAdsCampaignDraft().catch(() => {
       /* Best-effort. */
     })
@@ -426,13 +767,14 @@ export default function GoogleAds() {
       return
     }
 
+    const currentForm = formRef.current
     skipBriefSaveRef.current = true
     Promise.all([fetchGoogleAdsSettings(), fetchUserPrompts(user.id)])
       .then(([settings, prompts]) => {
-        const parsed = briefFormFromBackground(prompts.background, {
+        const parsed = campaignBriefFieldsFromBackground(prompts.background, {
           companyName: profile?.company_name,
         })
-        setForm(mergeCampaignBrief(parsed, settings.campaignBrief))
+        setForm(defaultBriefForNewCampaign(parsed, settings.campaignBrief, currentForm))
       })
       .catch(() => {
         setForm(emptyBrief())
@@ -445,6 +787,41 @@ export default function GoogleAds() {
   function update<K extends keyof BriefForm>(key: K, value: BriefForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
   }
+
+  async function handleLocationScopeChange(scope: LocationScope) {
+    if (scope === form.locationScope) return
+
+    setError(null)
+
+    if (scope === 'local') {
+      setGeolocating(true)
+      setForm((current) => ({ ...current, locationScope: scope }))
+      try {
+        const location = await detectLocalArea()
+        setForm((current) => ({ ...current, locationScope: scope, locations: location }))
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not detect your location.')
+      } finally {
+        setGeolocating(false)
+      }
+      return
+    }
+
+    setForm((current) => ({
+      ...current,
+      locationScope: scope,
+      locations: LOCATION_SCOPE_DEFAULTS[scope],
+    }))
+  }
+
+  const locationPlaceholder =
+    form.locationScope === 'local'
+      ? 'City, ST and nearby suburbs'
+      : form.locationScope === 'regional'
+        ? 'Pacific Northwest, Texas Hill Country…'
+        : form.locationScope === 'us'
+          ? 'United States'
+          : 'Worldwide'
 
   function handlePlatformToggle(platform: AdPlatform) {
     setForm((current) => {
@@ -470,6 +847,28 @@ export default function GoogleAds() {
     }))
   }
 
+  const activeSplit = activeBudgetSplit(form.platforms, form.platformBudgetSplit)
+  const monthlyBudgetAmount = parseMonthlyBudget(form.monthlyBudget)
+  const offeringOptions = useMemo(
+    () => offeringOptionsForSelect(form.notes, form.offerings),
+    [form.notes, form.offerings],
+  )
+  const selectedOffering = selectedOfferingValue(form.offerings, offeringOptions)
+  const offeringSelectValue = offeringCustom
+    ? OFFERING_CUSTOM_SELECT_VALUE
+    : selectedOffering
+
+  useEffect(() => {
+    if (!briefLoaded) return
+
+    if (!form.offerings.trim()) {
+      setOfferingCustom(offeringOptions.length === 0)
+      return
+    }
+
+    setOfferingCustom(!offeringOptions.includes(selectedOffering))
+  }, [briefLoaded, form.offerings, offeringOptions, selectedOffering])
+
   if (!settingsLoaded) {
     return (
       <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
@@ -477,9 +876,6 @@ export default function GoogleAds() {
       </section>
     )
   }
-
-  const activeSplit = activeBudgetSplit(form.platforms, form.platformBudgetSplit)
-  const monthlyBudgetAmount = parseMonthlyBudget(form.monthlyBudget)
 
   return (
     <div className="space-y-6">
@@ -507,8 +903,14 @@ export default function GoogleAds() {
 
       {pageView === 'draft' && restoredDraft && snapshot ? (
         <div className="rounded-xl bg-teal-400/10 border border-teal-400/20 text-navy-800 text-sm px-4 py-3">
-          Picked up your saved draft from this account. Approve, send back, or start over — it stays
-          in Supabase until you draft another campaign.
+          Picked up your saved draft from this account. Approve, send back, save again, or discard it —
+          it stays in Supabase until you discard it or draft another campaign.
+        </div>
+      ) : null}
+
+      {pageView === 'draft' && draftNotice ? (
+        <div className="rounded-xl bg-teal-400/10 border border-teal-400/20 text-navy-800 text-sm px-4 py-3">
+          {draftNotice}
         </div>
       ) : null}
 
@@ -597,14 +999,41 @@ export default function GoogleAds() {
                   required
                 />
               </FormField>
-              <FormField label="Locations" id="ads-locations" required>
+              <FormField label="Location targeting" id="ads-location-scope" required>
+                <select
+                  id="ads-location-scope"
+                  value={form.locationScope}
+                  onChange={(e) => void handleLocationScopeChange(e.target.value as LocationScope)}
+                  className={inputClass}
+                  disabled={working || geolocating}
+                  required
+                >
+                  {LOCATION_SCOPES.map((scope) => (
+                    <option key={scope.value} value={scope.value}>
+                      {scope.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField
+                label="Locations"
+                id="ads-locations"
+                hint={
+                  form.locationScope === 'local'
+                    ? geolocating
+                      ? 'Detecting your location…'
+                      : 'Prefilled from your device when Local is selected. Edit as needed.'
+                    : undefined
+                }
+                required
+              >
                 <input
                   id="ads-locations"
                   value={form.locations}
                   onChange={(e) => update('locations', e.target.value)}
                   className={inputClass}
-                  placeholder="Austin, TX and nearby suburbs"
-                  disabled={working}
+                  placeholder={locationPlaceholder}
+                  disabled={working || geolocating}
                   required
                 />
               </FormField>
@@ -679,16 +1108,49 @@ export default function GoogleAds() {
                   />
                 )}
               </fieldset>
-              <FormField label="Products or services to advertise" id="ads-offerings" required>
-                <input
+              <FormField
+                label="Products or services to advertise"
+                id="ads-offerings"
+                hint="Choose from your business background, or select Other to enter manually. Reload from background to refresh the list."
+                required
+              >
+                <select
                   id="ads-offerings"
-                  value={form.offerings}
-                  onChange={(e) => update('offerings', e.target.value)}
+                  value={offeringSelectValue}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    if (value === OFFERING_CUSTOM_SELECT_VALUE) {
+                      setOfferingCustom(true)
+                      return
+                    }
+                    setOfferingCustom(false)
+                    update('offerings', value)
+                  }}
                   className={inputClass}
-                  placeholder="Exams, Invisalign, teeth whitening"
                   disabled={working}
-                  required
-                />
+                  required={!offeringCustom}
+                >
+                  <option value="" disabled>
+                    Select a product or service
+                  </option>
+                  {offeringOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                  <option value={OFFERING_CUSTOM_SELECT_VALUE}>Other…</option>
+                </select>
+                {offeringCustom ? (
+                  <input
+                    id="ads-offerings-custom"
+                    value={form.offerings}
+                    onChange={(e) => update('offerings', e.target.value)}
+                    className={`${inputClass} mt-2`}
+                    placeholder="Describe the product or service to advertise"
+                    disabled={working}
+                    required
+                  />
+                ) : null}
               </FormField>
               <FormField label="Who should see these ads?" id="ads-audience">
                 <input
@@ -750,18 +1212,24 @@ export default function GoogleAds() {
               </FormField>
             ))}
           </div>
-          <div className="flex gap-3 mt-8">
+          <div className="flex flex-wrap gap-3 mt-8">
             <button
               type="submit"
-              disabled={working}
+              disabled={working || draftAction !== null}
               className="bg-navy-900 text-cream font-medium px-6 py-3 rounded-xl hover:bg-navy-800 transition-colors disabled:opacity-60"
             >
               {working ? 'Continuing…' : 'Continue'}
             </button>
+            <DraftActionButtons
+              onSave={handleSaveDraft}
+              onDiscard={handleDiscardDraft}
+              working={draftAction}
+              disabled={working}
+            />
             <button
               type="button"
               onClick={handleReset}
-              disabled={working}
+              disabled={working || draftAction !== null}
               className="border border-navy-900/15 text-navy-900 font-medium px-6 py-3 rounded-xl hover:bg-navy-900/5 transition-colors"
             >
               Start over
@@ -815,7 +1283,7 @@ export default function GoogleAds() {
               <button
                 type="button"
                 onClick={() => handleApproval(true)}
-                disabled={working}
+                disabled={working || draftAction !== null}
                 className="bg-navy-900 text-cream font-medium px-6 py-3 rounded-xl hover:bg-navy-800 transition-colors disabled:opacity-60"
               >
                 {working ? 'Submitting…' : 'Approve draft'}
@@ -823,11 +1291,17 @@ export default function GoogleAds() {
               <button
                 type="button"
                 onClick={() => handleApproval(false)}
-                disabled={working}
+                disabled={working || draftAction !== null}
                 className="border border-navy-900/15 text-navy-900 font-medium px-6 py-3 rounded-xl hover:bg-navy-900/5 transition-colors disabled:opacity-60"
               >
                 Send back with notes
               </button>
+              <DraftActionButtons
+                onSave={handleSaveDraft}
+                onDiscard={handleDiscardDraft}
+                working={draftAction}
+                disabled={working}
+              />
             </div>
           </section>
         </div>
@@ -884,6 +1358,11 @@ export default function GoogleAds() {
             >
               How to import manually →
             </Link>
+            <DraftActionButtons
+              onSave={handleSaveDraft}
+              onDiscard={handleDiscardDraft}
+              working={draftAction}
+            />
             <button
               type="button"
               onClick={() => setPageView('performance')}
@@ -907,33 +1386,39 @@ export default function GoogleAds() {
   )
 }
 
-function clarifyingFields(
-  snapshot: CampaignSnapshot,
-): { field: string; question: string; hint: string }[] {
-  const fields = snapshot.missing_fields.length
-    ? snapshot.missing_fields
-    : (snapshot.interrupt?.missing_fields ?? [])
-  const questions = snapshot.clarifying_questions.length
-    ? snapshot.clarifying_questions
-    : (snapshot.interrupt?.questions ?? [])
-  if (fields.length === 0) {
-    return questions.map((question, index) => {
-      const field = `q${index + 1}`
-      return {
-        field,
-        question,
-        hint: clarifyingFieldHint(field, question),
-      }
-    })
-  }
-  return fields.map((field, index) => {
-    const question = questions[index] ?? field.replaceAll('_', ' ')
-    return {
-      field,
-      question,
-      hint: clarifyingFieldHint(field, question),
-    }
-  })
+function DraftActionButtons({
+  onSave,
+  onDiscard,
+  working,
+  disabled = false,
+}: {
+  onSave: () => void
+  onDiscard: () => void
+  working: 'save' | 'discard' | null
+  disabled?: boolean
+}) {
+  const busy = working !== null
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={busy || disabled}
+        className="border border-navy-900/15 text-navy-900 font-medium px-6 py-3 rounded-xl hover:bg-navy-900/5 transition-colors disabled:opacity-60"
+      >
+        {working === 'save' ? 'Saving…' : 'Save draft'}
+      </button>
+      <button
+        type="button"
+        onClick={onDiscard}
+        disabled={busy || disabled}
+        className="border border-red-200 text-red-700 font-medium px-6 py-3 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-60"
+      >
+        {working === 'discard' ? 'Discarding…' : 'Discard draft'}
+      </button>
+    </>
+  )
 }
 
 function CampaignPlanView({
