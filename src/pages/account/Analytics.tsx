@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchAnalyticsSummary, type AnalyticsSummary } from '../../lib/analytics'
+import {
+  fetchAnalyticsSummary,
+  fetchInboundAnalytics,
+  formatInboundSource,
+  totalInboundStored,
+  type AnalyticsSummary,
+  type InboundSummary,
+} from '../../lib/analytics'
 
 const PERIOD_OPTIONS = [
   { label: '7 days', value: 7 },
@@ -26,7 +33,13 @@ function StatCard({
   )
 }
 
-function DailyVolumeChart({ volume }: { volume: AnalyticsSummary['daily_volume'] }) {
+function DailyVolumeChart({
+  volume,
+  ariaLabel = 'Daily inbound message volume',
+}: {
+  volume: AnalyticsSummary['daily_volume']
+  ariaLabel?: string
+}) {
   if (!volume.length) {
     return (
       <p className="text-sm text-navy-600">
@@ -43,7 +56,7 @@ function DailyVolumeChart({ volume }: { volume: AnalyticsSummary['daily_volume']
       viewBox={`0 0 ${Math.max(volume.length * (barWidth + 8), 240)} 120`}
       className="w-full h-auto"
       role="img"
-      aria-label="Daily inbound message volume"
+      aria-label={ariaLabel}
     >
       {volume.map((entry, index) => {
         const x = index * (barWidth + 8) + 4
@@ -104,6 +117,7 @@ function formatSeconds(seconds: number | null): string {
 export default function Analytics() {
   const [days, setDays] = useState(30)
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null)
+  const [inbound, setInbound] = useState<InboundSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -111,10 +125,15 @@ export default function Analytics() {
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchAnalyticsSummary(periodDays)
-      setSummary(data)
+      const [summaryData, inboundData] = await Promise.all([
+        fetchAnalyticsSummary(periodDays),
+        fetchInboundAnalytics(periodDays),
+      ])
+      setSummary(summaryData)
+      setInbound(inboundData)
     } catch (err) {
       setSummary(null)
+      setInbound(null)
       setError(err instanceof Error ? err.message : 'Failed to load analytics')
     } finally {
       setLoading(false)
@@ -127,6 +146,10 @@ export default function Analytics() {
 
   const totalResponses =
     (summary?.responses.whatsapp_sent ?? 0) + (summary?.responses.email_sent ?? 0)
+
+  const inboundArchive = inbound ?? summary?.inbound
+  const inboundTotal = totalInboundStored(inboundArchive)
+  const inboundVolume = inboundArchive?.daily_volume ?? summary?.daily_volume ?? []
 
   return (
     <div className="space-y-6">
@@ -281,8 +304,125 @@ export default function Analytics() {
                   <span className="text-xs text-navy-500">Schema: {summary.tenant_schema}</span>
                 ) : null}
               </div>
-              <DailyVolumeChart volume={summary.daily_volume} />
+              <DailyVolumeChart volume={inboundVolume} />
             </section>
+
+            {inboundArchive ? (
+              <section className="rounded-2xl border border-navy-900/5 p-5 space-y-5">
+                <div>
+                  <h3 className="text-sm font-semibold text-navy-900 mb-1">Inbound message archive</h3>
+                  <p className="text-sm text-navy-600">
+                    Stored email and WhatsApp requests for statistics and marketing, including
+                    filtered messages that never reached the agent.
+                  </p>
+                </div>
+
+                {!inboundArchive.inbound_storage_enabled && inboundArchive.note ? (
+                  <div className="rounded-xl bg-amber-400/10 border border-amber-400/20 text-navy-800 text-sm px-4 py-3">
+                    {inboundArchive.note}
+                  </div>
+                ) : null}
+
+                <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <StatCard
+                    label="Stored messages"
+                    value={String(inboundTotal)}
+                    sub={`${inboundArchive.totals.dispatched} dispatched to agent`}
+                  />
+                  <StatCard
+                    label="Filtered / skipped"
+                    value={String(inboundArchive.totals.filtered)}
+                    sub="Sender, keyword, or empty-body filters"
+                  />
+                  <StatCard
+                    label="Dispatch failures"
+                    value={String(inboundArchive.totals.failed)}
+                    sub="Messages that failed to reach the agent"
+                  />
+                  <StatCard
+                    label="Awaiting disposition"
+                    value={String(inboundArchive.totals.received)}
+                    sub="Logged but not yet updated"
+                  />
+                </div>
+
+                <div className="grid lg:grid-cols-2 gap-4">
+                  <section className="rounded-xl border border-navy-900/5 p-4">
+                    <h4 className="text-sm font-semibold text-navy-900 mb-3">By channel</h4>
+                    {Object.keys(inboundArchive.by_channel).length > 0 ? (
+                      <ul className="space-y-2 text-sm text-navy-700">
+                        {Object.entries(inboundArchive.by_channel).map(([channel, stats]) => (
+                          <li key={channel} className="flex justify-between gap-4">
+                            <span className="capitalize">{channel}</span>
+                            <span className="font-medium text-navy-900">
+                              {stats.total}
+                              <span className="text-navy-500 font-normal">
+                                {' '}
+                                ({stats.dispatched} dispatched, {stats.filtered} filtered)
+                              </span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-navy-600">No archived messages yet.</p>
+                    )}
+                  </section>
+
+                  <section className="rounded-xl border border-navy-900/5 p-4">
+                    <h4 className="text-sm font-semibold text-navy-900 mb-3">By source</h4>
+                    {Object.keys(inboundArchive.by_source).length > 0 ? (
+                      <ul className="space-y-2 text-sm text-navy-700">
+                        {Object.entries(inboundArchive.by_source).map(([source, count]) => (
+                          <li key={source} className="flex justify-between gap-4">
+                            <span>{formatInboundSource(source)}</span>
+                            <span className="font-medium text-navy-900">{count}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-navy-600">No source breakdown yet.</p>
+                    )}
+                  </section>
+                </div>
+
+                {inboundArchive.top_senders.length > 0 ? (
+                  <section className="rounded-xl border border-navy-900/5 p-4">
+                    <h4 className="text-sm font-semibold text-navy-900 mb-3">Top senders</h4>
+                    <ul className="space-y-2 text-sm text-navy-700">
+                      {inboundArchive.top_senders.slice(0, 10).map((entry) => (
+                        <li
+                          key={`${entry.channel}:${entry.sender}`}
+                          className="flex justify-between gap-4"
+                        >
+                          <span className="truncate">
+                            {entry.sender}
+                            <span className="text-navy-500"> · {entry.channel}</span>
+                          </span>
+                          <span className="font-medium text-navy-900 shrink-0">{entry.count}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+
+                {inboundArchive.privacy ? (
+                  <section className="rounded-xl border border-navy-900/5 p-4">
+                    <h4 className="text-sm font-semibold text-navy-900 mb-2">Privacy policy</h4>
+                    <p className="text-sm text-navy-600">
+                      Full sender and message previews are kept for{' '}
+                      {inboundArchive.privacy.pii_redact_enabled
+                        ? `${inboundArchive.privacy.pii_redact_days} days`
+                        : 'the full retention window'}
+                      , then redacted to hashed identifiers while counts and trends remain.
+                      {inboundArchive.privacy.retention_enabled
+                        ? ` Records are deleted after ${inboundArchive.privacy.retention_days} days.`
+                        : ' Retention purge is disabled.'}
+                    </p>
+                  </section>
+                ) : null}
+              </section>
+            ) : null}
 
             <section className="rounded-2xl border border-navy-900/5 p-5">
               <h3 className="text-sm font-semibold text-navy-900 mb-4">Pipeline health</h3>

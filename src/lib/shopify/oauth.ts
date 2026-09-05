@@ -6,6 +6,7 @@ import {
 } from '../../constants/shopify'
 import { supabase } from '../supabase'
 import { getFunctionErrorMessage } from '../supabaseFunctions'
+import { pingEmailAssistantFromBrowser } from './storefrontSettings'
 
 const SHOPIFY_CLIENT_ID = import.meta.env.VITE_SHOPIFY_CLIENT_ID ?? ''
 
@@ -98,15 +99,37 @@ export async function fetchShopifyConnection(userId: string): Promise<ShopifyCon
   return data as ShopifyConnection
 }
 
-export async function disconnectShopify(): Promise<void> {
+export type ShopifyDisconnectResult = {
+  assistantReloaded: boolean
+  assistantReloadError?: string
+}
+
+export async function disconnectShopify(): Promise<ShopifyDisconnectResult> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
   }
 
   const result = await supabase.functions.invoke('shopify-oauth-disconnect')
+  const data = result.data as {
+    error?: string
+    assistant_url?: string | null
+    assistant_reloaded?: boolean
+    assistant_reload_error?: string
+  } | null
 
-  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
-    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  if (result.error || data?.error) {
+    throw new Error(await getFunctionErrorMessage(result.error, data))
+  }
+
+  const browserReload = await pingEmailAssistantFromBrowser(data?.assistant_url, {
+    clear_shopify: true,
+  })
+
+  return {
+    assistantReloaded: Boolean(data?.assistant_reloaded) || browserReload.ok,
+    assistantReloadError: data?.assistant_reloaded || browserReload.ok
+      ? undefined
+      : browserReload.detail ?? data?.assistant_reload_error,
   }
 }
 

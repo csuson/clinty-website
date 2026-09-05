@@ -8,6 +8,8 @@ type ColumnId =
   | 'user'
   | 'shopName'
   | 'shopDomain'
+  | 'storefrontToken'
+  | 'tokenType'
   | 'accessToken'
   | 'clientId'
   | 'scopes'
@@ -20,7 +22,9 @@ const COLUMNS: AdminTableColumn<ColumnId>[] = [
   { id: 'user', label: 'User', defaultWidth: 160, minWidth: 100 },
   { id: 'shopName', label: 'Store', defaultWidth: 140, minWidth: 100 },
   { id: 'shopDomain', label: 'Shop domain', defaultWidth: 180, minWidth: 120 },
-  { id: 'accessToken', label: 'Access token', defaultWidth: 200, minWidth: 140 },
+  { id: 'storefrontToken', label: 'Storefront token', defaultWidth: 220, minWidth: 140 },
+  { id: 'tokenType', label: 'Token type', defaultWidth: 110, minWidth: 90 },
+  { id: 'accessToken', label: 'OAuth token', defaultWidth: 180, minWidth: 120 },
   { id: 'clientId', label: 'Client ID', defaultWidth: 160, minWidth: 110 },
   { id: 'scopes', label: 'Scopes', defaultWidth: 220, minWidth: 140 },
   { id: 'connected', label: 'Connected', defaultWidth: 160, minWidth: 110 },
@@ -75,11 +79,27 @@ export default function AdminShopifyTokensTable({
             return <ExpandableText value={formatCellValue(token.shop_name)} expanded={expanded} />
           case 'shopDomain':
             return <ExpandableText value={formatCellValue(token.shop_domain)} expanded={expanded} monospace />
+          case 'storefrontToken':
+            return token.storefront_access_token ? (
+              <div className="flex items-start gap-2 flex-wrap">
+                <TokenCell value={token.storefront_access_token} expanded={expanded} />
+                <CopyButton value={token.storefront_access_token} label="Shopify Storefront token" />
+              </div>
+            ) : (
+              '—'
+            )
+          case 'tokenType':
+            return (
+              <ExpandableText
+                value={formatCellValue(token.storefront_access_token ? token.storefront_token_type : null)}
+                expanded={expanded}
+              />
+            )
           case 'accessToken':
             return token.access_token ? (
               <div className="flex items-start gap-2 flex-wrap">
                 <TokenCell value={token.access_token} expanded={expanded} />
-                <CopyButton value={token.access_token} label="Shopify access token" />
+                <CopyButton value={token.access_token} label="Shopify OAuth token" />
               </div>
             ) : (
               '—'

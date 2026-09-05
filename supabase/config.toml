@@ -43,6 +43,9 @@ verify_jwt = false
 [functions.analytics-summary]
 verify_jwt = false
 
+[functions.analytics-inbound]
+verify_jwt = false
+
 [functions.meta-oauth-exchange]
 verify_jwt = false
 

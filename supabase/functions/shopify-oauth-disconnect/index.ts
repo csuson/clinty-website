@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { notifyEmailAssistantRuntimeReload } from '../_shared/emailAssistant.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,7 +43,16 @@ Deno.serve(async (req) => {
       storefront_ready: false,
     })
 
-    return json({ success: true })
+    const assistantReload = await notifyEmailAssistantRuntimeReload(admin, user.id, {
+      clear_shopify: true,
+    })
+
+    return json({
+      success: true,
+      assistant_url: assistantReload.assistantUrl ?? null,
+      assistant_reloaded: assistantReload.ok,
+      assistant_reload_error: assistantReload.ok ? undefined : assistantReload.detail,
+    })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }

@@ -55,14 +55,18 @@ export default function ShopifyIntegration({ expanded, onToggle }: ShopifyIntegr
     setError(null)
     setSuccess(null)
     try {
-      await saveShopifyStorefront({
+      const saved = await saveShopifyStorefront({
         shopDomain: normalizedShop,
         storefrontToken: storefrontToken.trim(),
         tokenType,
       })
       setStorefrontToken('')
       await loadConnection()
-      setSuccess('Storefront saved. WhatsApp and email can now look up products and services.')
+      setSuccess(
+        saved.assistantReloaded
+          ? 'Storefront saved and the email assistant reloaded Shopify credentials.'
+          : `Storefront saved. Assistant reload failed: ${saved.assistantReloadError ?? 'unknown error'}`,
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save Shopify Storefront settings.')
     } finally {
@@ -75,11 +79,15 @@ export default function ShopifyIntegration({ expanded, onToggle }: ShopifyIntegr
     setError(null)
     setSuccess(null)
     try {
-      await disconnectShopify()
+      const disconnected = await disconnectShopify()
       setConnection(null)
       setShopInput('')
       setStorefrontToken('')
-      setSuccess('Shopify disconnected.')
+      setSuccess(
+        disconnected.assistantReloaded
+          ? 'Shopify disconnected and the email assistant cleared Storefront credentials.'
+          : 'Shopify disconnected. Restart the email assistant if it still uses the old store.',
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to disconnect Shopify')
     } finally {

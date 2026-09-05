@@ -75,6 +75,7 @@ The Vite dev/build tooling also loads this certificate for any Node-side HTTPS c
 | Sign Up | `/sign-up` |
 | Sign In | `/sign-in` |
 | Account | `/account` (protected) |
+| Analytics | `/account/analytics` |
 | Account Settings | `/account` |
 | Prompts | `/account/prompts` |
 | Billing | `/account/billing` |
@@ -141,6 +142,37 @@ Deploy the function:
 ```bash
 npm run supabase -- functions deploy agent-settings
 ```
+
+## Assistant Analytics
+
+The **Account → Analytics** page shows message volume, triage outcomes, replies, bookings, HITL activity, and the inbound message archive (stored email + WhatsApp requests from the deployed assistant).
+
+**Requirements:**
+
+1. **Agent Settings** — LangGraph deployment URL and a linked Clinty API key (`/account/api-keys` + Admin → Agent Settings).
+2. **Assistant Postgres** — The email assistant service must have `DATABASE_URI` set so events and inbound messages are persisted.
+
+**Edge Functions** (authenticated with the user's Supabase session; the function calls the assistant with the linked API key):
+
+| Function | Proxies to |
+|----------|------------|
+| `analytics-summary` | `GET /analytics/summary?days=N` |
+| `analytics-inbound` | `GET /analytics/inbound?days=N` |
+
+Deploy:
+
+```bash
+npm run supabase -- functions deploy analytics-summary
+npm run supabase -- functions deploy analytics-inbound
+```
+
+Optional Supabase secret (fallback when Agent Settings has no URL):
+
+```
+EMAIL_ASSISTANT_API_URL=https://your-email-assistant.onrender.com
+```
+
+The inbound archive section reflects the assistant's privacy policy: PII redaction after `INBOUND_PII_REDACT_DAYS` (default 30) and full row deletion after `INBOUND_RETENTION_DAYS` (default 365). Maintenance runs on the assistant via `POST /analytics/inbound/maintenance` or `email-assistant-inbound-maintenance`.
 
 ## Build
 

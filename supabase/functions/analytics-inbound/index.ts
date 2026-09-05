@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}))
     const days = parseDays(body.days)
-    const result = await fetchAssistantAnalytics(admin, user.id, 'summary', days)
+    const result = await fetchAssistantAnalytics(admin, user.id, 'inbound', days)
     if (!result.ok) {
       return json({ error: result.error }, result.status)
     }
