@@ -28,6 +28,12 @@ const connectionColumns =
 
 const WHATSAPP_FUNCTION_TIMEOUT_MS = 120_000
 const WHATSAPP_STATUS_TIMEOUT_MS = 30_000
+const WHATSAPP_TIMEOUT_MESSAGE =
+  'WhatsApp login timed out before Clinty finished talking to your gateway. Try again — the QR code may still appear after a few seconds. If it keeps failing, check that your gateway URL is reachable and responding quickly.'
+
+async function whatsappFunctionError(error: unknown, data: unknown): Promise<string> {
+  return getFunctionErrorMessage(error, data, { timeoutMessage: WHATSAPP_TIMEOUT_MESSAGE })
+}
 
 export async function fetchWhatsAppGatewaySettings(): Promise<WhatsAppGatewaySettings> {
   if (!supabase) {
@@ -40,7 +46,7 @@ export async function fetchWhatsAppGatewaySettings(): Promise<WhatsAppGatewaySet
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
-    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+    throw new Error(await whatsappFunctionError(result.error, result.data))
   }
 
   const row = (result.data && typeof result.data === 'object' ? result.data : {}) as Record<
@@ -72,7 +78,7 @@ export async function saveWhatsAppGateway(
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
-    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+    throw new Error(await whatsappFunctionError(result.error, result.data))
   }
 
   return {
@@ -111,7 +117,7 @@ export async function startWhatsAppLogin(): Promise<WhatsAppLoginStatus> {
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
-    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+    throw new Error(await whatsappFunctionError(result.error, result.data))
   }
 
   return normalizeLoginStatus(result.data)
@@ -128,7 +134,7 @@ export async function fetchWhatsAppLoginStatus(): Promise<WhatsAppLoginStatus> {
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
-    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+    throw new Error(await whatsappFunctionError(result.error, result.data))
   }
 
   return normalizeLoginStatus(result.data)
@@ -145,7 +151,7 @@ export async function stopWhatsAppLogin(): Promise<void> {
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
-    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+    throw new Error(await whatsappFunctionError(result.error, result.data))
   }
 }
 
@@ -165,7 +171,7 @@ export async function disconnectWhatsApp(): Promise<void> {
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
-    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+    throw new Error(await whatsappFunctionError(result.error, result.data))
   }
 }
 

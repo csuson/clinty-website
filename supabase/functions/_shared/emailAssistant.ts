@@ -195,33 +195,47 @@ export async function fetchAssistantAnalytics(
   }
 
   const path = endpoint === 'summary' ? '/analytics/summary' : '/analytics/inbound'
-  const response = await fetch(`${assistantUrl}${path}?days=${days}`, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'X-Clinty-Api-Key': apiKey,
-      'X-Api-Key': apiKey,
-      Accept: 'application/json',
-    },
-  })
+  try {
+    const response = await fetch(`${assistantUrl}${path}?days=${days}`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'X-Clinty-Api-Key': apiKey,
+        'X-Api-Key': apiKey,
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(20_000),
+    })
 
-  const payload = await response.json().catch(() => ({})) as Record<string, unknown>
-  if (!response.ok) {
-    const detail = typeof payload.detail === 'string'
-      ? payload.detail
-      : typeof payload.error === 'string'
-        ? payload.error
-        : `Assistant returned ${response.status}`
-    const hint = /invalid or missing api key/i.test(detail)
-      ? ' Confirm the Clinty API key linked in Agent Settings matches a live key from Account → API Keys. If you edited the key in Admin, paste the full clinty_sk_… value (not a masked preview).'
-      : ''
+    const payload = await response.json().catch(() => ({})) as Record<string, unknown>
+    if (!response.ok) {
+      const detail = typeof payload.detail === 'string'
+        ? payload.detail
+        : typeof payload.error === 'string'
+          ? payload.error
+          : `Assistant returned ${response.status}`
+      const hint = /invalid or missing api key/i.test(detail)
+        ? ' Confirm the Clinty API key linked in Agent Settings matches a live key from Account → API Keys. If you edited the key in Admin, paste the full clinty_sk_… value (not a masked preview).'
+        : ''
+      return {
+        ok: false,
+        status: response.status === 401 ? 401 : 502,
+        error: `${detail}${hint}`,
+      }
+    }
+
+    return { ok: true, data: payload }
+  } catch (err) {
+    const timedOut = err instanceof Error && /abort|timeout/i.test(err.message)
     return {
       ok: false,
-      status: response.status === 401 ? 401 : 502,
-      error: `${detail}${hint}`,
+      status: timedOut ? 504 : 502,
+      error: timedOut
+        ? 'The assistant did not respond in time. Confirm the LangGraph URL in Agent Settings is reachable.'
+        : err instanceof Error
+          ? err.message
+          : 'Could not reach the email assistant.',
     }
   }
-
-  return { ok: true, data: payload }
 }
 
 export function analyticsUnavailablePayload(

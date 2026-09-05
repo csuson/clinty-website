@@ -103,6 +103,8 @@ export type AnalyticsSummary = {
 }
 
 const ANALYTICS_TIMEOUT_MS = 30_000
+const ANALYTICS_TIMEOUT_MESSAGE =
+  'Analytics timed out before Clinty finished talking to the assistant. Try again, or confirm the LangGraph URL and Clinty API key in Agent Settings.'
 
 export class AnalyticsRequestError extends Error {
   tenants: AnalyticsTenant[] | null
@@ -142,7 +144,9 @@ async function invokeAnalyticsFunction<T>(
   if (result.error || hasFunctionFailure(result.data)) {
     const meta = readAnalyticsMeta(result.data)
     throw new AnalyticsRequestError(
-      await getFunctionErrorMessage(result.error, result.data),
+      await getFunctionErrorMessage(result.error, result.data, {
+        timeoutMessage: ANALYTICS_TIMEOUT_MESSAGE,
+      }),
       meta.tenants,
       meta.analyticsUserId,
     )

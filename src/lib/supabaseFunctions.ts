@@ -1,9 +1,13 @@
 import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@supabase/supabase-js'
 
+const DEFAULT_TIMEOUT_MESSAGE =
+  'The request timed out. Try again, or check that the service is reachable.'
+
 /** Extract the real error message from a Supabase Edge Function response. */
 export async function getFunctionErrorMessage(
   error: unknown,
   data: unknown,
+  options?: { timeoutMessage?: string },
 ): Promise<string> {
   if (data && typeof data === 'object') {
     if ('error' in data && typeof data.error === 'string' && data.error) {
@@ -21,7 +25,7 @@ export async function getFunctionErrorMessage(
         ? error.context
         : null
     if (cause && /aborted|timeout/i.test(cause)) {
-      return 'WhatsApp login timed out before Clinty finished talking to your gateway. Try again — the QR code may still appear after a few seconds. If it keeps failing, check that your gateway URL is reachable and responding quickly.'
+      return options?.timeoutMessage ?? DEFAULT_TIMEOUT_MESSAGE
     }
     if (cause && cause !== error.message) {
       return `Could not reach the Edge Function (${cause}). Check your connection, sign in again, or try refreshing the page.`
