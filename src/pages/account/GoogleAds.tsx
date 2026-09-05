@@ -28,6 +28,7 @@ import {
   offeringOptionsForSelect,
   selectedOfferingValue,
 } from '../../lib/googleAds/briefFromBackground'
+import { CAMPAIGN_MEDIA_ACCEPT, uploadCampaignMediaFiles } from '../../lib/googleAds/campaignMedia'
 import { detectLocalArea } from '../../lib/googleAds/geolocation'
 import {
   fetchGoogleAdsSettings,
@@ -333,6 +334,7 @@ export default function GoogleAds() {
   const [draftNotice, setDraftNotice] = useState<string | null>(null)
   const [draftAction, setDraftAction] = useState<'save' | 'discard' | null>(null)
   const [geolocating, setGeolocating] = useState(false)
+  const [uploadingMedia, setUploadingMedia] = useState(false)
   const geolocateAttemptedRef = useRef(false)
   const formRef = useRef(form)
   const [offeringCustom, setOfferingCustom] = useState(false)
@@ -692,7 +694,7 @@ export default function GoogleAds() {
       return
     }
     if (briefForm.platforms.length === 0) {
-      setError('Select at least one platform: Google Ads, Facebook / Instagram, or Yelp.')
+      setError('Select at least one platform: Google Ads, Facebook / Instagram, Yelp, or Reddit.')
       return
     }
 
@@ -793,6 +795,8 @@ export default function GoogleAds() {
         platforms: form.platforms,
         platformBudgetSplit: form.platformBudgetSplit,
         locationScope: form.locationScope,
+        mediaAssets: form.mediaAssets,
+        creativeFormats: form.creativeFormats,
       })
       setForm(nextForm)
       await saveGoogleAdsCampaignBrief(briefForSave(nextForm))
@@ -911,6 +915,24 @@ export default function GoogleAds() {
       ...current,
       mediaAssets: (current.mediaAssets ?? []).filter((_, itemIndex) => itemIndex !== index),
     }))
+  }
+
+  async function handleMediaUpload(fileList: FileList | null) {
+    const files = fileList ? [...fileList] : []
+    if (files.length === 0) return
+    setUploadingMedia(true)
+    setError(null)
+    try {
+      const uploaded = await uploadCampaignMediaFiles(files)
+      setForm((current) => ({
+        ...current,
+        mediaAssets: [...(current.mediaAssets ?? []).filter((asset) => asset.url.trim()), ...uploaded],
+      }))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload campaign media')
+    } finally {
+      setUploadingMedia(false)
+    }
   }
 
   function handlePlatformToggle(platform: AdPlatform) {
@@ -1296,12 +1318,34 @@ export default function GoogleAds() {
                 <div>
                   <h3 className="text-sm font-medium text-navy-900">Images, video, and carousel cards</h3>
                   <p className="text-xs text-navy-500 mt-1">
-                    Paste public HTTPS URLs from your website or CDN. Carousel ads need at least two images.
-                    Video ads need a public video file URL.
+                    Upload photos and videos from your computer, or paste public HTTPS URLs. Carousel ads
+                    need at least two images. Video ads need a video file.
                   </p>
                 </div>
+                <FormField label="Upload files" id="ads-media-upload">
+                  <input
+                    id="ads-media-upload"
+                    type="file"
+                    accept={CAMPAIGN_MEDIA_ACCEPT}
+                    multiple
+                    onChange={(e) => {
+                      void handleMediaUpload(e.target.files)
+                      e.target.value = ''
+                    }}
+                    disabled={working || uploadingMedia}
+                    className="block w-full text-sm text-navy-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-navy-900 file:text-cream hover:file:bg-navy-800 disabled:opacity-60"
+                  />
+                </FormField>
+                {uploadingMedia && <p className="text-xs text-navy-500">Uploading…</p>}
                 {(form.mediaAssets ?? []).map((asset, index) => (
-                  <div key={`${asset.url}-${index}`} className="grid sm:grid-cols-[7rem_1fr_1fr_auto] gap-2 items-end">
+                  <div key={`${asset.url}-${index}`} className="grid sm:grid-cols-[3.5rem_7rem_1fr_1fr_auto] gap-2 items-end">
+                    <div className="h-14 w-14 rounded-lg border border-navy-900/10 overflow-hidden bg-cream flex items-center justify-center">
+                      {asset.kind === 'image' && asset.url ? (
+                        <img src={asset.url} alt={asset.name || 'Creative'} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] uppercase text-navy-500">{asset.kind}</span>
+                      )}
+                    </div>
                     <FormField label="Type" id={`media-kind-${index}`}>
                       <select
                         id={`media-kind-${index}`}
@@ -1357,7 +1401,7 @@ export default function GoogleAds() {
 
             <button
               type="submit"
-              disabled={working}
+              disabled={working || uploadingMedia}
               className="mt-8 bg-navy-900 text-cream font-medium px-6 py-3 rounded-xl hover:bg-navy-800 transition-colors disabled:opacity-60"
             >
               {working ? 'Drafting campaigns…' : 'Draft campaigns'}

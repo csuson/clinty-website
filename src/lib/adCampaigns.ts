@@ -90,7 +90,7 @@ export function buildCreateCampaignRequest({
 }: CreateAdCampaignInput): Record<string, unknown> {
   const normalizedPlatforms = parseAdPlatforms(platforms)
   if (normalizedPlatforms.length === 0) {
-    throw new Error('Select at least one platform: Google Ads, Facebook / Instagram, or Yelp.')
+    throw new Error('Select at least one platform: Google Ads, Facebook / Instagram, Yelp, or Reddit.')
   }
 
   const split = budgetSplitForPlatforms(normalizedPlatforms, platformBudgetSplit)

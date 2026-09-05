@@ -45,6 +45,14 @@ type CampaignBrief = {
     reddit: number
   }
   clarifyingAnswers?: Record<string, string>
+  mediaAssets?: Array<{
+    name: string
+    kind: 'image' | 'video'
+    url: string
+    headline?: string
+    description?: string
+  }>
+  creativeFormats?: Array<'image' | 'video' | 'carousel'>
 }
 
 Deno.serve(async (req) => {
@@ -345,6 +353,8 @@ function parseCampaignBrief(value: unknown): CampaignBrief | null {
     platforms: parsePlatforms(row.platforms),
     platformBudgetSplit: parsePlatformBudgetSplit(row.platformBudgetSplit, parsePlatforms(row.platforms)),
     clarifyingAnswers,
+    mediaAssets: parseMediaAssets(row.mediaAssets),
+    creativeFormats: parseCreativeFormats(row.creativeFormats),
   }
 
   const hasContent = Boolean(
@@ -356,6 +366,7 @@ function parseCampaignBrief(value: unknown): CampaignBrief | null {
     || brief.offerings.trim()
     || brief.audience.trim()
     || brief.notes.trim()
+    || brief.mediaAssets.length > 0
     || Object.keys(clarifyingAnswers).length > 0,
   )
   return hasContent ? brief : null
@@ -380,6 +391,8 @@ function parseCampaignBriefInput(value: unknown): CampaignBrief {
     platforms: ['google', 'facebook'],
     platformBudgetSplit: { google: 55, facebook: 45, yelp: 0, reddit: 0 },
     clarifyingAnswers: parseStringRecord(row.clarifyingAnswers),
+    mediaAssets: [],
+    creativeFormats: ['image', 'video', 'carousel'],
   }
 }
 
@@ -428,6 +441,31 @@ function parseStringRecord(value: unknown): Record<string, string> {
     if (typeof item === 'string') out[key] = item
   }
   return out
+}
+
+function parseMediaAssets(value: unknown): NonNullable<CampaignBrief['mediaAssets']> {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const row = item as Record<string, unknown>
+    const url = stringField(row.url).trim()
+    if (!url) return []
+    return [{
+      name: stringField(row.name),
+      kind: row.kind === 'video' ? 'video' : 'image',
+      url,
+      headline: stringField(row.headline),
+      description: stringField(row.description),
+    }]
+  })
+}
+
+function parseCreativeFormats(value: unknown): NonNullable<CampaignBrief['creativeFormats']> {
+  if (!Array.isArray(value)) return ['image', 'video', 'carousel']
+  const formats = value.filter((item): item is 'image' | 'video' | 'carousel' => (
+    item === 'image' || item === 'video' || item === 'carousel'
+  ))
+  return formats.length > 0 ? formats : ['image', 'video', 'carousel']
 }
 
 function parsePlatforms(value: unknown): string[] {
