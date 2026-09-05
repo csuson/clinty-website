@@ -1,3 +1,53 @@
+const FIELD_LABELS: Record<string, string> = {
+  yelp_business_id: 'What is the Yelp business ID?',
+  claims_to_avoid: 'Are there restricted claims we should avoid?',
+  restricted_claims: 'Are there restricted claims we should avoid?',
+  restricted_claim: 'Are there restricted claims we should avoid?',
+  policy_claims: 'Are there restricted claims we should avoid?',
+}
+
+export function normalizeClarifyingFieldKey(field: string): string {
+  return field
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+}
+
+function humanizeField(field: string): string {
+  const words = normalizeClarifyingFieldKey(field).replace(/_/g, ' ').trim()
+  if (!words) return field
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+export function questionMatchesField(field: string, question: string): boolean {
+  const key = normalizeClarifyingFieldKey(field)
+  const q = question.trim().toLowerCase()
+  if (!key || !q) return false
+
+  if (/(restricted\s+claim|claims?\s+to\s+avoid|policy[- ]safe|superlative|#1)/.test(q)) {
+    return /claim|restrict|policy|avoid/.test(key)
+  }
+  if (/yelp/.test(q) && /business/.test(q)) {
+    return key.includes('yelp')
+  }
+
+  const tokens = key.split('_').filter((token) => token.length > 2)
+  if (tokens.length === 0) return true
+  const hits = tokens.filter((token) => q.includes(token)).length
+  return tokens.length === 1 ? hits === 1 : hits >= 2
+}
+
+export function clarifyingFieldLabel(field: string, question?: string): string {
+  const key = normalizeClarifyingFieldKey(field)
+  const known = FIELD_LABELS[key]
+  const trimmed = question?.trim() ?? ''
+  if (trimmed && questionMatchesField(field, trimmed)) return trimmed
+  if (known) return known
+  if (trimmed) return trimmed
+  return humanizeField(field)
+}
+
 const EXACT_FIELD_HINTS: Record<string, string> = {
   business_name:
     'The public-facing name customers recognize — match what appears on your website and Google Business Profile.',
@@ -53,16 +103,16 @@ const EXACT_FIELD_HINTS: Record<string, string> = {
     'Tone for ad copy: professional, friendly, luxury, technical, etc.',
   claims_to_avoid:
     'Phrases, superlatives, or promises Google or your industry restricts.',
+  restricted_claims:
+    'Note restricted claims (e.g. “#1”, medical guarantees) so drafts stay policy-safe.',
+  restricted_claim:
+    'Note restricted claims (e.g. “#1”, medical guarantees) so drafts stay policy-safe.',
   notes:
     'Anything else the campaign agent should know before drafting keywords and ads.',
 }
 
 export function clarifyingFieldHint(field: string, question: string): string {
-  const key = field
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_|_$/g, '')
+  const key = normalizeClarifyingFieldKey(field)
 
   if (key && EXACT_FIELD_HINTS[key]) {
     return EXACT_FIELD_HINTS[key]

@@ -51,7 +51,11 @@ import {
   type AdPlatform,
   type PlatformBudgetSplit,
 } from '../../lib/googleAds/budgetSplit'
-import { clarifyingFieldHint } from '../../lib/googleAds/clarifyingHints'
+import {
+  clarifyingFieldHint,
+  clarifyingFieldLabel,
+  questionMatchesField,
+} from '../../lib/googleAds/clarifyingHints'
 import { fetchUserPrompts } from '../../lib/prompts'
 
 type Step = 'brief' | 'clarifying' | 'review' | 'complete'
@@ -223,12 +227,19 @@ function clarifyingFields(
       }
     })
   }
-  return fields.map((field, index) => {
-    const question = questions[index] ?? field.replaceAll('_', ' ')
+  const usedQuestions = new Set<number>()
+  return fields.map((field) => {
+    const matchedIndex = questions.findIndex(
+      (candidate, questionIndex) =>
+        !usedQuestions.has(questionIndex) && questionMatchesField(field, candidate),
+    )
+    if (matchedIndex >= 0) usedQuestions.add(matchedIndex)
+    const matchedQuestion = matchedIndex >= 0 ? questions[matchedIndex] : ''
+    const question = clarifyingFieldLabel(field, matchedQuestion)
     return {
       field,
       question,
-      hint: clarifyingFieldHint(field, question),
+      hint: clarifyingFieldHint(field, matchedQuestion || question),
     }
   })
 }
