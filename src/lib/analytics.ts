@@ -1,6 +1,13 @@
 import { supabase } from './supabase'
 import { getFunctionErrorMessage } from './supabaseFunctions'
 
+export type AnalyticsTenant = {
+  user_id: string
+  email: string | null
+  name: string | null
+  company_name: string | null
+}
+
 export type InboundChannelStats = {
   received: number
   dispatched: number
@@ -40,6 +47,8 @@ export type InboundSummary = {
     email: number
     total: number
   }>
+  analytics_user_id?: string
+  analytics_tenants?: AnalyticsTenant[] | null
 }
 
 export type AnalyticsSummary = {
@@ -89,33 +98,70 @@ export type AnalyticsSummary = {
     total: number
   }>
   inbound?: InboundSummary
+  analytics_user_id?: string
+  analytics_tenants?: AnalyticsTenant[] | null
 }
 
 const ANALYTICS_TIMEOUT_MS = 30_000
 
-async function invokeAnalyticsFunction<T>(functionName: string, days: number): Promise<T> {
+export class AnalyticsRequestError extends Error {
+  tenants: AnalyticsTenant[] | null
+  analyticsUserId?: string
+
+  constructor(message: string, tenants: AnalyticsTenant[] | null = null, analyticsUserId?: string) {
+    super(message)
+    this.name = 'AnalyticsRequestError'
+    this.tenants = tenants
+    this.analyticsUserId = analyticsUserId
+  }
+}
+
+function readAnalyticsMeta(data: unknown): { tenants: AnalyticsTenant[] | null; analyticsUserId?: string } {
+  if (!data || typeof data !== 'object') return { tenants: null }
+  const record = data as { analytics_tenants?: unknown; analytics_user_id?: unknown }
+  return {
+    tenants: Array.isArray(record.analytics_tenants) ? record.analytics_tenants as AnalyticsTenant[] : null,
+    analyticsUserId: typeof record.analytics_user_id === 'string' ? record.analytics_user_id : undefined,
+  }
+}
+
+async function invokeAnalyticsFunction<T>(
+  functionName: string,
+  days: number,
+  userId?: string,
+): Promise<T> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
   }
 
   const result = await supabase.functions.invoke(functionName, {
-    body: { days },
+    body: { days, user_id: userId },
     timeout: ANALYTICS_TIMEOUT_MS,
   })
 
   if (result.error || hasFunctionFailure(result.data)) {
-    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+    const meta = readAnalyticsMeta(result.data)
+    throw new AnalyticsRequestError(
+      await getFunctionErrorMessage(result.error, result.data),
+      meta.tenants,
+      meta.analyticsUserId,
+    )
   }
 
   return result.data as T
 }
 
-export async function fetchAnalyticsSummary(days = 30): Promise<AnalyticsSummary> {
-  return invokeAnalyticsFunction<AnalyticsSummary>('analytics-summary', days)
+export async function fetchAnalyticsSummary(days = 30, userId?: string): Promise<AnalyticsSummary> {
+  return invokeAnalyticsFunction<AnalyticsSummary>('analytics-summary', days, userId)
 }
 
-export async function fetchInboundAnalytics(days = 30): Promise<InboundSummary> {
-  return invokeAnalyticsFunction<InboundSummary>('analytics-inbound', days)
+export async function fetchInboundAnalytics(days = 30, userId?: string): Promise<InboundSummary> {
+  return invokeAnalyticsFunction<InboundSummary>('analytics-inbound', days, userId)
+}
+
+export function formatAnalyticsTenant(tenant: AnalyticsTenant): string {
+  const parts = [tenant.name, tenant.company_name, tenant.email].filter(Boolean)
+  return parts.length > 0 ? parts.join(' · ') : tenant.user_id
 }
 
 function hasFunctionFailure(data: unknown): boolean {

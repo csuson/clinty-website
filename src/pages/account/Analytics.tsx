@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { inputClass } from '../../constants/forms'
+import { isAdminEmail } from '../../constants/admin'
+import { useAuth } from '../../context/AuthContext'
+import { fetchAdminData } from '../../lib/admin'
 import {
+  AnalyticsRequestError,
   fetchAnalyticsSummary,
   fetchInboundAnalytics,
+  formatAnalyticsTenant,
   formatInboundSource,
   totalInboundStored,
   type AnalyticsSummary,
+  type AnalyticsTenant,
   type InboundSummary,
 } from '../../lib/analytics'
 
@@ -115,25 +122,44 @@ function formatSeconds(seconds: number | null): string {
 }
 
 export default function Analytics() {
+  const { user, profile } = useAuth()
+  const isAdmin = isAdminEmail(user?.email) || isAdminEmail(profile?.email)
   const [days, setDays] = useState(30)
+  const [selectedUserId, setSelectedUserId] = useState<string | undefined>(undefined)
+  const [tenants, setTenants] = useState<AnalyticsTenant[]>([])
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null)
   const [inbound, setInbound] = useState<InboundSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const showAccountPicker = isAdmin || tenants.length > 0
 
-  const loadSummary = useCallback(async (periodDays: number) => {
+  const loadSummary = useCallback(async (periodDays: number, userId?: string) => {
     setLoading(true)
     setError(null)
     try {
       const [summaryData, inboundData] = await Promise.all([
-        fetchAnalyticsSummary(periodDays),
-        fetchInboundAnalytics(periodDays),
+        fetchAnalyticsSummary(periodDays, userId),
+        fetchInboundAnalytics(periodDays, userId),
       ])
       setSummary(summaryData)
       setInbound(inboundData)
+      if (summaryData.analytics_tenants?.length) {
+        setTenants(summaryData.analytics_tenants)
+      }
+      if (summaryData.analytics_user_id && summaryData.analytics_user_id !== userId) {
+        setSelectedUserId(summaryData.analytics_user_id)
+      }
     } catch (err) {
       setSummary(null)
       setInbound(null)
+      if (err instanceof AnalyticsRequestError) {
+        if (err.tenants?.length) {
+          setTenants(err.tenants)
+        }
+        if (err.analyticsUserId && err.analyticsUserId !== userId) {
+          setSelectedUserId(err.analyticsUserId)
+        }
+      }
       setError(err instanceof Error ? err.message : 'Failed to load analytics')
     } finally {
       setLoading(false)
@@ -141,8 +167,32 @@ export default function Analytics() {
   }, [])
 
   useEffect(() => {
-    void loadSummary(days)
-  }, [days, loadSummary])
+    if (!isAdmin) return
+    let cancelled = false
+    void fetchAdminData()
+      .then((data) => {
+        if (cancelled || data.users.length === 0) return
+        setTenants((current) => {
+          if (current.length > 0) return current
+          return data.users.map((account) => ({
+            user_id: account.id,
+            email: account.email ?? null,
+            name: account.full_name ?? null,
+            company_name: account.company_name ?? null,
+          }))
+        })
+      })
+      .catch(() => {
+        // Analytics responses may still populate the account list.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isAdmin])
+
+  useEffect(() => {
+    void loadSummary(days, selectedUserId)
+  }, [days, selectedUserId, loadSummary])
 
   const totalResponses =
     (summary?.responses.whatsapp_sent ?? 0) + (summary?.responses.email_sent ?? 0)
@@ -159,24 +209,49 @@ export default function Analytics() {
             <h2 className="font-serif text-2xl text-navy-900 mb-2">Assistant Analytics</h2>
             <p className="text-sm text-navy-600">
               Message volume, triage outcomes, replies, bookings, and human review activity
-              from your deployed assistant.
+              {showAccountPicker
+                ? ' from any Clinty account’s deployed assistant.'
+                : ' from your deployed assistant.'}
             </p>
           </div>
-          <div className="flex gap-2">
-            {PERIOD_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setDays(option.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  days === option.value
-                    ? 'bg-navy-900 text-cream'
-                    : 'bg-navy-900/5 text-navy-700 hover:bg-navy-900/10'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
+          <div className="flex flex-col sm:items-end gap-2">
+            {showAccountPicker ? (
+              <label className="block w-full sm:w-80">
+                <span className="block text-xs font-medium text-navy-600 mb-1">Account</span>
+                <select
+                  value={selectedUserId ?? summary?.analytics_user_id ?? ''}
+                  onChange={(event) => setSelectedUserId(event.target.value || undefined)}
+                  className={inputClass}
+                  disabled={tenants.length === 0}
+                >
+                  {tenants.length === 0 ? (
+                    <option value="">Loading accounts…</option>
+                  ) : (
+                    tenants.map((tenant) => (
+                      <option key={tenant.user_id} value={tenant.user_id}>
+                        {formatAnalyticsTenant(tenant)}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </label>
+            ) : null}
+            <div className="flex gap-2">
+              {PERIOD_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setDays(option.value)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    days === option.value
+                      ? 'bg-navy-900 text-cream'
+                      : 'bg-navy-900/5 text-navy-700 hover:bg-navy-900/10'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

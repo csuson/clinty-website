@@ -1,8 +1,21 @@
+import { isAdminEmail } from './adminAuth.ts'
+
 type AdminClient = {
   from: (table: string) => {
     select: (columns: string) => Record<string, any>
   }
 }
+
+export type AnalyticsTenant = {
+  user_id: string
+  email: string | null
+  name: string | null
+  company_name: string | null
+}
+
+export type AnalyticsTarget =
+  | { ok: true; userId: string; tenants: AnalyticsTenant[] | null }
+  | { ok: false; status: number; error: string }
 
 export type AssistantAnalyticsResult =
   | { ok: true; data: Record<string, unknown> }
@@ -101,6 +114,57 @@ async function postAssistantReload(
   }
 }
 
+export async function listAnalyticsTenants(admin: AdminClient): Promise<AnalyticsTenant[]> {
+  const [{ data: settings }, { data: profiles }] = await Promise.all([
+    admin.from('agent_settings').select('user_id'),
+    admin.from('profiles').select('id, email, full_name, company_name').order('created_at', { ascending: false }),
+  ])
+
+  const withAssistant = new Set(
+    (settings ?? []).map((row) => String(row.user_id ?? '')).filter(Boolean),
+  )
+
+  return (profiles ?? [])
+    .map((profile) => ({
+      user_id: String(profile.id ?? ''),
+      email: typeof profile.email === 'string' ? profile.email : null,
+      name: typeof profile.full_name === 'string' ? profile.full_name : null,
+      company_name: typeof profile.company_name === 'string' ? profile.company_name : null,
+    }))
+    .filter((tenant) => tenant.user_id)
+    .sort((left, right) => {
+      const leftReady = withAssistant.has(left.user_id) ? 0 : 1
+      const rightReady = withAssistant.has(right.user_id) ? 0 : 1
+      return leftReady - rightReady
+    })
+}
+
+export async function resolveAnalyticsTarget(
+  admin: AdminClient,
+  caller: { id: string; email?: string | null },
+  requestedUserId: unknown,
+): Promise<AnalyticsTarget> {
+  const isAdmin = isAdminEmail(caller.email)
+  const tenants = isAdmin ? await listAnalyticsTenants(admin) : null
+  const requested = typeof requestedUserId === 'string' ? requestedUserId.trim() : ''
+
+  if (requested) {
+    if (requested !== caller.id && !isAdmin) {
+      return { ok: false, status: 403, error: 'Only admin users can view another account’s analytics.' }
+    }
+    return { ok: true, userId: requested, tenants }
+  }
+
+  if (isAdmin && tenants?.length) {
+    const ownUrl = await resolveAssistantUrl(admin, caller.id)
+    if (!ownUrl) {
+      return { ok: true, userId: tenants[0].user_id, tenants }
+    }
+  }
+
+  return { ok: true, userId: caller.id, tenants }
+}
+
 export async function fetchAssistantAnalytics(
   admin: AdminClient,
   userId: string,
@@ -158,6 +222,59 @@ export async function fetchAssistantAnalytics(
   }
 
   return { ok: true, data: payload }
+}
+
+export function analyticsUnavailablePayload(
+  endpoint: 'summary' | 'inbound',
+  days: number,
+  target: Extract<AnalyticsTarget, { ok: true }>,
+  error: string,
+): Record<string, unknown> {
+  const shared = {
+    period_days: days,
+    tenant_schema: null,
+    note: error,
+    analytics_user_id: target.userId,
+    analytics_tenants: target.tenants,
+  }
+
+  if (endpoint === 'inbound') {
+    return {
+      ...shared,
+      inbound_storage_enabled: false,
+      totals: { received: 0, dispatched: 0, filtered: 0, failed: 0 },
+      by_channel: {},
+      by_source: {},
+      top_senders: [],
+      daily_volume: [],
+    }
+  }
+
+  return {
+    ...shared,
+    analytics_enabled: false,
+    messages: {
+      total_received: 0,
+      whatsapp_received: 0,
+      email_received: 0,
+      dispatched: 0,
+      dispatch_failed: 0,
+      daily_limit_reached: 0,
+    },
+    triage: { respond: 0, ignore: 0, notify: 0, by_request_type: {} },
+    responses: { whatsapp_sent: 0, email_sent: 0, auto_sent: 0, manual_approved: 0 },
+    bookings: { created: 0, failed: 0 },
+    hitl: {
+      triage_reviewed: 0,
+      tool_reviewed: 0,
+      approved: 0,
+      edited: 0,
+      ignored: 0,
+      responded_with_feedback: 0,
+    },
+    performance: { avg_response_time_seconds: null },
+    daily_volume: [],
+  }
 }
 
 export function validateAssistantApiKeyFormat(apiKey: string): string | null {

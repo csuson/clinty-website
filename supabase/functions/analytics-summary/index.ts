@@ -1,5 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { fetchAssistantAnalytics } from '../_shared/emailAssistant.ts'
+import {
+  analyticsUnavailablePayload,
+  fetchAssistantAnalytics,
+  resolveAnalyticsTarget,
+} from '../_shared/emailAssistant.ts'
+
+// Force a fresh bundle so admin tenant lists are included.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,12 +48,24 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}))
     const days = parseDays(body.days)
-    const result = await fetchAssistantAnalytics(admin, user.id, 'summary', days)
+    const target = await resolveAnalyticsTarget(admin, user, body.user_id)
+    if (!target.ok) {
+      return json({ error: target.error }, target.status)
+    }
+
+    const result = await fetchAssistantAnalytics(admin, target.userId, 'summary', days)
     if (!result.ok) {
+      if (target.tenants) {
+        return json(analyticsUnavailablePayload('summary', days, target, result.error))
+      }
       return json({ error: result.error }, result.status)
     }
 
-    return json(result.data)
+    return json({
+      ...result.data,
+      analytics_user_id: target.userId,
+      analytics_tenants: target.tenants,
+    })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }
