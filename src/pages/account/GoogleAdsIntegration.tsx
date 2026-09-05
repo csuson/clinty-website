@@ -7,9 +7,11 @@ import { GoogleAdsIcon } from '../../components/IntegrationIcons'
 import {
   emptyFacebookCredentialForm,
   emptyGoogleAdsCredentialForm,
+  emptyRedditCredentialForm,
   emptyYelpCredentialForm,
   type FacebookCredentialForm,
   type GoogleAdsCredentialForm,
+  type RedditCredentialForm,
   type YelpCredentialForm,
 } from '../../constants/adPlatformCredentials'
 import { isGoogleAdsOAuthConfigured } from '../../constants/googleAdsOAuth'
@@ -72,9 +74,10 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
   const [googleForm, setGoogleForm] = useState<GoogleAdsCredentialForm>(emptyGoogleAdsCredentialForm())
   const [facebookForm, setFacebookForm] = useState<FacebookCredentialForm>(emptyFacebookCredentialForm())
   const [yelpForm, setYelpForm] = useState<YelpCredentialForm>(emptyYelpCredentialForm())
+  const [redditForm, setRedditForm] = useState<RedditCredentialForm>(emptyRedditCredentialForm())
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
-  const [savingPlatform, setSavingPlatform] = useState<'google' | 'facebook' | 'yelp' | null>(null)
+  const [savingPlatform, setSavingPlatform] = useState<'google' | 'facebook' | 'yelp' | 'reddit' | null>(null)
   const [lookingUpCustomers, setLookingUpCustomers] = useState(false)
   const [googleCustomers, setGoogleCustomers] = useState<GoogleAdsCustomerOption[]>([])
   const [metaPicker, setMetaPicker] = useState<MetaOAuthPickerData | null>(null)
@@ -106,6 +109,12 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
       businessId: status.yelp.businessId,
       apiBase: status.yelp.apiBase,
       password: '',
+    }))
+    setRedditForm((current) => ({
+      ...current,
+      adAccountId: status.reddit.adAccountId,
+      pixelId: status.reddit.pixelId,
+      accessToken: '',
     }))
   }
 
@@ -253,14 +262,36 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
     }
   }
 
-  async function handleClearCredentials(platform: 'google' | 'facebook' | 'yelp') {
+  async function handleSaveRedditCredentials() {
+    setSavingPlatform('reddit')
+    setError(null)
+    setSuccess(null)
+    try {
+      const status = await savePlatformCredentials({ reddit: redditForm })
+      applyCredentialStatus(status)
+      setSuccess('Reddit Ads publish credentials saved.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save Reddit credentials')
+    } finally {
+      setSavingPlatform(null)
+    }
+  }
+
+  async function handleClearCredentials(platform: 'google' | 'facebook' | 'yelp' | 'reddit') {
     setSavingPlatform(platform)
     setError(null)
     setSuccess(null)
     try {
       const status = await clearPlatformCredentials(platform)
       applyCredentialStatus(status)
-      setSuccess(`${platform === 'facebook' ? 'Meta' : platform === 'google' ? 'Google Ads' : 'Yelp'} credentials cleared.`)
+      const label = platform === 'facebook'
+        ? 'Meta'
+        : platform === 'google'
+          ? 'Google Ads'
+          : platform === 'reddit'
+            ? 'Reddit'
+            : 'Yelp'
+      setSuccess(`${label} credentials cleared.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to clear credentials')
     } finally {
@@ -279,6 +310,7 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
       setGoogleForm(emptyGoogleAdsCredentialForm())
       setFacebookForm(emptyFacebookCredentialForm())
       setYelpForm(emptyYelpCredentialForm())
+      setRedditForm(emptyRedditCredentialForm())
       setSuccess('Ad campaign settings cleared.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to clear Google Ads settings')
@@ -299,7 +331,7 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
       && (metaPicker.adAccounts.length > 1 || metaPicker.pages.length > 1),
   )
 
-  const publishReady = creds.google.configured || creds.facebook.configured || creds.yelp.configured
+  const publishReady = creds.google.configured || creds.facebook.configured || creds.yelp.configured || creds.reddit.configured
 
   let panelStatus: IntegrationStatusKind = 'disconnected'
   let panelStatusLabel = 'Not configured'
@@ -326,7 +358,7 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
     >
       <p className="text-sm text-navy-600 mb-6">
         Connect your campaign AI service and ad platform credentials so Clinty can draft campaigns
-        and publish paused ads to Google Ads, Meta, and Yelp after you approve.
+        and publish paused ads to Google Ads, Meta, Yelp, and Reddit after you approve.
       </p>
 
       {error && (
@@ -780,6 +812,70 @@ export default function GoogleAdsIntegration({ expanded, onToggle }: GoogleAdsIn
                   className="border border-navy-900/15 text-navy-900 font-medium px-5 py-2.5 rounded-xl hover:bg-navy-900/5 transition-colors text-sm disabled:opacity-60"
                 >
                   Clear Yelp
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-cream border border-navy-900/5 p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-navy-900 mb-1">Reddit Ads publish credentials</h3>
+                <p className="text-sm text-navy-600">
+                  OAuth access token and ad account from Reddit Ads Manager. Campaigns are created paused.
+                </p>
+              </div>
+              <ConfigBadge configured={creds.reddit.configured} />
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <FormField label="Access token" id="reddit-access-token">
+                <SecretInput
+                  id="reddit-access-token"
+                  value={redditForm.accessToken}
+                  onChange={(value) => setRedditForm((c) => ({ ...c, accessToken: value }))}
+                  className={inputClass}
+                  disabled={savingPlatform === 'reddit'}
+                  placeholder={creds.reddit.hasAccessToken ? 'Saved — leave blank to keep' : ''}
+                />
+              </FormField>
+              <FormField label="Ad account ID" id="reddit-ad-account-id">
+                <input
+                  id="reddit-ad-account-id"
+                  value={redditForm.adAccountId}
+                  onChange={(e) => setRedditForm((c) => ({ ...c, adAccountId: e.target.value }))}
+                  className={inputClass}
+                  disabled={savingPlatform === 'reddit'}
+                />
+              </FormField>
+              <FormField label="Pixel ID (optional)" id="reddit-pixel-id">
+                <input
+                  id="reddit-pixel-id"
+                  value={redditForm.pixelId}
+                  onChange={(e) => setRedditForm((c) => ({ ...c, pixelId: e.target.value }))}
+                  className={inputClass}
+                  disabled={savingPlatform === 'reddit'}
+                />
+              </FormField>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleSaveRedditCredentials}
+                disabled={savingPlatform !== null}
+                className="bg-navy-900 text-cream font-medium px-5 py-2.5 rounded-xl hover:bg-navy-800 transition-colors text-sm disabled:opacity-60"
+              >
+                {savingPlatform === 'reddit' ? 'Saving…' : 'Save Reddit credentials'}
+              </button>
+              {creds.reddit.configured && (
+                <button
+                  type="button"
+                  onClick={() => handleClearCredentials('reddit')}
+                  disabled={savingPlatform !== null}
+                  className="border border-navy-900/15 text-navy-900 font-medium px-5 py-2.5 rounded-xl hover:bg-navy-900/5 transition-colors text-sm disabled:opacity-60"
+                >
+                  Clear Reddit
                 </button>
               )}
             </div>

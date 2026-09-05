@@ -97,9 +97,22 @@ export type AnalyticsSummary = {
     email: number
     total: number
   }>
+  weekly_volume?: WeeklyVolume[]
   inbound?: InboundSummary
   analytics_user_id?: string
   analytics_tenants?: AnalyticsTenant[] | null
+}
+
+export type WeeklyVolume = {
+  week_start: string
+  inbound: number
+  outbound: number
+}
+
+export type WeeklyVolumePoint = {
+  week_start: string
+  inbound: number
+  outbound: number
 }
 
 const ANALYTICS_TIMEOUT_MS = 30_000
@@ -199,4 +212,61 @@ export function totalInboundStored(inbound: InboundSummary | undefined): number 
   if (!inbound) return 0
   const totals = inbound.totals
   return totals.received + totals.dispatched + totals.filtered + totals.failed
+}
+
+function parseIsoDate(value: string): Date {
+  const parsed = new Date(`${value}T00:00:00`)
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed
+}
+
+function formatIsoDate(value: Date): string {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export function startOfWeekMonday(value: Date): Date {
+  const date = new Date(value.getFullYear(), value.getMonth(), value.getDate())
+  const weekday = date.getDay()
+  date.setDate(date.getDate() + (weekday === 0 ? -6 : 1 - weekday))
+  return date
+}
+
+export function weeklyVolumeFromAnalytics(
+  weekly: WeeklyVolume[] | null | undefined,
+  dailyInbound: AnalyticsSummary['daily_volume'],
+  periodDays: number,
+): WeeklyVolumePoint[] {
+  if (weekly?.length) {
+    return weekly.map((entry) => ({
+      week_start: entry.week_start,
+      inbound: entry.inbound,
+      outbound: entry.outbound,
+    }))
+  }
+
+  const today = startOfWeekMonday(new Date())
+  const periodStart = new Date()
+  periodStart.setHours(0, 0, 0, 0)
+  periodStart.setDate(periodStart.getDate() - (Math.max(periodDays, 1) - 1))
+  let week = startOfWeekMonday(periodStart)
+
+  const inboundByWeek = new Map<string, number>()
+  for (const entry of dailyInbound) {
+    const key = formatIsoDate(startOfWeekMonday(parseIsoDate(entry.date)))
+    inboundByWeek.set(key, (inboundByWeek.get(key) ?? 0) + entry.total)
+  }
+
+  const points: WeeklyVolumePoint[] = []
+  while (week <= today) {
+    const key = formatIsoDate(week)
+    points.push({
+      week_start: key,
+      inbound: inboundByWeek.get(key) ?? 0,
+      outbound: 0,
+    })
+    week = new Date(week.getFullYear(), week.getMonth(), week.getDate() + 7)
+  }
+  return points
 }

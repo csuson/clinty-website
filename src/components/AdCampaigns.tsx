@@ -13,6 +13,20 @@ function YelpIcon({ className = 'w-7 h-7' }: { className?: string }) {
   )
 }
 
+function RedditIcon({ className = 'w-7 h-7' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <rect width="24" height="24" rx="6" fill="#FF4500" />
+      <circle cx="12" cy="13" r="5.2" fill="#fff" />
+      <circle cx="10" cy="12.6" r="1.1" fill="#FF4500" />
+      <circle cx="14" cy="12.6" r="1.1" fill="#FF4500" />
+      <path fill="#FF4500" d="M9.4 15.1c.7.7 1.6 1.1 2.6 1.1s1.9-.4 2.6-1.1" />
+      <circle cx="16.4" cy="8.2" r="1.3" fill="#fff" />
+      <path stroke="#fff" strokeWidth="1.4" d="M12 7.4V5.6h3.2" />
+    </svg>
+  )
+}
+
 const platforms = [
   {
     name: 'Google Ads',
@@ -32,6 +46,12 @@ const platforms = [
     iconBg: 'bg-red-50',
     description: 'Local search campaigns for businesses that live on Yelp — drafted and scheduled from Clinty.',
   },
+  {
+    name: 'Reddit Ads',
+    icon: RedditIcon,
+    iconBg: 'bg-orange-50',
+    description: 'Community-targeted campaigns with subreddits, interests, and paused launch in Reddit Ads Manager.',
+  },
 ]
 
 const steps = [
@@ -41,7 +61,7 @@ const steps = [
   },
   {
     title: 'AI drafts every platform',
-    description: 'One campaign brief generates tailored plans for Google, Meta, and Yelp — with budget split across channels.',
+    description: 'One campaign brief generates tailored plans for Google, Meta, Yelp, and Reddit — with budget split across channels.',
   },
   {
     title: 'Review, approve, publish paused',
@@ -55,7 +75,7 @@ export default function AdCampaigns() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 bg-[#4285F4]/10 text-[#3367d6] border border-[#4285F4]/20 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
-            Google, Meta & Yelp — from one workflow
+            Google, Meta, Yelp & Reddit — from one workflow
           </div>
           <h2 className="font-serif text-4xl md:text-5xl text-navy-900 mb-4">
             Create and manage ad campaigns{' '}
@@ -68,7 +88,7 @@ export default function AdCampaigns() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-16">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           {platforms.map((platform) => {
             const Icon = platform.icon
             return (
@@ -112,7 +132,7 @@ export default function AdCampaigns() {
               <ul className="space-y-3 text-sm text-navy-600">
                 {[
                   'Multi-platform campaign wizard with monthly budget slider',
-                  'Configurable budget split across Google, Meta, and Yelp',
+                  'Configurable budget split across Google, Meta, Yelp, and Reddit',
                   'AI-generated ad copy, keywords, and audience targeting',
                   'OAuth connect for Google Ads and Meta publish credentials',
                   'Paused-by-default publishing — nothing goes live without approval',
@@ -130,7 +150,7 @@ export default function AdCampaigns() {
             <div className="rounded-2xl bg-teal-400/10 border border-teal-400/20 p-6">
               <p className="text-sm text-navy-900 leading-relaxed">
                 <span className="font-semibold">You approve every launch.</span> Campaigns are created
-                in a paused state on Google Ads, Meta, and Yelp so you can review targeting, copy,
+                in a paused state on Google Ads, Meta, Yelp, and Reddit so you can review targeting, copy,
                 and spend before turning them on.
               </p>
             </div>

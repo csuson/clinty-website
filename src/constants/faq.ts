@@ -10,7 +10,7 @@ export const FAQ_ARTICLES: FaqArticle[] = [
     slug: 'manual-ad-campaign-import',
     title: 'How do I manually import a downloaded ad campaign?',
     summary:
-      'Step-by-step instructions for building Google Ads, Meta, and Yelp campaigns from Clinty’s media-plan.json export.',
+      'Step-by-step instructions for building Google Ads, Meta, Yelp, and Reddit campaigns from Clinty’s media-plan.json export.',
     category: 'Ad Campaigns',
   },
 ]

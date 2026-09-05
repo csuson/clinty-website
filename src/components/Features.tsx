@@ -7,8 +7,8 @@ const features = [
     ),
     title: 'Multi-Platform Ad Campaigns',
     description:
-      'Draft Google Ads, Meta, and Yelp campaigns from one brief. Set your monthly budget, split spend across channels, review AI-generated copy, and publish paused campaigns when you approve.',
-    savings: 'Google, Meta & Yelp',
+      'Draft Google Ads, Meta, Yelp, and Reddit campaigns from one brief. Set your monthly budget, split spend across channels, review AI-generated copy, and publish paused campaigns when you approve.',
+    savings: 'Google, Meta, Yelp & Reddit',
     color: 'teal',
   },
   {

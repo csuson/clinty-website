@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import FormField from '../../components/FormField'
-import { CAMPAIGN_GOALS, type CampaignPlan, type CampaignSnapshot, type FacebookCampaignPlan, type YelpCampaignPlan } from '../../constants/adCampaigns'
+import { CAMPAIGN_GOALS, CREATIVE_FORMATS, type CampaignMediaAsset, type CampaignPlan, type CampaignSnapshot, type CreativeFormat, type FacebookCampaignPlan, type RedditCampaignPlan, type YelpCampaignPlan } from '../../constants/adCampaigns'
 import {
   AD_CAMPAIGN_BUDGET_DEFAULT,
   AD_CAMPAIGN_BUDGET_MAX,
@@ -73,6 +73,8 @@ function emptyBrief(): BriefForm {
     notes: '',
     platforms,
     platformBudgetSplit: budgetSplitForPlatforms(platforms),
+    mediaAssets: [],
+    creativeFormats: ['image', 'video', 'carousel'],
   }
 }
 
@@ -94,6 +96,10 @@ function mergeCampaignBrief(
     locationScope,
     platforms,
     platformBudgetSplit: budgetSplitForPlatforms(platforms, savedSplit),
+    mediaAssets: [...sources].reverse().find((source) => source?.mediaAssets)?.mediaAssets ?? [],
+    creativeFormats:
+      [...sources].reverse().find((source) => source?.creativeFormats?.length)?.creativeFormats
+      ?? ['image', 'video', 'carousel'],
     ...(Object.keys(clarifyingAnswers).length > 0 ? { clarifyingAnswers } : {}),
   }
 }
@@ -143,19 +149,48 @@ function composeBrief(form: BriefForm): string {
   if (form.offerings.trim()) lines.push(`Products or services: ${form.offerings.trim()}`)
   if (form.audience.trim()) lines.push(`Target audience: ${form.audience.trim()}`)
   if (form.notes.trim()) lines.push(`Additional background and goals:\n${form.notes.trim()}`)
+  const formats = form.creativeFormats?.length ? form.creativeFormats : ['image', 'video', 'carousel']
+  lines.push(`Creative formats to include: ${formats.join(', ')}`)
+  const assets = (form.mediaAssets ?? []).filter((asset) => asset.url.trim())
+  if (assets.length > 0) {
+    lines.push('Creative media assets (use these URLs in image, video, and carousel ads):')
+    for (const asset of assets) {
+      const label = asset.name.trim() || asset.kind
+      lines.push(`- ${asset.kind}: ${label} ${asset.url}`)
+    }
+  }
   return lines.join('\n')
 }
 
 function hasAnyPlan(snapshot: CampaignSnapshot): boolean {
-  return Boolean(snapshot.campaign_plan || snapshot.facebook_plan || snapshot.yelp_plan)
+  return Boolean(
+    snapshot.campaign_plan || snapshot.facebook_plan || snapshot.yelp_plan || snapshot.reddit_plan,
+  )
 }
 
 function reviewForPlan(
-  plan: 'google' | 'facebook' | 'yelp',
+  plan: 'google' | 'facebook' | 'yelp' | 'reddit',
   snapshot: CampaignSnapshot,
 ): CampaignSnapshot['review'] | null {
-  const last = snapshot.yelp_plan ? 'yelp' : snapshot.facebook_plan ? 'facebook' : 'google'
+  const last = snapshot.reddit_plan
+    ? 'reddit'
+    : snapshot.yelp_plan
+      ? 'yelp'
+      : snapshot.facebook_plan
+        ? 'facebook'
+        : 'google'
   return plan === last ? snapshot.review : null
+}
+
+function emptyMediaAsset(): CampaignMediaAsset {
+  return { name: '', kind: 'image', url: '' }
+}
+
+function kindFromUrl(url: string, fallback: CampaignMediaAsset['kind'] = 'image'): CampaignMediaAsset['kind'] {
+  const lower = url.toLowerCase()
+  if (/\.(mp4|mov|webm|m4v)(\?|$)/.test(lower)) return 'video'
+  if (/\.(png|jpe?g|gif|webp)(\?|$)/.test(lower)) return 'image'
+  return fallback
 }
 
 function downloadJson(filename: string, data: unknown) {
@@ -597,6 +632,14 @@ export default function GoogleAds() {
           `Yelp was selected, but the campaign agent did not return a Yelp plan (agent platforms: ${agentPlatforms}). Confirm your campaign AI service is up to date and supports Yelp, then try again.`,
         )
       }
+      if (requestedPlatforms.includes('reddit') && !next.reddit_plan) {
+        const agentPlatforms = next.platforms?.length
+          ? next.platforms.join(', ')
+          : 'not returned'
+        setError(
+          `Reddit was selected, but the campaign agent did not return a Reddit plan (agent platforms: ${agentPlatforms}). Confirm your campaign AI service is up to date and supports Reddit Ads, then try again.`,
+        )
+      }
       setStep('review')
       if (options.persist !== false) persistDraft(next, 'review')
       return
@@ -608,6 +651,14 @@ export default function GoogleAds() {
           : 'not returned'
         setError(
           `Yelp was selected, but the campaign agent did not return a Yelp plan (agent platforms: ${agentPlatforms}).`,
+        )
+      }
+      if (requestedPlatforms.includes('reddit') && !next.reddit_plan) {
+        const agentPlatforms = next.platforms?.length
+          ? next.platforms.join(', ')
+          : 'not returned'
+        setError(
+          `Reddit was selected, but the campaign agent did not return a Reddit plan (agent platforms: ${agentPlatforms}).`,
         )
       }
       setStep('complete')
@@ -649,7 +700,13 @@ export default function GoogleAds() {
     setError(null)
     try {
       await saveGoogleAdsCampaignBrief(briefForSave(briefForm))
-      const created = await createAdCampaign(brief, briefForm.platforms, briefForm.platformBudgetSplit)
+      const created = await createAdCampaign(
+        brief,
+        briefForm.platforms,
+        briefForm.platformBudgetSplit,
+        briefForm.mediaAssets,
+        briefForm.creativeFormats,
+      )
       applySnapshot(created, briefForm.platforms, {
         answers: resolveClarifyingAnswers(created, clarifyingAnswersRef.current),
       })
@@ -823,6 +880,39 @@ export default function GoogleAds() {
           ? 'United States'
           : 'Worldwide'
 
+  function toggleCreativeFormat(format: CreativeFormat) {
+    setForm((current) => {
+      const selected = current.creativeFormats ?? []
+      const next = selected.includes(format)
+        ? selected.filter((item) => item !== format)
+        : [...selected, format]
+      return { ...current, creativeFormats: next.length > 0 ? next : [format] }
+    })
+  }
+
+  function addMediaAsset() {
+    setForm((current) => ({
+      ...current,
+      mediaAssets: [...(current.mediaAssets ?? []), emptyMediaAsset()],
+    }))
+  }
+
+  function updateMediaAsset(index: number, patch: Partial<CampaignMediaAsset>) {
+    setForm((current) => ({
+      ...current,
+      mediaAssets: (current.mediaAssets ?? []).map((asset, itemIndex) => (
+        itemIndex === index ? { ...asset, ...patch } : asset
+      )),
+    }))
+  }
+
+  function removeMediaAsset(index: number) {
+    setForm((current) => ({
+      ...current,
+      mediaAssets: (current.mediaAssets ?? []).filter((_, itemIndex) => itemIndex !== index),
+    }))
+  }
+
   function handlePlatformToggle(platform: AdPlatform) {
     setForm((current) => {
       const next = toggleAdPlatform(current.platforms, current.platformBudgetSplit, platform)
@@ -938,7 +1028,7 @@ export default function GoogleAds() {
       {working && (
         <Alert
           type="info"
-          message="Drafting Google, Meta, and/or Yelp campaigns. This usually takes under a minute."
+          message="Drafting Google, Meta, Yelp, and/or Reddit campaigns. This usually takes under a minute."
         />
       )}
 
@@ -950,7 +1040,7 @@ export default function GoogleAds() {
                 <h2 className="text-lg font-semibold text-navy-900 mb-1">Paid media campaign</h2>
                 <p className="text-sm text-navy-600">
                   Tell us about the business and the outcome you want. Clinty will draft Google Search,
-                  Meta, and/or Yelp campaigns — targeting, ads, and budget — for you to review before
+                  Meta, Yelp, and/or Reddit campaigns — targeting, ads, and budget — for you to review before
                   anything is created in the ad accounts.
                 </p>
               </div>
@@ -1097,6 +1187,16 @@ export default function GoogleAds() {
                     />
                     Yelp
                   </label>
+                  <label className="flex items-center gap-2 text-sm text-navy-800">
+                    <input
+                      id="platform-reddit"
+                      type="checkbox"
+                      checked={form.platforms.includes('reddit')}
+                      onChange={() => handlePlatformToggle('reddit')}
+                      disabled={working}
+                    />
+                    Reddit
+                  </label>
                 </div>
                 {form.platforms.length > 1 && (
                   <PlatformBudgetSplitControls
@@ -1173,6 +1273,86 @@ export default function GoogleAds() {
                   placeholder="Differentiator, brand voice, claims to avoid, competitors…"
                 />
               </FormField>
+              <fieldset className="space-y-3">
+                <legend className="text-sm font-medium text-navy-900">Creative formats</legend>
+                <p className="text-xs text-navy-500">
+                  Meta and Reddit can use image, video, and carousel ads. Google Search stays text-only.
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  {CREATIVE_FORMATS.map((option) => (
+                    <label key={option.value} className="flex items-center gap-2 text-sm text-navy-800">
+                      <input
+                        type="checkbox"
+                        checked={(form.creativeFormats ?? []).includes(option.value)}
+                        onChange={() => toggleCreativeFormat(option.value)}
+                        disabled={working}
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-medium text-navy-900">Images, video, and carousel cards</h3>
+                  <p className="text-xs text-navy-500 mt-1">
+                    Paste public HTTPS URLs from your website or CDN. Carousel ads need at least two images.
+                    Video ads need a public video file URL.
+                  </p>
+                </div>
+                {(form.mediaAssets ?? []).map((asset, index) => (
+                  <div key={`${asset.url}-${index}`} className="grid sm:grid-cols-[7rem_1fr_1fr_auto] gap-2 items-end">
+                    <FormField label="Type" id={`media-kind-${index}`}>
+                      <select
+                        id={`media-kind-${index}`}
+                        value={asset.kind}
+                        onChange={(e) => updateMediaAsset(index, { kind: e.target.value === 'video' ? 'video' : 'image' })}
+                        className={inputClass}
+                        disabled={working}
+                      >
+                        <option value="image">Image</option>
+                        <option value="video">Video</option>
+                      </select>
+                    </FormField>
+                    <FormField label="Name" id={`media-name-${index}`}>
+                      <input
+                        id={`media-name-${index}`}
+                        value={asset.name}
+                        onChange={(e) => updateMediaAsset(index, { name: e.target.value })}
+                        className={inputClass}
+                        placeholder="Storefront"
+                        disabled={working}
+                      />
+                    </FormField>
+                    <FormField label="Public URL" id={`media-url-${index}`}>
+                      <input
+                        id={`media-url-${index}`}
+                        value={asset.url}
+                        onChange={(e) => updateMediaAsset(index, { url: e.target.value, kind: kindFromUrl(e.target.value, asset.kind) })}
+                        className={inputClass}
+                        placeholder="https://…"
+                        disabled={working}
+                      />
+                    </FormField>
+                    <button
+                      type="button"
+                      onClick={() => removeMediaAsset(index)}
+                      disabled={working}
+                      className="text-sm text-navy-600 hover:text-navy-900 pb-2"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addMediaAsset}
+                  disabled={working}
+                  className="text-sm font-medium text-teal-600 hover:text-teal-700"
+                >
+                  Add media URL
+                </button>
+              </div>
             </div>
 
             <button
@@ -1255,6 +1435,9 @@ export default function GoogleAds() {
           {snapshot.yelp_plan && (
             <YelpPlanView plan={snapshot.yelp_plan} review={reviewForPlan('yelp', snapshot)} />
           )}
+          {snapshot.reddit_plan && (
+            <RedditPlanView plan={snapshot.reddit_plan} review={reviewForPlan('reddit', snapshot)} />
+          )}
           <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
             <h3 className="text-base font-semibold text-navy-900 mb-1">Approve this draft?</h3>
             <p className="text-sm text-navy-600 mb-4">
@@ -1277,7 +1460,7 @@ export default function GoogleAds() {
                 onChange={(e) => setPublish(e.target.checked)}
                 disabled={working}
               />
-              Create paused campaigns in Google Ads, Meta Ads Manager, and/or Yelp Ads after I approve
+              Create paused campaigns in Google Ads, Meta Ads Manager, Yelp Ads, and/or Reddit Ads after I approve
             </label>
             <div className="flex flex-wrap gap-3 mt-6">
               <button
@@ -1333,6 +1516,9 @@ export default function GoogleAds() {
           {snapshot.yelp_plan && (
             <YelpPlanView plan={snapshot.yelp_plan} review={reviewForPlan('yelp', snapshot)} />
           )}
+          {snapshot.reddit_plan && (
+            <RedditPlanView plan={snapshot.reddit_plan} review={reviewForPlan('reddit', snapshot)} />
+          )}
           <div className="flex flex-wrap gap-3 items-center">
             {hasAnyPlan(snapshot) && (
               <button
@@ -1344,6 +1530,7 @@ export default function GoogleAds() {
                       google: snapshot.campaign_plan,
                       facebook: snapshot.facebook_plan,
                       yelp: snapshot.yelp_plan,
+                      reddit: snapshot.reddit_plan,
                     },
                   )
                 }
@@ -1525,6 +1712,52 @@ function CampaignPlanView({
   )
 }
 
+function CreativeMediaPreview({
+  format,
+  concept,
+  media,
+}: {
+  format?: string
+  concept?: string
+  media?: CampaignMediaAsset[]
+}) {
+  const assets = media ?? []
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-xs uppercase tracking-wide text-navy-500">
+        {(format || 'image').replaceAll('_', ' ')}
+      </p>
+      {assets.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {assets.map((asset) => (
+            asset.kind === 'video' ? (
+              <a
+                key={asset.url}
+                href={asset.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-teal-600 hover:underline"
+              >
+                Video{asset.name ? `: ${asset.name}` : ''}
+              </a>
+            ) : (
+              <a key={asset.url} href={asset.url} target="_blank" rel="noreferrer">
+                <img
+                  src={asset.url}
+                  alt={asset.name || 'Ad creative'}
+                  className="h-16 w-16 rounded-lg object-cover border border-navy-900/10"
+                />
+              </a>
+            )
+          ))}
+        </div>
+      ) : concept ? (
+        <p className="text-xs text-navy-500">Concept: {concept}</p>
+      ) : null}
+    </div>
+  )
+}
+
 function FacebookPlanView({
   plan,
   review,
@@ -1566,7 +1799,7 @@ function FacebookPlanView({
                 </p>
                 {ad.description && <p className="text-navy-600 mt-1">{ad.description}</p>}
                 <p className="text-xs text-navy-500 mt-3">CTA: {ad.call_to_action.replaceAll('_', ' ')}</p>
-                <p className="text-xs text-navy-500 mt-1">Image: {ad.image_concept}</p>
+                <CreativeMediaPreview format={ad.creative_format} concept={ad.image_concept} media={ad.media} />
               </div>
             ))}
           </div>
@@ -1663,8 +1896,12 @@ function YelpPlanView({
               </p>
             </div>
             <p className="text-xs text-navy-500">CTA: {program.ad_goal.replaceAll('_', ' ')}</p>
-            {program.photo_concept && (
-              <p className="text-xs text-navy-500">Photo: {program.photo_concept}</p>
+            {(program.photo_url || program.photo_concept) && (
+              <CreativeMediaPreview
+                format="image"
+                concept={program.photo_concept}
+                media={program.photo_url ? [{ name: 'Yelp photo', kind: 'image', url: program.photo_url }] : []}
+              />
             )}
             {program.negatives.length > 0 && (
               <p className="text-xs text-navy-500">Negatives: {program.negatives.join(', ')}</p>
@@ -1692,6 +1929,88 @@ function YelpPlanView({
       {plan.launch_checklist.length > 0 && (
         <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
           <h3 className="text-base font-semibold text-navy-900 mb-3">Yelp launch checklist</h3>
+          <ul className="list-disc pl-5 space-y-1 text-sm text-navy-700">
+            {plan.launch_checklist.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  )
+}
+
+function RedditPlanView({
+  plan,
+  review,
+}: {
+  plan: RedditCampaignPlan
+  review: CampaignSnapshot['review'] | null
+}) {
+  return (
+    <>
+      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+        <h2 className="text-lg font-semibold text-navy-900 mb-1">{plan.campaign_name}</h2>
+        <p className="text-xs uppercase tracking-wide text-navy-500 mb-2">Reddit Ads</p>
+        <p className="text-sm text-navy-600 mb-4">{plan.objective.replaceAll('_', ' ')}</p>
+        <p className="text-sm text-navy-800 mb-6">{plan.rationale}</p>
+        <dl className="grid sm:grid-cols-2 gap-3 text-sm">
+          <Info label="Monthly budget" value={`$${plan.monthly_budget_usd.toLocaleString()}`} />
+          <Info label="Daily budget" value={`$${plan.daily_budget_usd.toFixed(2)}`} />
+          <Info label="Bidding" value={plan.bid_strategy.replaceAll('_', ' ')} />
+        </dl>
+      </section>
+
+      {plan.ad_groups.map((group) => (
+        <section key={group.name} className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+          <h3 className="text-base font-semibold text-navy-900 mb-1">{group.name}</h3>
+          <p className="text-sm text-navy-600 mb-4">
+            {group.theme} · ${group.daily_budget_usd.toFixed(2)}/day
+          </p>
+          {group.communities.length > 0 && (
+            <p className="text-xs text-navy-500 mb-2">
+              Communities: {group.communities.map((name) => `r/${name}`).join(', ')}
+            </p>
+          )}
+          {group.interests.length > 0 && (
+            <p className="text-xs text-navy-500 mb-4">Interests: {group.interests.join(', ')}</p>
+          )}
+          <div className="grid md:grid-cols-2 gap-6 text-sm">
+            {group.ads.map((ad) => (
+              <div key={ad.name} className="rounded-xl border border-navy-900/10 p-4">
+                <h4 className="font-medium text-navy-900 mb-2">{ad.name}</h4>
+                <p className="font-medium text-navy-900">
+                  {ad.headline}{' '}
+                  <span className="text-xs text-navy-400">({ad.headline.length})</span>
+                </p>
+                <p className="text-navy-700 mt-2">{ad.body}</p>
+                <p className="text-xs text-navy-500 mt-3">CTA: {ad.call_to_action.replaceAll('_', ' ')}</p>
+                <CreativeMediaPreview format={ad.creative_format} concept={ad.image_concept} media={ad.media} />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {review && review.issues.length > 0 && (
+        <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+          <h3 className="text-base font-semibold text-navy-900 mb-3">Review notes</h3>
+          <ul className="space-y-2 text-sm">
+            {review.issues.map((issue) => (
+              <li
+                key={`${issue.field}-${issue.message}`}
+                className={issue.severity === 'error' ? 'text-red-700' : 'text-amber-700'}
+              >
+                [{issue.severity}] {issue.field}: {issue.message}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {plan.launch_checklist.length > 0 && (
+        <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+          <h3 className="text-base font-semibold text-navy-900 mb-3">Reddit launch checklist</h3>
           <ul className="list-disc pl-5 space-y-1 text-sm text-navy-700">
             {plan.launch_checklist.map((item) => (
               <li key={item}>{item}</li>

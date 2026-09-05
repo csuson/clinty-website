@@ -11,9 +11,11 @@ import {
   formatAnalyticsTenant,
   formatInboundSource,
   totalInboundStored,
+  weeklyVolumeFromAnalytics,
   type AnalyticsSummary,
   type AnalyticsTenant,
   type InboundSummary,
+  type WeeklyVolumePoint,
 } from '../../lib/analytics'
 
 const PERIOD_OPTIONS = [
@@ -40,76 +42,127 @@ function StatCard({
   )
 }
 
-function DailyVolumeChart({
+function niceMax(value: number): number {
+  if (value <= 1) return 1
+  const magnitude = 10 ** Math.floor(Math.log10(value))
+  const scaled = value / magnitude
+  const nice = scaled <= 1 ? 1 : scaled <= 2 ? 2 : scaled <= 5 ? 5 : 10
+  return nice * magnitude
+}
+
+function formatWeekLabel(weekStart: string): string {
+  const parsed = new Date(`${weekStart}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return weekStart.slice(5)
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function WeeklyVolumeChart({
   volume,
-  ariaLabel = 'Daily inbound message volume',
+  ariaLabel = 'Weekly inbound and outbound message volume',
 }: {
-  volume: AnalyticsSummary['daily_volume']
+  volume: WeeklyVolumePoint[]
   ariaLabel?: string
 }) {
+  const [hoveredWeek, setHoveredWeek] = useState<string | null>(null)
+
   if (!volume.length) {
     return (
       <p className="text-sm text-navy-600">
-        No inbound messages recorded yet for this period.
+        No inbound or outbound messages recorded yet for this period.
       </p>
     )
   }
 
-  const max = Math.max(...volume.map((entry) => entry.total), 1)
-  const barWidth = Math.min(28, Math.floor(560 / Math.max(volume.length, 1)) - 4)
+  const max = niceMax(Math.max(...volume.flatMap((entry) => [entry.inbound, entry.outbound]), 1))
+  const ticks = [max, max / 2, 0]
+  const hovered = volume.find((entry) => entry.week_start === hoveredWeek) ?? null
 
   return (
-    <svg
-      viewBox={`0 0 ${Math.max(volume.length * (barWidth + 8), 240)} 120`}
-      className="w-full h-auto"
-      role="img"
-      aria-label={ariaLabel}
-    >
-      {volume.map((entry, index) => {
-        const x = index * (barWidth + 8) + 4
-        const whatsappHeight = (entry.whatsapp / max) * 72
-        const emailHeight = (entry.email / max) * 72
-        const baseY = 96
-        return (
-          <g key={entry.date}>
-            {entry.email > 0 ? (
-              <rect
-                x={x}
-                y={baseY - emailHeight - whatsappHeight}
-                width={barWidth}
-                height={emailHeight}
-                rx="3"
-                className="fill-navy-900/20"
-              />
-            ) : null}
-            {entry.whatsapp > 0 ? (
-              <rect
-                x={x}
-                y={baseY - whatsappHeight}
-                width={barWidth}
-                height={whatsappHeight}
-                rx="3"
-                className="fill-teal-400"
-              />
-            ) : null}
-            <text
-              x={x + barWidth / 2}
-              y="112"
-              textAnchor="middle"
-              className="fill-navy-600 text-[8px]"
-            >
-              {entry.date.slice(5)}
-            </text>
-          </g>
-        )
-      })}
-      <g transform={`translate(${Math.max(volume.length * (barWidth + 8) - 72, 8)}, 8)`}>
-        <rect width="8" height="8" rx="2" className="fill-teal-400" />
-        <text x="12" y="7" className="fill-navy-600 text-[8px]">WhatsApp</text>
-        <rect y="14" width="8" height="8" rx="2" className="fill-navy-900/20" />
-        <text x="12" y="21" className="fill-navy-600 text-[8px]">Email</text>
-      </g>
-    </svg>
+    <div className="space-y-3" role="img" aria-label={ariaLabel}>
+      <div className="flex flex-wrap items-center gap-4 text-xs text-navy-600">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-teal-400" />
+          Inbound
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-navy-900" />
+          Outbound
+        </span>
+        {hovered ? (
+          <span className="sm:ml-auto font-medium text-navy-800">
+            Week of {formatWeekLabel(hovered.week_start)} · {hovered.inbound} in · {hovered.outbound} out
+          </span>
+        ) : (
+          <span className="sm:ml-auto text-navy-500">Hover a week for inbound and outbound counts</span>
+        )}
+      </div>
+
+      <div className="flex gap-3">
+        <div className="flex h-56 shrink-0 flex-col justify-between py-1 text-right text-[11px] text-navy-500">
+          {ticks.map((tick) => (
+            <span key={tick}>{Number.isInteger(tick) ? tick : tick.toFixed(1)}</span>
+          ))}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="relative h-56">
+            <div className="pointer-events-none absolute inset-0 flex flex-col justify-between py-1">
+              {ticks.map((tick) => (
+                <div key={tick} className="border-t border-navy-900/8" />
+              ))}
+            </div>
+
+            <div className="absolute inset-0 flex items-end gap-3 px-1">
+              {volume.map((entry) => {
+                const isHovered = hoveredWeek === entry.week_start
+                return (
+                  <button
+                    key={entry.week_start}
+                    type="button"
+                    className="group flex h-full min-w-0 flex-1 items-end justify-center gap-1"
+                    onMouseEnter={() => setHoveredWeek(entry.week_start)}
+                    onMouseLeave={() => setHoveredWeek(null)}
+                    onFocus={() => setHoveredWeek(entry.week_start)}
+                    onBlur={() => setHoveredWeek(null)}
+                    aria-label={`Week of ${formatWeekLabel(entry.week_start)}: ${entry.inbound} inbound, ${entry.outbound} outbound`}
+                  >
+                    <div
+                      className={`w-1/2 max-w-6 min-w-2 rounded-t-md bg-teal-400 transition-opacity ${
+                        isHovered ? 'opacity-100' : 'opacity-90 group-hover:opacity-100'
+                      }`}
+                      style={{
+                        height: entry.inbound === 0 ? '4px' : `${Math.max((entry.inbound / max) * 100, 2)}%`,
+                        opacity: entry.inbound === 0 ? 0.25 : undefined,
+                      }}
+                    />
+                    <div
+                      className={`w-1/2 max-w-6 min-w-2 rounded-t-md bg-navy-900 transition-opacity ${
+                        isHovered ? 'opacity-100' : 'opacity-90 group-hover:opacity-100'
+                      }`}
+                      style={{
+                        height: entry.outbound === 0 ? '4px' : `${Math.max((entry.outbound / max) * 100, 2)}%`,
+                        opacity: entry.outbound === 0 ? 0.2 : undefined,
+                      }}
+                    />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="mt-2 flex gap-3 px-1">
+            {volume.map((entry) => (
+              <span
+                key={entry.week_start}
+                className="min-w-0 flex-1 text-center text-[10px] text-navy-500"
+              >
+                {formatWeekLabel(entry.week_start)}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -199,7 +252,11 @@ export default function Analytics() {
 
   const inboundArchive = inbound ?? summary?.inbound
   const inboundTotal = totalInboundStored(inboundArchive)
-  const inboundVolume = inboundArchive?.daily_volume ?? summary?.daily_volume ?? []
+  const weeklyVolume = weeklyVolumeFromAnalytics(
+    summary?.weekly_volume,
+    inboundArchive?.daily_volume ?? summary?.daily_volume ?? [],
+    days,
+  )
 
   return (
     <div className="space-y-6">
@@ -374,12 +431,12 @@ export default function Analytics() {
 
             <section className="rounded-2xl border border-navy-900/5 p-5">
               <div className="flex items-center justify-between gap-4 mb-4">
-                <h3 className="text-sm font-semibold text-navy-900">Daily inbound volume</h3>
+                <h3 className="text-sm font-semibold text-navy-900">Weekly inbound and outbound volume</h3>
                 {summary.tenant_schema ? (
                   <span className="text-xs text-navy-500">Schema: {summary.tenant_schema}</span>
                 ) : null}
               </div>
-              <DailyVolumeChart volume={inboundVolume} />
+              <WeeklyVolumeChart volume={weeklyVolume} />
             </section>
 
             {inboundArchive ? (

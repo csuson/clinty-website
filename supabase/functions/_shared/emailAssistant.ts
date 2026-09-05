@@ -288,6 +288,7 @@ export function analyticsUnavailablePayload(
     },
     performance: { avg_response_time_seconds: null },
     daily_volume: [],
+    weekly_volume: [],
   }
 }
 

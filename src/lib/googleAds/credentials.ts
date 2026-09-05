@@ -3,6 +3,7 @@ import { getFunctionErrorMessage } from '../supabaseFunctions'
 import type {
   FacebookCredentialForm,
   GoogleAdsCredentialForm,
+  RedditCredentialForm,
   YelpCredentialForm,
 } from '../../constants/adPlatformCredentials'
 
@@ -33,10 +34,18 @@ export type YelpCredentialStatus = {
   apiBase: string
 }
 
+export type RedditCredentialStatus = {
+  configured: boolean
+  hasAccessToken: boolean
+  adAccountId: string
+  pixelId: string
+}
+
 export type PlatformCredentialsStatus = {
   google: PlatformCredentialStatus
   facebook: FacebookCredentialStatus
   yelp: YelpCredentialStatus
+  reddit: RedditCredentialStatus
 }
 
 /** Snake-case payload sent to the campaign agent on publish. */
@@ -62,12 +71,18 @@ export type PlatformCredentialsPayload = {
     business_id: string
     api_base?: string
   }
+  reddit?: {
+    access_token: string
+    ad_account_id: string
+    pixel_id?: string
+  }
 }
 
 export type SavePlatformCredentialsInput = {
   google?: Partial<GoogleAdsCredentialForm>
   facebook?: Partial<FacebookCredentialForm>
   yelp?: Partial<YelpCredentialForm>
+  reddit?: Partial<RedditCredentialForm>
 }
 
 const SETTINGS_TIMEOUT_MS = 30_000
@@ -99,11 +114,19 @@ const emptyYelpStatus = (): YelpCredentialStatus => ({
   apiBase: '',
 })
 
+const emptyRedditStatus = (): RedditCredentialStatus => ({
+  configured: false,
+  hasAccessToken: false,
+  adAccountId: '',
+  pixelId: '',
+})
+
 export function emptyPlatformCredentialsStatus(): PlatformCredentialsStatus {
   return {
     google: emptyGoogleStatus(),
     facebook: emptyFacebookStatus(),
     yelp: emptyYelpStatus(),
+    reddit: emptyRedditStatus(),
   }
 }
 
@@ -159,7 +182,7 @@ export async function fetchPlatformCredentialsForPublish(): Promise<PlatformCred
 }
 
 export async function clearPlatformCredentials(
-  platform: 'google' | 'facebook' | 'yelp' | 'all',
+  platform: 'google' | 'facebook' | 'yelp' | 'reddit' | 'all',
 ): Promise<PlatformCredentialsStatus> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
@@ -190,6 +213,9 @@ function parsePlatformCredentialsStatus(value: unknown): PlatformCredentialsStat
   const yelp = row.yelp && typeof row.yelp === 'object'
     ? (row.yelp as Record<string, unknown>)
     : {}
+  const reddit = row.reddit && typeof row.reddit === 'object'
+    ? (row.reddit as Record<string, unknown>)
+    : {}
 
   return {
     google: {
@@ -215,6 +241,12 @@ function parsePlatformCredentialsStatus(value: unknown): PlatformCredentialsStat
       username: stringField(yelp.username),
       businessId: stringField(yelp.businessId),
       apiBase: stringField(yelp.apiBase),
+    },
+    reddit: {
+      configured: reddit.configured === true,
+      hasAccessToken: reddit.hasAccessToken === true,
+      adAccountId: stringField(reddit.adAccountId),
+      pixelId: stringField(reddit.pixelId),
     },
   }
 }

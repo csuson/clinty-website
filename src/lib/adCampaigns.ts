@@ -1,4 +1,4 @@
-import type { AdCampaignAnalyticsReport, CampaignSnapshot } from '../constants/adCampaigns'
+import type { AdCampaignAnalyticsReport, CampaignMediaAsset, CampaignSnapshot, CreativeFormat } from '../constants/adCampaigns'
 import { getDefaultAdCampaignApiUrl } from '../constants/googleAds'
 import { supabase } from './supabase'
 import {
@@ -77,12 +77,16 @@ export type CreateAdCampaignInput = {
   brief: string
   platforms: AdPlatform[]
   platformBudgetSplit?: PlatformBudgetSplit
+  mediaAssets?: CampaignMediaAsset[]
+  creativeFormats?: CreativeFormat[]
 }
 
 export function buildCreateCampaignRequest({
   brief,
   platforms,
   platformBudgetSplit,
+  mediaAssets,
+  creativeFormats,
 }: CreateAdCampaignInput): Record<string, unknown> {
   const normalizedPlatforms = parseAdPlatforms(platforms)
   if (normalizedPlatforms.length === 0) {
@@ -91,11 +95,14 @@ export function buildCreateCampaignRequest({
 
   const split = budgetSplitForPlatforms(normalizedPlatforms, platformBudgetSplit)
   const budgetSplit = budgetSplitPayload(normalizedPlatforms, split)
+  const assets = (mediaAssets ?? []).filter((asset) => asset.url.trim())
 
   return {
     brief,
     platforms: normalizedPlatforms,
     ...(budgetSplit ? { budget_split: budgetSplit } : {}),
+    ...(assets.length > 0 ? { media_assets: assets } : {}),
+    ...(creativeFormats?.length ? { creative_formats: creativeFormats } : {}),
   }
 }
 
@@ -103,8 +110,16 @@ export async function createAdCampaign(
   brief: string,
   platforms: AdPlatform[] = ['google', 'facebook'],
   platformBudgetSplit?: PlatformBudgetSplit,
+  mediaAssets?: CampaignMediaAsset[],
+  creativeFormats?: CreativeFormat[],
 ): Promise<CampaignSnapshot> {
-  const body = buildCreateCampaignRequest({ brief, platforms, platformBudgetSplit })
+  const body = buildCreateCampaignRequest({
+    brief,
+    platforms,
+    platformBudgetSplit,
+    mediaAssets,
+    creativeFormats,
+  })
 
   return request<CampaignSnapshot>('/v1/campaigns', {
     method: 'POST',
@@ -114,7 +129,7 @@ export async function createAdCampaign(
 
 export async function fetchAdCampaignAnalytics(
   days = 30,
-  platforms: AdPlatform[] = ['google', 'facebook', 'yelp'],
+  platforms: AdPlatform[] = ['google', 'facebook', 'yelp', 'reddit'],
   platformCredentials?: PlatformCredentialsPayload | null,
 ): Promise<AdCampaignAnalyticsReport> {
   return request<AdCampaignAnalyticsReport>('/v1/analytics', {

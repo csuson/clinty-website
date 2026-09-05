@@ -11,7 +11,7 @@ import { articleJsonLd } from '../../constants/seo'
 
 const ARTICLE_PATH = '/faq/manual-ad-campaign-import'
 const ARTICLE_DESCRIPTION =
-  'Step-by-step guide to manually import Clinty ad campaign exports into Google Ads, Meta Ads Manager, and Yelp Ads.'
+  'Step-by-step guide to manually import Clinty ad campaign exports into Google Ads, Meta Ads Manager, Yelp Ads, and Reddit Ads.'
 
 export default function ManualAdCampaignImport() {
   return (
@@ -28,7 +28,7 @@ export default function ManualAdCampaignImport() {
       />
       <FaqPageLayout
         title="Manual ad campaign import"
-        description="How to build Google Ads, Meta, and Yelp campaigns from Clinty’s media-plan.json export."
+        description="How to build Google Ads, Meta, Yelp, and Reddit campaigns from Clinty’s media-plan.json export."
       >
       <FaqCallout>
         After Clinty drafts your campaigns, download <strong className="text-navy-900">media-plan.json</strong>{' '}
@@ -36,8 +36,8 @@ export default function ManualAdCampaignImport() {
         <Link to="/account/google-ads" className="text-teal-600 hover:underline">
           Account → Ad Campaigns
         </Link>{' '}
-        on the complete step. That file is a blueprint — Google, Meta, and Yelp do not accept it as a direct
-        upload.
+        on the complete step. That file is a blueprint — Google, Meta, Yelp, and Reddit do not accept it as a
+        direct upload.
       </FaqCallout>
 
       <FaqSection title="JSON structure">
@@ -46,7 +46,8 @@ export default function ManualAdCampaignImport() {
 {`{
   "google": { },
   "facebook": { },
-  "yelp": { }
+  "yelp": { },
+  "reddit": { }
 }`}
         </pre>
         <p>
@@ -149,7 +150,9 @@ export default function ManualAdCampaignImport() {
               ['description', 'Description'],
               ['call_to_action', 'Call to action button'],
               ['landing_page_url', 'Website URL'],
-              ['image_concept', 'Brief for image/video (upload asset separately)'],
+              ['creative_format', 'image, video, or carousel'],
+              ['media[]', 'Public image/video URLs already attached to the ad'],
+              ['image_concept', 'Brief for any asset you still need to produce'],
             ]}
           />
         </FaqSubsection>
@@ -227,6 +230,67 @@ export default function ManualAdCampaignImport() {
         </p>
       </FaqSection>
 
+      <FaqSection title="Reddit Ads">
+        <p>
+          <strong className="text-navy-900">JSON path:</strong>{' '}
+          <code className="text-xs bg-cream px-1 py-0.5 rounded">reddit</code>
+        </p>
+
+        <FaqSubsection title="Key fields">
+          <FaqTable
+            headers={['JSON path', 'Use in Reddit Ads']}
+            rows={[
+              ['campaign_name', 'Campaign name'],
+              ['objective', 'Campaign objective'],
+              ['daily_budget_usd / monthly_budget_usd', 'Budget'],
+              ['bid_strategy', 'Bidding (typically CPC)'],
+              ['ad_groups[]', 'One ad group per item'],
+              ['ad_groups[].communities[]', 'Subreddits (without the r/ prefix)'],
+              ['ad_groups[].interests / keywords', 'Additional targeting'],
+              ['ad_groups[].ads[]', 'Ad copy and creative brief'],
+            ]}
+          />
+        </FaqSubsection>
+
+        <FaqSubsection title="Ad-level fields (ad_groups[].ads[])">
+          <FaqTable
+            headers={['JSON field', 'Reddit Ads field']}
+            rows={[
+              ['headline', 'Headline (keep under 80 characters when possible)'],
+              ['body', 'Body / post text'],
+              ['call_to_action', 'Call to action'],
+              ['landing_page_url', 'Destination URL'],
+              ['creative_format', 'image, video, or carousel'],
+              ['media[]', 'Public image/video URLs already attached to the ad'],
+              ['image_concept', 'Brief for any asset you still need to produce'],
+            ]}
+          />
+        </FaqSubsection>
+
+        <FaqSubsection title="Steps">
+          <FaqSteps
+            steps={[
+              'Open Reddit Ads Manager and create a new campaign.',
+              'Set campaign name and objective from the JSON. Leave the campaign paused.',
+              'For each ad_groups item: create the ad group, set daily budget, and target communities, interests, and locations.',
+              'For each ad in ad_groups[].ads: add headline, body, CTA, URL, and upload image/video based on image_concept.',
+              'Complete launch_checklist before enabling.',
+            ]}
+          />
+        </FaqSubsection>
+
+        <p>
+          <a
+            href="https://ads.reddit.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-teal-600 hover:underline"
+          >
+            Open Reddit Ads Manager
+          </a>
+        </p>
+      </FaqSection>
+
       <FaqSection title="End-to-end workflow">
         <FaqSteps
           steps={[
@@ -234,7 +298,7 @@ export default function ManualAdCampaignImport() {
             'Answer clarifying questions and review the draft.',
             'On the complete step, click Download JSON.',
             'Open media-plan.json and work one platform at a time.',
-            'Build paused campaigns in Google Ads, Meta Ads Manager, and Yelp Ads.',
+            'Build paused campaigns in Google Ads, Meta Ads Manager, Yelp Ads, and Reddit Ads.',
             'Resolve any review.issues before going live.',
             'Enable campaigns only after each launch_checklist is done.',
           ]}
@@ -254,13 +318,14 @@ export default function ManualAdCampaignImport() {
           rows={[
             ['Google', 'OAuth + Customer ID (+ GOOGLE_ADS_DEVELOPER_TOKEN in Supabase)'],
             ['Meta', 'OAuth + Ad account + Page'],
-            ['Yelp', 'Partner ID, API key, business ID'],
+            ['Yelp', 'Partner username, password, business ID'],
+            ['Reddit', 'Access token + Ad account ID (pixel optional)'],
           ]}
         />
         <p>
           On the review step, check{' '}
           <strong className="text-navy-900">
-            Create paused campaigns in Google Ads, Meta Ads Manager, and/or Yelp Ads after I approve
+            Create paused campaigns in Google Ads, Meta Ads Manager, Yelp Ads, and/or Reddit Ads after I approve
           </strong>
           , then click <strong className="text-navy-900">Approve draft</strong>. Clinty creates paused
           campaigns in each connected platform.

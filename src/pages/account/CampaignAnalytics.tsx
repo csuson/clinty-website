@@ -154,7 +154,7 @@ export default function CampaignAnalytics() {
     setError(null)
     try {
       const credentials = await fetchPlatformCredentialsForPublish()
-      setReport(await fetchAdCampaignAnalytics(periodDays, ['google', 'facebook', 'yelp'], credentials))
+      setReport(await fetchAdCampaignAnalytics(periodDays, ['google', 'facebook', 'yelp', 'reddit'], credentials))
     } catch (err) {
       setReport(null)
       setError(err instanceof Error ? err.message : 'Failed to load campaign analytics')
@@ -179,7 +179,7 @@ export default function CampaignAnalytics() {
         <div>
           <h2 className="text-lg font-semibold text-navy-900 mb-1">Campaign performance</h2>
           <p className="text-sm text-navy-600">
-            Spend, traffic, and conversions from the Google Ads, Meta, and Yelp accounts
+            Spend, traffic, and conversions from the Google Ads, Meta, Yelp, and Reddit accounts
             connected under{' '}
             <Link to="/account/integrations" className="text-[#4285F4] hover:underline">
               Integrations

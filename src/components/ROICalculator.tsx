@@ -129,7 +129,7 @@ export default function ROICalculator() {
               <div>
                 <h3 className="text-lg font-semibold text-navy-900 mb-1">Ad campaign creation</h3>
                 <p className="text-sm text-navy-600">
-                  Draft Google, Meta, and Yelp campaigns from one brief
+                  Draft Google, Meta, Yelp, and Reddit campaigns from one brief
                 </p>
               </div>
 

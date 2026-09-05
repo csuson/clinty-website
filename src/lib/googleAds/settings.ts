@@ -1,4 +1,10 @@
-import type { CampaignSnapshot, SavedCampaignDraft } from '../../constants/adCampaigns'
+import type {
+  CampaignMediaAsset,
+  CampaignSnapshot,
+  CreativeAssetKind,
+  CreativeFormat,
+  SavedCampaignDraft,
+} from '../../constants/adCampaigns'
 import type { LocationScope } from '../../constants/locationScope'
 import { parseLocationScope } from '../../constants/locationScope'
 import { getDefaultAdCampaignApiUrl } from '../../constants/googleAds'
@@ -30,6 +36,8 @@ export type GoogleAdsCampaignBrief = {
   platforms: AdPlatform[]
   platformBudgetSplit: PlatformBudgetSplit
   clarifyingAnswers?: Record<string, string>
+  mediaAssets?: CampaignMediaAsset[]
+  creativeFormats?: CreativeFormat[]
 }
 
 export type GoogleAdsSettings = {
@@ -72,7 +80,8 @@ export function isGoogleAdsCampaignBriefSaved(
     || brief.monthlyBudget.trim()
     || brief.offerings.trim()
     || brief.audience.trim()
-    || brief.notes.trim(),
+    || brief.notes.trim()
+    || (brief.mediaAssets?.length ?? 0) > 0,
   )
 }
 
@@ -235,6 +244,8 @@ function parseCampaignBrief(value: unknown): GoogleAdsCampaignBrief | null {
       parsePlatformBudgetSplit(row.platformBudgetSplit),
     ),
     clarifyingAnswers,
+    mediaAssets: parseMediaAssets(row.mediaAssets),
+    creativeFormats: parseCreativeFormats(row.creativeFormats),
   }
 
   return isGoogleAdsCampaignBriefSaved(brief) || Object.keys(clarifyingAnswers).length > 0
@@ -276,6 +287,32 @@ function parseCampaignSnapshot(value: unknown): CampaignSnapshot | null {
     return null
   }
   return row as unknown as CampaignSnapshot
+}
+
+function parseMediaAssets(value: unknown): CampaignMediaAsset[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const row = item as Record<string, unknown>
+    const url = stringField(row.url).trim()
+    if (!url) return []
+    const kind: CreativeAssetKind = row.kind === 'video' ? 'video' : 'image'
+    return [{
+      name: stringField(row.name),
+      kind,
+      url,
+      headline: stringField(row.headline),
+      description: stringField(row.description),
+    }]
+  })
+}
+
+function parseCreativeFormats(value: unknown): CreativeFormat[] {
+  if (!Array.isArray(value)) return ['image', 'video', 'carousel']
+  const formats = value.filter((item): item is CreativeFormat => (
+    item === 'image' || item === 'video' || item === 'carousel'
+  ))
+  return formats.length > 0 ? formats : ['image', 'video', 'carousel']
 }
 
 function parseStringRecord(value: unknown): Record<string, string> {
@@ -323,6 +360,9 @@ function parsePlatformCredentialsStatus(value: unknown): PlatformCredentialsStat
   const yelp = row.yelp && typeof row.yelp === 'object'
     ? (row.yelp as Record<string, unknown>)
     : null
+  const reddit = row.reddit && typeof row.reddit === 'object'
+    ? (row.reddit as Record<string, unknown>)
+    : null
 
   return {
     google: google
@@ -355,5 +395,13 @@ function parsePlatformCredentialsStatus(value: unknown): PlatformCredentialsStat
           apiBase: stringField(yelp.apiBase),
         }
       : base.yelp,
+    reddit: reddit
+      ? {
+          configured: reddit.configured === true,
+          hasAccessToken: reddit.hasAccessToken === true,
+          adAccountId: stringField(reddit.adAccountId),
+          pixelId: stringField(reddit.pixelId),
+        }
+      : base.reddit,
   }
 }

@@ -1,26 +1,35 @@
-export type AdPlatform = 'google' | 'facebook' | 'yelp'
+export type AdPlatform = 'google' | 'facebook' | 'yelp' | 'reddit'
 
 export type PlatformBudgetSplit = Record<AdPlatform, number>
 
-export const AD_PLATFORMS: AdPlatform[] = ['google', 'facebook', 'yelp']
+export const AD_PLATFORMS: AdPlatform[] = ['google', 'facebook', 'yelp', 'reddit']
 
 export const AD_PLATFORM_LABELS: Record<AdPlatform, string> = {
   google: 'Google Search',
   facebook: 'Meta',
   yelp: 'Yelp',
+  reddit: 'Reddit',
 }
 
 export const EMPTY_PLATFORM_BUDGET_SPLIT: PlatformBudgetSplit = {
   google: 0,
   facebook: 0,
   yelp: 0,
+  reddit: 0,
 }
 
 const DEFAULT_COMBO_SPLITS: Record<string, PlatformBudgetSplit> = {
-  'google,facebook': { google: 55, facebook: 45, yelp: 0 },
-  'google,yelp': { google: 60, facebook: 0, yelp: 40 },
-  'facebook,yelp': { google: 0, facebook: 55, yelp: 45 },
-  'google,facebook,yelp': { google: 40, facebook: 35, yelp: 25 },
+  'google,facebook': { google: 55, facebook: 45, yelp: 0, reddit: 0 },
+  'google,yelp': { google: 60, facebook: 0, yelp: 40, reddit: 0 },
+  'facebook,yelp': { google: 0, facebook: 55, yelp: 45, reddit: 0 },
+  'google,reddit': { google: 55, facebook: 0, yelp: 0, reddit: 45 },
+  'facebook,reddit': { google: 0, facebook: 50, yelp: 0, reddit: 50 },
+  'reddit,yelp': { google: 0, facebook: 0, yelp: 55, reddit: 45 },
+  'facebook,google,yelp': { google: 40, facebook: 35, yelp: 25, reddit: 0 },
+  'facebook,google,reddit': { google: 40, facebook: 35, yelp: 0, reddit: 25 },
+  'google,reddit,yelp': { google: 45, facebook: 0, yelp: 30, reddit: 25 },
+  'facebook,reddit,yelp': { google: 0, facebook: 40, yelp: 35, reddit: 25 },
+  'facebook,google,reddit,yelp': { google: 35, facebook: 30, yelp: 20, reddit: 15 },
 }
 
 export const DEFAULT_AD_PLATFORMS: AdPlatform[] = ['google', 'facebook']
@@ -49,6 +58,7 @@ export function defaultBudgetSplit(platforms: AdPlatform[]): PlatformBudgetSplit
       google: platforms[0] === 'google' ? 100 : 0,
       facebook: platforms[0] === 'facebook' ? 100 : 0,
       yelp: platforms[0] === 'yelp' ? 100 : 0,
+      reddit: platforms[0] === 'reddit' ? 100 : 0,
     }
   }
 
@@ -104,9 +114,10 @@ export function parsePlatformBudgetSplit(value: unknown): PlatformBudgetSplit | 
     google: parseShare(row.google),
     facebook: parseShare(row.facebook),
     yelp: parseShare(row.yelp),
+    reddit: parseShare(row.reddit),
   }
 
-  if (split.google + split.facebook + split.yelp <= 0) return null
+  if (split.google + split.facebook + split.yelp + split.reddit <= 0) return null
   return split
 }
 
@@ -194,6 +205,9 @@ export function composePlatformsBriefLines(platforms: AdPlatform[]): string[] {
 
   if (platforms.includes('yelp')) {
     lines.push('Include a Yelp Ads campaign (platform: yelp).')
+  }
+  if (platforms.includes('reddit')) {
+    lines.push('Include a Reddit Ads campaign (platform: reddit).')
   }
 
   return lines

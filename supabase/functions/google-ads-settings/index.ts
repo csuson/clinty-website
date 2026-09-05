@@ -42,6 +42,7 @@ type CampaignBrief = {
     google: number
     facebook: number
     yelp: number
+    reddit: number
   }
   clarifyingAnswers?: Record<string, string>
 }
@@ -377,7 +378,7 @@ function parseCampaignBriefInput(value: unknown): CampaignBrief {
     audience: '',
     notes: '',
     platforms: ['google', 'facebook'],
-    platformBudgetSplit: { google: 55, facebook: 45, yelp: 0 },
+    platformBudgetSplit: { google: 55, facebook: 45, yelp: 0, reddit: 0 },
     clarifyingAnswers: parseStringRecord(row.clarifyingAnswers),
   }
 }
@@ -437,7 +438,7 @@ function parsePlatforms(value: unknown): string[] {
 }
 
 function isPlatform(value: string): boolean {
-  return value === 'google' || value === 'facebook' || value === 'yelp'
+  return value === 'google' || value === 'facebook' || value === 'yelp' || value === 'reddit'
 }
 
 function parsePlatformBudgetSplit(
@@ -452,6 +453,7 @@ function parsePlatformBudgetSplit(
     google: parseShare(row.google, defaults.google),
     facebook: parseShare(row.facebook, defaults.facebook),
     yelp: parseShare(row.yelp, defaults.yelp),
+    reddit: parseShare(row.reddit, defaults.reddit),
   }
 
   if (platforms.length <= 1) return defaults
@@ -466,10 +468,17 @@ function parseShare(value: unknown, fallback: number): number {
 function defaultBudgetSplit(platforms: string[]): CampaignBrief['platformBudgetSplit'] {
   const key = [...platforms].sort().join(',')
   const defaults: Record<string, CampaignBrief['platformBudgetSplit']> = {
-    'google,facebook': { google: 55, facebook: 45, yelp: 0 },
-    'google,yelp': { google: 60, facebook: 0, yelp: 40 },
-    'facebook,yelp': { google: 0, facebook: 55, yelp: 45 },
-    'google,facebook,yelp': { google: 40, facebook: 35, yelp: 25 },
+    'google,facebook': { google: 55, facebook: 45, yelp: 0, reddit: 0 },
+    'google,yelp': { google: 60, facebook: 0, yelp: 40, reddit: 0 },
+    'facebook,yelp': { google: 0, facebook: 55, yelp: 45, reddit: 0 },
+    'google,reddit': { google: 55, facebook: 0, yelp: 0, reddit: 45 },
+    'facebook,reddit': { google: 0, facebook: 50, yelp: 0, reddit: 50 },
+    'reddit,yelp': { google: 0, facebook: 0, yelp: 55, reddit: 45 },
+    'facebook,google,yelp': { google: 40, facebook: 35, yelp: 25, reddit: 0 },
+    'facebook,google,reddit': { google: 40, facebook: 35, yelp: 0, reddit: 25 },
+    'google,reddit,yelp': { google: 45, facebook: 0, yelp: 30, reddit: 25 },
+    'facebook,reddit,yelp': { google: 0, facebook: 40, yelp: 35, reddit: 25 },
+    'facebook,google,reddit,yelp': { google: 35, facebook: 30, yelp: 20, reddit: 15 },
   }
 
   if (defaults[key]) return defaults[key]
@@ -478,17 +487,18 @@ function defaultBudgetSplit(platforms: string[]): CampaignBrief['platformBudgetS
       google: platforms[0] === 'google' ? 100 : 0,
       facebook: platforms[0] === 'facebook' ? 100 : 0,
       yelp: platforms[0] === 'yelp' ? 100 : 0,
+      reddit: platforms[0] === 'reddit' ? 100 : 0,
     }
   }
 
-  return { google: 34, facebook: 33, yelp: 33 }
+  return { google: 25, facebook: 25, yelp: 25, reddit: 25 }
 }
 
 function normalizeBudgetSplit(
   platforms: string[],
   split: CampaignBrief['platformBudgetSplit'],
 ): CampaignBrief['platformBudgetSplit'] {
-  const active = { google: 0, facebook: 0, yelp: 0 }
+  const active = { google: 0, facebook: 0, yelp: 0, reddit: 0 }
   let total = 0
 
   for (const platform of platforms) {
@@ -556,10 +566,17 @@ type StoredYelpCredentials = {
   api_base?: string
 }
 
+type StoredRedditCredentials = {
+  access_token?: string
+  ad_account_id?: string
+  pixel_id?: string
+}
+
 type StoredPlatformCredentials = {
   google?: StoredGoogleCredentials
   facebook?: StoredFacebookCredentials
   yelp?: StoredYelpCredentials
+  reddit?: StoredRedditCredentials
 }
 
 function parseStoredPlatformCredentials(value: unknown): StoredPlatformCredentials {
@@ -613,6 +630,16 @@ function mergePlatformCredentials(
     }
   }
 
+  if (row.reddit && typeof row.reddit === 'object') {
+    const reddit = row.reddit as Record<string, unknown>
+    const existing = current.reddit ?? {}
+    next.reddit = {
+      access_token: pickSecret(reddit.accessToken, existing.access_token),
+      ad_account_id: pickString(reddit.adAccountId, existing.ad_account_id),
+      pixel_id: pickString(reddit.pixelId, existing.pixel_id),
+    }
+  }
+
   return next
 }
 
@@ -642,11 +669,17 @@ function yelpConfigured(yelp?: StoredYelpCredentials): boolean {
   return Boolean(yelp.username && yelp.password && yelp.business_id)
 }
 
+function redditConfigured(reddit?: StoredRedditCredentials): boolean {
+  if (!reddit) return false
+  return Boolean(reddit.access_token && reddit.ad_account_id)
+}
+
 function publicPlatformCredentialsStatus(stored: unknown) {
   const credentials = parseStoredPlatformCredentials(stored)
   const google = credentials.google
   const facebook = credentials.facebook
   const yelp = credentials.yelp
+  const reddit = credentials.reddit
 
   return {
     google: publicGoogleCredentialsStatus(google),
@@ -663,6 +696,12 @@ function publicPlatformCredentialsStatus(stored: unknown) {
       username: yelp?.username ?? '',
       businessId: yelp?.business_id ?? '',
       apiBase: yelp?.api_base ?? '',
+    },
+    reddit: {
+      configured: redditConfigured(reddit),
+      hasAccessToken: Boolean(reddit?.access_token),
+      adAccountId: reddit?.ad_account_id ?? '',
+      pixelId: reddit?.pixel_id ?? '',
     },
   }
 }
@@ -692,6 +731,14 @@ function publishPlatformCredentials(stored: StoredPlatformCredentials) {
     }
   }
 
+  if (redditConfigured(stored.reddit) && stored.reddit) {
+    payload.reddit = {
+      access_token: stored.reddit.access_token,
+      ad_account_id: stored.reddit.ad_account_id,
+      pixel_id: stored.reddit.pixel_id || undefined,
+    }
+  }
+
   return Object.keys(payload).length > 0 ? payload : null
 }
 
@@ -705,8 +752,9 @@ function clearStoredPlatformCredentials(
   if (platform === 'google') delete next.google
   if (platform === 'facebook') delete next.facebook
   if (platform === 'yelp') delete next.yelp
+  if (platform === 'reddit') delete next.reddit
 
-  if (!next.google && !next.facebook && !next.yelp) return null
+  if (!next.google && !next.facebook && !next.yelp && !next.reddit) return null
   return next
 }
 

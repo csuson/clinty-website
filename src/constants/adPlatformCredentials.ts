@@ -21,6 +21,12 @@ export type YelpCredentialForm = {
   apiBase: string
 }
 
+export type RedditCredentialForm = {
+  accessToken: string
+  adAccountId: string
+  pixelId: string
+}
+
 export const emptyGoogleAdsCredentialForm = (): GoogleAdsCredentialForm => ({
   clientId: '',
   clientSecret: '',
@@ -42,4 +48,10 @@ export const emptyYelpCredentialForm = (): YelpCredentialForm => ({
   password: '',
   businessId: '',
   apiBase: '',
+})
+
+export const emptyRedditCredentialForm = (): RedditCredentialForm => ({
+  accessToken: '',
+  adAccountId: '',
+  pixelId: '',
 })

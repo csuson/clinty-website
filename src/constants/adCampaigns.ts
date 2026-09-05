@@ -60,6 +60,23 @@ export type CampaignPlan = {
   rationale: string
 }
 
+export type CreativeFormat = 'image' | 'video' | 'carousel'
+export type CreativeAssetKind = 'image' | 'video'
+
+export type CampaignMediaAsset = {
+  name: string
+  kind: CreativeAssetKind
+  url: string
+  headline?: string
+  description?: string
+}
+
+export const CREATIVE_FORMATS: { value: CreativeFormat; label: string }[] = [
+  { value: 'image', label: 'Image' },
+  { value: 'video', label: 'Video' },
+  { value: 'carousel', label: 'Carousel' },
+]
+
 export type FacebookAd = {
   name: string
   primary_text: string
@@ -68,6 +85,8 @@ export type FacebookAd = {
   call_to_action: string
   landing_page_url: string
   image_concept: string
+  creative_format?: CreativeFormat
+  media?: CampaignMediaAsset[]
 }
 
 export type FacebookAdSet = {
@@ -102,6 +121,7 @@ export type YelpProgram = {
   specialties_text: string
   custom_ad_text: string
   photo_concept: string
+  photo_url?: string
   negatives: string[]
   ad_goal: string
 }
@@ -124,14 +144,49 @@ export type YelpCampaignPlan = {
   launch_checklist: string[]
 }
 
+export type RedditAd = {
+  name: string
+  headline: string
+  body: string
+  call_to_action: string
+  landing_page_url: string
+  image_concept: string
+  creative_format?: CreativeFormat
+  media?: CampaignMediaAsset[]
+}
+
+export type RedditAdGroup = {
+  name: string
+  theme: string
+  daily_budget_usd: number
+  communities: string[]
+  interests: string[]
+  keywords: string[]
+  locations: string[]
+  ads: RedditAd[]
+}
+
+export type RedditCampaignPlan = {
+  campaign_name: string
+  objective: string
+  monthly_budget_usd: number
+  daily_budget_usd: number
+  bid_strategy: string
+  ad_groups: RedditAdGroup[]
+  rationale: string
+  launch_checklist: string[]
+}
+
 export type MediaPlan = {
   platforms: string[]
   google: CampaignPlan | null
   facebook: FacebookCampaignPlan | null
   yelp?: YelpCampaignPlan | null
+  reddit?: RedditCampaignPlan | null
   google_budget_share: number
   facebook_budget_share: number
   yelp_budget_share?: number
+  reddit_budget_share?: number
   rationale: string
 }
 
@@ -202,7 +257,7 @@ export type SavedCampaignDraft = {
   answers: Record<string, string>
   revisionNotes: string
   publish: boolean
-  requestedPlatforms: Array<'google' | 'facebook' | 'yelp'>
+  requestedPlatforms: Array<'google' | 'facebook' | 'yelp' | 'reddit'>
   savedAt: string
   briefForm?: import('../lib/googleAds/settings').GoogleAdsCampaignBrief | null
 }
@@ -220,6 +275,7 @@ export type CampaignSnapshot = {
   campaign_plan: CampaignPlan | null
   facebook_plan: FacebookCampaignPlan | null
   yelp_plan?: YelpCampaignPlan | null
+  reddit_plan?: RedditCampaignPlan | null
   media_plan: MediaPlan | null
   review: {
     passed: boolean

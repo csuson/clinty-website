@@ -17,7 +17,7 @@ const steps = [
     number: '03',
     title: 'Approve and go live',
     description:
-      'Review AI-drafted ads, publish paused campaigns to Google, Meta, and Yelp, and let your agent handle email and scheduling in the background.',
+      'Review AI-drafted ads, publish paused campaigns to Google, Meta, Yelp, and Reddit, and let your agent handle email and scheduling in the background.',
     time: 'Saves 15+ hrs/week',
   },
 ]
