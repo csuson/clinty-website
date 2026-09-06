@@ -342,6 +342,8 @@ create table if not exists public.user_prompts (
   background text,
   calendar_preference text,
   default_footer text,
+  response_tone text,
+  whatsapp_response_tone text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

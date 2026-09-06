@@ -3,6 +3,11 @@ import {
   DEFAULT_PROMPT_CALENDAR_PREFERENCE,
   DEFAULT_PROMPT_FOOTER,
 } from '../constants/promptDefaults'
+import {
+  DEFAULT_RESPONSE_TONE,
+  isResponseTonePreset,
+  WHATSAPP_SAME_AS_EMAIL,
+} from '../constants/responseTones'
 import type { UserPrompts } from '../types/database'
 import { getFunctionErrorMessage } from './supabaseFunctions'
 import { supabase } from './supabase'
@@ -11,6 +16,8 @@ export type PromptFields = {
   background: string
   calendarPreference: string
   defaultFooter: string
+  responseTone: string
+  whatsappResponseTone: string
 }
 
 export function defaultPromptFields(): PromptFields {
@@ -18,6 +25,8 @@ export function defaultPromptFields(): PromptFields {
     background: DEFAULT_PROMPT_BACKGROUND,
     calendarPreference: DEFAULT_PROMPT_CALENDAR_PREFERENCE,
     defaultFooter: DEFAULT_PROMPT_FOOTER,
+    responseTone: DEFAULT_RESPONSE_TONE,
+    whatsappResponseTone: WHATSAPP_SAME_AS_EMAIL,
   }
 }
 
@@ -25,11 +34,57 @@ function toPromptFields(row: UserPrompts | null): PromptFields {
   const defaults = defaultPromptFields()
   if (!row) return defaults
 
+  const responseTone = row.response_tone?.trim() || defaults.responseTone
+  const whatsappTone = row.whatsapp_response_tone?.trim()
+
   return {
     background: row.background ?? defaults.background,
     calendarPreference: row.calendar_preference ?? defaults.calendarPreference,
     defaultFooter: row.default_footer ?? defaults.defaultFooter,
+    responseTone,
+    whatsappResponseTone: whatsappTone || WHATSAPP_SAME_AS_EMAIL,
   }
+}
+
+export function serializeResponseToneForSave(
+  selectValue: string,
+  customText: string,
+): string {
+  if (selectValue === 'custom') {
+    return customText.trim() || DEFAULT_RESPONSE_TONE
+  }
+  return selectValue.trim() || DEFAULT_RESPONSE_TONE
+}
+
+export function serializeWhatsappResponseToneForSave(
+  selectValue: string,
+  customText: string,
+): string | null {
+  if (selectValue === WHATSAPP_SAME_AS_EMAIL) {
+    return null
+  }
+  if (selectValue === 'custom') {
+    const trimmed = customText.trim()
+    return trimmed || null
+  }
+  return selectValue.trim() || null
+}
+
+export function responseToneSelectValue(stored: string): string {
+  const trimmed = stored.trim()
+  if (!trimmed) return DEFAULT_RESPONSE_TONE
+  return isResponseTonePreset(trimmed) ? trimmed : 'custom'
+}
+
+export function responseToneCustomText(stored: string): string {
+  const trimmed = stored.trim()
+  if (!trimmed || isResponseTonePreset(trimmed)) return ''
+  return trimmed
+}
+
+export function whatsappToneSelectValue(stored: string): string {
+  if (!stored.trim()) return WHATSAPP_SAME_AS_EMAIL
+  return responseToneSelectValue(stored)
 }
 
 export async function fetchUserPrompts(userId: string): Promise<PromptFields> {
@@ -50,11 +105,15 @@ export async function saveUserPrompts(userId: string, prompts: PromptFields): Pr
     throw new Error('Supabase is not configured.')
   }
 
+  const whatsappTone = prompts.whatsappResponseTone.trim()
+
   const { error } = await supabase.from('user_prompts').upsert({
     user_id: userId,
     background: prompts.background,
     calendar_preference: prompts.calendarPreference,
     default_footer: prompts.defaultFooter,
+    response_tone: prompts.responseTone.trim() || DEFAULT_RESPONSE_TONE,
+    whatsapp_response_tone: whatsappTone ? whatsappTone : null,
   })
 
   if (error) throw new Error(error.message)

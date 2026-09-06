@@ -126,6 +126,8 @@ export type UserPrompts = {
   background: string | null
   calendar_preference: string | null
   default_footer: string | null
+  response_tone: string | null
+  whatsapp_response_tone: string | null
   created_at: string
   updated_at: string
 }
@@ -429,6 +431,8 @@ export type Database = {
           background?: string | null
           calendar_preference?: string | null
           default_footer?: string | null
+          response_tone?: string | null
+          whatsapp_response_tone?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -436,6 +440,8 @@ export type Database = {
           background?: string | null
           calendar_preference?: string | null
           default_footer?: string | null
+          response_tone?: string | null
+          whatsapp_response_tone?: string | null
           updated_at?: string
         }
         Relationships: []

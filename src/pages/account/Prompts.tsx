@@ -1,24 +1,46 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import FormField from '../../components/FormField'
 import { inputClass, textareaClass } from '../../constants/forms'
+import {
+  DEFAULT_RESPONSE_TONE,
+  RESPONSE_TONE_PRESETS,
+  WHATSAPP_SAME_AS_EMAIL,
+} from '../../constants/responseTones'
 import { useAuth } from '../../context/AuthContext'
 import {
   defaultPromptFields,
   fetchUserPrompts,
   generateBackgroundFromWebsite,
+  responseToneCustomText,
+  responseToneSelectValue,
   saveUserPrompts,
+  serializeResponseToneForSave,
+  serializeWhatsappResponseToneForSave,
+  whatsappToneSelectValue,
   type PromptFields,
 } from '../../lib/prompts'
 
 export default function Prompts() {
   const { user } = useAuth()
   const [prompts, setPrompts] = useState<PromptFields>(defaultPromptFields())
+  const [emailToneSelect, setEmailToneSelect] = useState(DEFAULT_RESPONSE_TONE)
+  const [emailToneCustom, setEmailToneCustom] = useState('')
+  const [whatsappToneSelect, setWhatsappToneSelect] = useState(WHATSAPP_SAME_AS_EMAIL)
+  const [whatsappToneCustom, setWhatsappToneCustom] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  function applyToneFields(fields: PromptFields) {
+    setPrompts(fields)
+    setEmailToneSelect(responseToneSelectValue(fields.responseTone))
+    setEmailToneCustom(responseToneCustomText(fields.responseTone))
+    setWhatsappToneSelect(whatsappToneSelectValue(fields.whatsappResponseTone))
+    setWhatsappToneCustom(responseToneCustomText(fields.whatsappResponseTone))
+  }
 
   useEffect(() => {
     if (!user) {
@@ -27,7 +49,7 @@ export default function Prompts() {
     }
 
     fetchUserPrompts(user.id)
-      .then(setPrompts)
+      .then(applyToneFields)
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Failed to load prompts')
       })
@@ -42,8 +64,17 @@ export default function Prompts() {
     setMessage(null)
     setError(null)
 
+    const payload: PromptFields = {
+      ...prompts,
+      responseTone: serializeResponseToneForSave(emailToneSelect, emailToneCustom),
+      whatsappResponseTone:
+        serializeWhatsappResponseToneForSave(whatsappToneSelect, whatsappToneCustom) ??
+        WHATSAPP_SAME_AS_EMAIL,
+    }
+
     try {
-      await saveUserPrompts(user.id, prompts)
+      await saveUserPrompts(user.id, payload)
+      applyToneFields(payload)
       setMessage('Prompts saved successfully.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save prompts')
@@ -53,7 +84,7 @@ export default function Prompts() {
   }
 
   function handleReset() {
-    setPrompts(defaultPromptFields())
+    applyToneFields(defaultPromptFields())
     setMessage(null)
     setError(null)
   }
@@ -94,7 +125,7 @@ export default function Prompts() {
         <h2 className="text-lg font-semibold text-navy-900 mb-1">Prompts</h2>
         <p className="text-sm text-navy-600 mb-6">
           Customize the context your AI agent uses when replying to customers — business background,
-          scheduling preferences, and the footer appended to outbound messages.
+          response tone, scheduling preferences, and the footer appended to outbound messages.
         </p>
 
         {error && <Alert type="error" message={error} />}
@@ -142,6 +173,29 @@ export default function Prompts() {
             disabled={saving || generating}
           />
 
+          <ToneSection
+            title="Email response tone"
+            description="How the assistant writes email replies — language and content rules still apply."
+            idPrefix="email-tone"
+            selectValue={emailToneSelect}
+            customText={emailToneCustom}
+            onSelectChange={setEmailToneSelect}
+            onCustomChange={setEmailToneCustom}
+            disabled={saving || generating}
+          />
+
+          <ToneSection
+            title="WhatsApp response tone"
+            description="Optional override for WhatsApp. Leave as “Same as email” to reuse the email tone above."
+            idPrefix="whatsapp-tone"
+            selectValue={whatsappToneSelect}
+            customText={whatsappToneCustom}
+            onSelectChange={setWhatsappToneSelect}
+            onCustomChange={setWhatsappToneCustom}
+            disabled={saving || generating}
+            includeSameAsEmail
+          />
+
           <PromptSection
             title="Calendar preference"
             description="Lesson length, availability windows, and rules for proposing appointment times."
@@ -183,6 +237,81 @@ export default function Prompts() {
         </div>
       </section>
     </form>
+  )
+}
+
+function ToneSection({
+  title,
+  description,
+  idPrefix,
+  selectValue,
+  customText,
+  onSelectChange,
+  onCustomChange,
+  disabled,
+  includeSameAsEmail = false,
+}: {
+  title: string
+  description: string
+  idPrefix: string
+  selectValue: string
+  customText: string
+  onSelectChange: (value: string) => void
+  onCustomChange: (value: string) => void
+  disabled: boolean
+  includeSameAsEmail?: boolean
+}) {
+  const previewPreset =
+    selectValue === 'custom' || selectValue === WHATSAPP_SAME_AS_EMAIL
+      ? null
+      : RESPONSE_TONE_PRESETS.find((preset) => preset.id === selectValue)
+
+  return (
+    <div className="border-t border-navy-900/5 pt-8 first:border-t-0 first:pt-0">
+      <h3 className="text-base font-semibold text-navy-900 mb-1">{title}</h3>
+      <p className="text-sm text-navy-600 mb-4">{description}</p>
+
+      <FormField label={title} id={`${idPrefix}-select`}>
+        <select
+          id={`${idPrefix}-select`}
+          value={selectValue}
+          onChange={(e) => onSelectChange(e.target.value)}
+          className={inputClass}
+          disabled={disabled}
+        >
+          {includeSameAsEmail && (
+            <option value={WHATSAPP_SAME_AS_EMAIL}>Same as email</option>
+          )}
+          {RESPONSE_TONE_PRESETS.map((preset) => (
+            <option key={preset.id} value={preset.id}>
+              {preset.label}
+            </option>
+          ))}
+          <option value="custom">Custom instructions…</option>
+        </select>
+      </FormField>
+
+      {previewPreset && (
+        <p className="text-sm text-navy-600 mt-3">{previewPreset.description}</p>
+      )}
+
+      {selectValue === 'custom' && (
+        <div className="mt-4">
+          <FormField label="Custom tone instructions" id={`${idPrefix}-custom`}>
+            <textarea
+              id={`${idPrefix}-custom`}
+              value={customText}
+              onChange={(e) => onCustomChange(e.target.value)}
+              rows={3}
+              placeholder="e.g. Warm but brief, like a helpful surf instructor"
+              className={textareaClass}
+              disabled={disabled}
+            />
+          </FormField>
+        </div>
+      )}
+
+    </div>
   )
 }
 

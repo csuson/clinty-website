@@ -38,6 +38,18 @@ export function questionMatchesField(field: string, question: string): boolean {
   return tokens.length === 1 ? hits === 1 : hits >= 2
 }
 
+export function isYelpBusinessIdClarifying(field: string, question = ''): boolean {
+  const key = normalizeClarifyingFieldKey(field)
+  const q = question.trim().toLowerCase()
+  if (
+    key === 'yelp_business_id'
+    || (key.includes('yelp') && (key.includes('business') || key.includes('listing')))
+  ) {
+    return true
+  }
+  return /yelp/.test(q) && (/business\s*id/.test(q) || /business listing/.test(q) || /listing id/.test(q))
+}
+
 export function clarifyingFieldLabel(field: string, question?: string): string {
   const key = normalizeClarifyingFieldKey(field)
   const known = FIELD_LABELS[key]

@@ -54,6 +54,7 @@ import {
 import {
   clarifyingFieldHint,
   clarifyingFieldLabel,
+  isYelpBusinessIdClarifying,
   questionMatchesField,
 } from '../../lib/googleAds/clarifyingHints'
 import { fetchUserPrompts } from '../../lib/prompts'
@@ -208,7 +209,13 @@ function downloadJson(filename: string, data: unknown) {
   URL.revokeObjectURL(url)
 }
 
-function clarifyingFields(
+const YELP_NOT_SELECTED_ANSWER = 'Not applicable — Yelp Ads was not selected.'
+
+function snapshotIncludesYelp(platforms: AdPlatform[]): boolean {
+  return platforms.includes('yelp')
+}
+
+function allClarifyingFields(
   snapshot: CampaignSnapshot,
 ): { field: string; question: string; hint: string }[] {
   const fields = snapshot.missing_fields.length
@@ -242,6 +249,29 @@ function clarifyingFields(
       hint: clarifyingFieldHint(field, matchedQuestion || question),
     }
   })
+}
+
+function clarifyingFields(
+  snapshot: CampaignSnapshot,
+  platforms: AdPlatform[] = [],
+): { field: string; question: string; hint: string }[] {
+  const rows = allClarifyingFields(snapshot)
+  if (snapshotIncludesYelp(platforms)) return rows
+  return rows.filter((row) => !isYelpBusinessIdClarifying(row.field, row.question))
+}
+
+function skippedYelpClarifyingAnswers(
+  snapshot: CampaignSnapshot,
+  platforms: AdPlatform[],
+): Record<string, string> {
+  if (snapshotIncludesYelp(platforms)) return {}
+  const skipped: Record<string, string> = {}
+  for (const { field, question } of allClarifyingFields(snapshot)) {
+    if (!isYelpBusinessIdClarifying(field, question)) continue
+    skipped[field] = YELP_NOT_SELECTED_ANSWER
+    skipped[normalizeClarifyingQuestion(question)] = YELP_NOT_SELECTED_ANSWER
+  }
+  return skipped
 }
 
 function normalizeClarifyingQuestion(question: string): string {
@@ -299,10 +329,11 @@ function priorClarifyingAnswer(
 
 function resolveClarifyingAnswers(
   snapshot: CampaignSnapshot,
+  platforms: AdPlatform[],
   ...stores: Array<Record<string, string> | undefined>
 ): Record<string, string> {
   const nextAnswers: Record<string, string> = {}
-  for (const { field, question } of clarifyingFields(snapshot)) {
+  for (const { field, question } of clarifyingFields(snapshot, platforms)) {
     nextAnswers[field] = priorClarifyingAnswer(field, question, ...stores)
   }
   return nextAnswers
@@ -310,10 +341,14 @@ function resolveClarifyingAnswers(
 
 function expandedClarifyingAnswers(
   snapshot: CampaignSnapshot,
+  platforms: AdPlatform[],
   answerValues: Record<string, string>,
 ): Record<string, string> {
-  const expanded = { ...answerValues }
-  for (const { field, question } of clarifyingFields(snapshot)) {
+  const expanded = {
+    ...skippedYelpClarifyingAnswers(snapshot, platforms),
+    ...answerValues,
+  }
+  for (const { field, question } of clarifyingFields(snapshot, platforms)) {
     const value = answerValues[field]?.trim()
     if (!value) continue
     expanded[field] = value
@@ -351,6 +386,7 @@ export default function GoogleAds() {
   const [offeringCustom, setOfferingCustom] = useState(false)
   const clarifyingAnswersRef = useRef<Record<string, string>>({})
   const answersRef = useRef(answers)
+  const autoSkippedYelpClarifyRef = useRef<string | null>(null)
 
   useEffect(() => {
     answersRef.current = answers
@@ -430,12 +466,14 @@ export default function GoogleAds() {
 
           const restoredAnswers = resolveClarifyingAnswers(
             settings.campaignDraft.snapshot,
+            requestedPlatformsRef.current,
             settings.campaignDraft.answers,
             clarifyingAnswersRef.current,
             answersFromSnapshotBrief(settings.campaignDraft.snapshot),
           )
           clarifyingAnswersRef.current = expandedClarifyingAnswers(
             settings.campaignDraft.snapshot,
+            requestedPlatformsRef.current,
             restoredAnswers,
           )
           setAnswers(restoredAnswers)
@@ -491,7 +529,11 @@ export default function GoogleAds() {
   useEffect(() => {
     if (!briefLoaded || skipBriefSaveRef.current || step !== 'clarifying' || !snapshot) return
 
-    const expanded = expandedClarifyingAnswers(snapshot, answersRef.current)
+    const expanded = expandedClarifyingAnswers(
+      snapshot,
+      requestedPlatformsRef.current,
+      answersRef.current,
+    )
     clarifyingAnswersRef.current = expanded
 
     const timer = window.setTimeout(() => {
@@ -514,6 +556,28 @@ export default function GoogleAds() {
 
     return () => window.clearTimeout(timer)
   }, [answers, step, briefLoaded, snapshot, revisionNotes, publish])
+
+  useEffect(() => {
+    if (step !== 'clarifying' || !snapshot || working) return
+    const platforms = form.platforms.length ? form.platforms : requestedPlatformsRef.current
+    if (clarifyingFields(snapshot, platforms).length > 0) return
+    const hidden = allClarifyingFields(snapshot)
+    if (hidden.length === 0) return
+    const skipKey = `${snapshot.thread_id}:${hidden.map((row) => row.field).join(',')}`
+    if (autoSkippedYelpClarifyRef.current === skipKey) return
+    autoSkippedYelpClarifyRef.current = skipKey
+
+    const expanded = expandedClarifyingAnswers(snapshot, platforms, answersRef.current)
+    setWorking(true)
+    void resumeAdCampaign(snapshot.thread_id, { answers: expanded }, snapshot)
+      .then((next) => applySnapshot(next, platforms, { answers: expanded }))
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to continue')
+      })
+      .finally(() => {
+        setWorking(false)
+      })
+  }, [step, snapshot, working, form.platforms])
 
   useEffect(() => {
     if (!briefLoaded || geolocateAttemptedRef.current) return
@@ -570,7 +634,11 @@ export default function GoogleAds() {
     setError(null)
     setDraftNotice(null)
     try {
-      const expanded = expandedClarifyingAnswers(snapshot, answersRef.current)
+      const expanded = expandedClarifyingAnswers(
+        snapshot,
+        requestedPlatformsRef.current,
+        answersRef.current,
+      )
       await saveGoogleAdsCampaignDraft({
         step,
         snapshot,
@@ -625,13 +693,14 @@ export default function GoogleAds() {
     if (next.status === 'clarification') {
       const nextAnswers = resolveClarifyingAnswers(
         next,
+        requestedPlatforms,
         options.answers,
         answersRef.current,
         clarifyingAnswersRef.current,
         answersFromSnapshotBrief(next),
       )
       setAnswers(nextAnswers)
-      clarifyingAnswersRef.current = expandedClarifyingAnswers(next, nextAnswers)
+      clarifyingAnswersRef.current = expandedClarifyingAnswers(next, requestedPlatforms, nextAnswers)
       setStep('clarifying')
       if (options.persist !== false) persistDraft(next, 'clarifying', { answers: nextAnswers })
       return
@@ -721,7 +790,7 @@ export default function GoogleAds() {
         briefForm.creativeFormats,
       )
       applySnapshot(created, briefForm.platforms, {
-        answers: resolveClarifyingAnswers(created, clarifyingAnswersRef.current),
+        answers: resolveClarifyingAnswers(created, briefForm.platforms, clarifyingAnswersRef.current),
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to draft the campaign')
@@ -736,11 +805,15 @@ export default function GoogleAds() {
     setWorking(true)
     setError(null)
     try {
-      const expanded = expandedClarifyingAnswers(snapshot, answers)
+      const expanded = expandedClarifyingAnswers(
+        snapshot,
+        requestedPlatformsRef.current,
+        answers,
+      )
       clarifyingAnswersRef.current = expanded
       await saveGoogleAdsCampaignBrief(briefForSave())
       applySnapshot(
-        await resumeAdCampaign(snapshot.thread_id, { answers }, snapshot),
+        await resumeAdCampaign(snapshot.thread_id, { answers: expanded }, snapshot),
         undefined,
         { answers: expanded },
       )
@@ -1428,7 +1501,7 @@ export default function GoogleAds() {
             We need this before we can build keywords and ads.
           </p>
           <div className="space-y-4">
-            {clarifyingFields(snapshot).map(({ field, question, hint }) => (
+            {clarifyingFields(snapshot, form.platforms).map(({ field, question, hint }) => (
               <FormField
                 key={field}
                 label={question}

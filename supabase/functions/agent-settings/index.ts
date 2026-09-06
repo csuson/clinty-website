@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     if (!agentSettings) {
       const { data: userPrompts } = await admin
         .from('user_prompts')
-        .select('background, calendar_preference, default_footer')
+        .select('background, calendar_preference, default_footer, response_tone, whatsapp_response_tone')
         .eq('user_id', apiKeyRow.user_id)
         .maybeSingle()
 
@@ -94,13 +94,15 @@ Deno.serve(async (req) => {
         prompt_background: prompts.background,
         prompt_calendar_preference: prompts.calendar_preference,
         email_footer: prompts.default_footer,
+        prompt_response_tone: prompts.response_tone,
+        prompt_whatsapp_response_tone: prompts.whatsapp_response_tone,
         ...await loadShopifyStorefront(admin, apiKeyRow.user_id),
       })
     }
 
     const { data: userPrompts } = await admin
       .from('user_prompts')
-      .select('background, calendar_preference, default_footer')
+      .select('background, calendar_preference, default_footer, response_tone, whatsapp_response_tone')
       .eq('user_id', agentSettings.user_id)
       .maybeSingle()
 
@@ -113,6 +115,8 @@ Deno.serve(async (req) => {
       prompt_background: prompts.background,
       prompt_calendar_preference: prompts.calendar_preference,
       email_footer: prompts.default_footer,
+      prompt_response_tone: prompts.response_tone,
+      prompt_whatsapp_response_tone: prompts.whatsapp_response_tone,
       ...await loadShopifyStorefront(admin, agentSettings.user_id as string),
     })
   } catch (err) {
