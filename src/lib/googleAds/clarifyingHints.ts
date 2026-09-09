@@ -1,9 +1,20 @@
 const FIELD_LABELS: Record<string, string> = {
-  yelp_business_id: 'What is the Yelp business ID?',
-  claims_to_avoid: 'Are there restricted claims we should avoid?',
-  restricted_claims: 'Are there restricted claims we should avoid?',
-  restricted_claim: 'Are there restricted claims we should avoid?',
-  policy_claims: 'Are there restricted claims we should avoid?',
+  business_name: 'What is your business name?',
+  industry: 'What type of business is this?',
+  description: 'What does your business do?',
+  products_or_services: 'What should this campaign promote?',
+  locations: 'Which cities or areas should ads target?',
+  monthly_budget_usd: 'How much do you want to spend on ads each month?',
+  primary_goal: 'What result do you want most?',
+  website_url: 'What website should people visit?',
+  target_audience: 'Who is your ideal customer?',
+  unique_selling_points: 'What makes you different?',
+  yelp_business_id: 'Do you have a Yelp listing ID? (optional)',
+  claims_to_avoid: 'Are there words or promises we should avoid?',
+  restricted_claims: 'Are there words or promises we should avoid?',
+  restricted_claim: 'Are there words or promises we should avoid?',
+  policy_claims: 'Are there words or promises we should avoid?',
+  conversion_action: 'After someone clicks, what should they do?',
 }
 
 export function normalizeClarifyingFieldKey(field: string): string {
@@ -61,66 +72,37 @@ export function clarifyingFieldLabel(field: string, question?: string): string {
 }
 
 const EXACT_FIELD_HINTS: Record<string, string> = {
-  business_name:
-    'The public-facing name customers recognize — match what appears on your website and Google Business Profile.',
-  industry:
-    'A short category label (e.g. “kiteboarding school”, “family dentistry”, “HVAC contractor”) so we pick the right keywords.',
-  website_url:
-    'Your main site or the page you want most ads to point to, including https://.',
-  yelp_business_id:
-    'The encrypted Yelp listing id for this business, if you already have it from Yelp or Business Match.',
-  landing_page_url:
-    'The specific page people should land on after clicking an ad — often a service page, booking page, or contact page.',
-  locations:
-    'Cities, counties, states, or regions you serve. Example: “Foster City, CA and Peninsula” or “Austin metro”.',
-  geo_targets:
-    'Where ads should show geographically — cities, ZIP codes, states, or a radius around your business.',
-  monthly_budget:
-    'Target monthly ad spend in USD (e.g. 500). Google paces spend across the month; you can adjust later.',
-  budget:
-    'How much you want to spend per month on paid media in USD.',
-  daily_budget:
-    'Optional daily cap in USD. Leave blank if you only know a monthly number.',
-  goal:
-    'What success looks like: leads, calls, bookings, online sales, or foot traffic.',
-  primary_goal:
-    'The main outcome you want from this campaign — leads, sales, calls, or site visits.',
-  offerings:
-    'Products or services to promote in ads. List your top 1–3 offers customers search for.',
-  products_services:
-    'The specific services or products this campaign should advertise.',
-  audience:
-    'Who should see these ads — demographics, intent, or customer type (e.g. “beginners”, “homeowners”).',
-  target_audience:
-    'Describe ideal customers: location, age range, interests, or problems they need solved.',
-  phone:
-    'A call tracking or business phone number if you want call extensions or call-focused ads.',
-  phone_number:
-    'Business phone for call extensions. Use a number you answer during business hours.',
-  competitors:
-    'Names of competing businesses or brands — helps us differentiate ad copy and avoid wasted clicks.',
-  differentiator:
-    'What makes you different — certifications, guarantees, speed, price, or local expertise.',
-  unique_selling_proposition:
-    'Your main reason customers choose you over alternatives.',
-  conversion_action:
-    'What you want someone to do after clicking: book online, call, fill a form, buy, etc.',
-  booking_url:
-    'Direct link to your scheduling or booking flow, if different from your homepage.',
-  promotion:
-    'Any limited-time offer, discount, or seasonal message to highlight in ads.',
-  seasonality:
-    'Busy seasons, holidays, or times when demand is higher or lower.',
-  brand_voice:
-    'Tone for ad copy: professional, friendly, luxury, technical, etc.',
-  claims_to_avoid:
-    'Phrases, superlatives, or promises Google or your industry restricts.',
-  restricted_claims:
-    'Note restricted claims (e.g. “#1”, medical guarantees) so drafts stay policy-safe.',
-  restricted_claim:
-    'Note restricted claims (e.g. “#1”, medical guarantees) so drafts stay policy-safe.',
-  notes:
-    'Anything else the campaign agent should know before drafting keywords and ads.',
+  business_name: 'Use the name on your website or storefront.',
+  industry: 'Examples: family dentist, kite shop, HVAC repair.',
+  website_url: 'Paste the full link starting with https://',
+  yelp_business_id: 'Optional. Only needed if you already have this from Yelp.',
+  landing_page_url: 'The page people should land on — booking page, service page, or homepage.',
+  locations: 'List cities or regions you serve.',
+  geo_targets: 'Where ads should show — cities, counties, or nearby areas.',
+  monthly_budget_usd: 'Monthly total in US dollars. Example: 500',
+  monthly_budget: 'Monthly total in US dollars. Example: 500',
+  budget: 'How much you want to spend per month on ads.',
+  daily_budget: 'Optional daily cap. Leave blank if you only know a monthly amount.',
+  goal: 'Pick one main outcome: calls, leads, sales, or website visits.',
+  primary_goal: 'Pick one main outcome: calls, leads, sales, or website visits.',
+  offerings: 'Your top product or service for this campaign.',
+  products_or_services: 'Your top product or service for this campaign.',
+  audience: 'Example: “parents in Austin” or “homeowners needing a new roof”.',
+  target_audience: 'Example: “parents in Austin” or “homeowners needing a new roof”.',
+  phone: 'A phone number you answer during business hours.',
+  phone_number: 'A phone number you answer during business hours.',
+  competitors: 'Optional. Names of businesses you compete with locally.',
+  differentiator: 'What makes customers choose you?',
+  unique_selling_proposition: 'What makes customers choose you?',
+  conversion_action: 'Example: book online, call, fill out a form, or buy.',
+  booking_url: 'Link to your online booking page, if you have one.',
+  promotion: 'Any special offer to mention (optional).',
+  seasonality: 'Busy or slow seasons we should know about (optional).',
+  brand_voice: 'How should ads sound? Friendly, professional, fun, etc.',
+  claims_to_avoid: 'Words to skip — like “#1” or guarantees your industry restricts.',
+  restricted_claims: 'Words to skip — like “#1” or guarantees your industry restricts.',
+  restricted_claim: 'Words to skip — like “#1” or guarantees your industry restricts.',
+  notes: 'Anything else that would help us write better ads.',
 }
 
 export function clarifyingFieldHint(field: string, question: string): string {
@@ -133,35 +115,29 @@ export function clarifyingFieldHint(field: string, question: string): string {
   const combined = `${field} ${question}`.toLowerCase()
 
   if (/budget|spend|cost|\$|usd|monthly|daily/.test(combined)) {
-    return 'Enter a number in USD. If unsure, start conservative — you can raise budget after reviewing performance.'
+    return 'Enter a number in US dollars. Start conservative if you are unsure.'
   }
   if (/url|website|landing|domain|http/.test(combined)) {
-    return 'Paste the full URL including https://. Use the page that best matches what the ad promises.'
+    return 'Paste the full link starting with https://'
   }
   if (/location|geo|city|region|area|zip|state|where/.test(combined)) {
-    return 'List places you want ads to show. Narrow targeting usually improves lead quality.'
+    return 'List the places you serve or want customers from.'
   }
   if (/phone|call/.test(combined)) {
-    return 'Use a number you can answer. Include area code; extensions are fine if needed.'
+    return 'Use a number you can answer during business hours.'
   }
   if (/audience|customer|who|demographic|target/.test(combined)) {
-    return 'Describe who you want to reach — job, life stage, pain point, or buying intent.'
+    return 'Describe who you want to reach — age, location, or what they need.'
   }
   if (/offer|service|product|what do you/.test(combined)) {
-    return 'Name the specific services or products this campaign should focus on, not your full catalog.'
-  }
-  if (/competitor|alternative|versus|vs/.test(combined)) {
-    return 'Optional but helpful — local or national names we should contrast with in messaging.'
+    return 'Name the main thing this campaign should promote.'
   }
   if (/goal|objective|outcome|convert/.test(combined)) {
-    return 'Pick the single most important result: leads, calls, bookings, sales, or traffic.'
-  }
-  if (/brand|tone|voice|style/.test(combined)) {
-    return 'How should ads sound? Examples: warm and approachable, expert and clinical, premium boutique.'
+    return 'Pick the single most important result you want.'
   }
   if (/policy|claim|avoid|legal|compliance/.test(combined)) {
-    return 'Note restricted claims (e.g. “#1”, medical guarantees) so drafts stay policy-safe.'
+    return 'Note any words or promises ads should avoid.'
   }
 
-  return 'Answer as specifically as you can. Short, concrete details produce better keywords and ad copy.'
+  return 'A short, specific answer is enough.'
 }

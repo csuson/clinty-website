@@ -58,6 +58,16 @@ import {
   questionMatchesField,
 } from '../../lib/googleAds/clarifyingHints'
 import { fetchUserPrompts } from '../../lib/prompts'
+import CampaignStepProgress from '../../components/adCampaign/CampaignStepProgress'
+import {
+  ADVANCED_MODE_STORAGE_KEY,
+  BRIEF_INTRO,
+  CLARIFY_INTRO,
+  FIELD_HINTS_SIMPLE,
+  PLATFORM_HELP,
+  REVIEW_INTRO,
+} from '../../lib/googleAds/campaignWizardCopy'
+import { plainBiddingLabel, plainCpcRange, plainMatchType, plainReviewIssue } from '../../lib/googleAds/planPlainLanguage'
 
 type Step = 'brief' | 'clarifying' | 'review' | 'complete'
 type PageView = 'draft' | 'performance'
@@ -402,10 +412,29 @@ export default function GoogleAds() {
   const clarifyingAnswersRef = useRef<Record<string, string>>({})
   const answersRef = useRef(answers)
   const autoSkippedYelpClarifyRef = useRef<string | null>(null)
+  const [advancedMode, setAdvancedMode] = useState(() => {
+    try {
+      return localStorage.getItem(ADVANCED_MODE_STORAGE_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
 
   useEffect(() => {
     answersRef.current = answers
   }, [answers])
+
+  function toggleAdvancedMode() {
+    setAdvancedMode((current) => {
+      const next = !current
+      try {
+        localStorage.setItem(ADVANCED_MODE_STORAGE_KEY, next ? '1' : '0')
+      } catch {
+        /* ignore storage errors */
+      }
+      return next
+    })
+  }
 
   function briefForSave(brief: BriefForm = formRef.current): BriefForm {
     const clarifyingAnswers = mergeClarifyingAnswers(brief, {
@@ -1155,11 +1184,28 @@ export default function GoogleAds() {
 
       {pageView === 'draft' && apiReady && (
       <>
+      <CampaignStepProgress currentStep={step} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-navy-600">
+          {advancedMode
+            ? 'Advanced mode shows budget splits, creative options, and technical ad details.'
+            : 'Simple mode hides advanced settings. Turn on advanced options if you manage ads regularly.'}
+        </p>
+        <label className="inline-flex items-center gap-2 text-sm text-navy-800">
+          <input
+            type="checkbox"
+            checked={advancedMode}
+            onChange={toggleAdvancedMode}
+            disabled={working}
+          />
+          Show advanced options
+        </label>
+      </div>
       {error && <Alert type="error" message={error} />}
       {working && (
         <Alert
           type="info"
-          message="Drafting Google, Meta, Yelp, and/or Reddit campaigns. This usually takes under a minute."
+          message="Building your ad draft. This usually takes under a minute."
         />
       )}
 
@@ -1168,12 +1214,8 @@ export default function GoogleAds() {
           <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-lg font-semibold text-navy-900 mb-1">Paid media campaign</h2>
-                <p className="text-sm text-navy-600">
-                  Tell us about the business and the outcome you want. Clinty will draft Google Search,
-                  Meta, Yelp, and/or Reddit campaigns — targeting, ads, and budget — for you to review before
-                  anything is created in the ad accounts.
-                </p>
+                <h2 className="text-lg font-semibold text-navy-900 mb-1">{BRIEF_INTRO.title}</h2>
+                <p className="text-sm text-navy-600">{BRIEF_INTRO.description}</p>
               </div>
               <button
                 type="button"
@@ -1181,12 +1223,12 @@ export default function GoogleAds() {
                 disabled={working || reloadingBackground}
                 className="inline-flex items-center justify-center shrink-0 border border-navy-900/15 text-navy-900 font-medium px-4 py-2.5 rounded-xl hover:bg-navy-900/5 transition-colors text-sm disabled:opacity-60"
               >
-                {reloadingBackground ? 'Reloading…' : 'Reload from background'}
+                {reloadingBackground ? 'Reloading…' : 'Fill from saved business info'}
               </button>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              <FormField label="Business name" id="ads-business" required>
+              <FormField label="Business name" id="ads-business" hint={FIELD_HINTS_SIMPLE.businessName} required>
                 <input
                   id="ads-business"
                   value={form.businessName}
@@ -1196,7 +1238,7 @@ export default function GoogleAds() {
                   required
                 />
               </FormField>
-              <FormField label="Industry" id="ads-industry" required>
+              <FormField label="Industry" id="ads-industry" hint={FIELD_HINTS_SIMPLE.industry} required>
                 <input
                   id="ads-industry"
                   value={form.industry}
@@ -1207,7 +1249,7 @@ export default function GoogleAds() {
                   required
                 />
               </FormField>
-              <FormField label="Website / landing page" id="ads-website" required>
+              <FormField label="Website" id="ads-website" hint={FIELD_HINTS_SIMPLE.websiteUrl} required>
                 <input
                   id="ads-website"
                   type="text"
@@ -1220,7 +1262,12 @@ export default function GoogleAds() {
                   required
                 />
               </FormField>
-              <FormField label="Location targeting" id="ads-location-scope" required>
+              <FormField
+                label="How far should ads reach?"
+                id="ads-location-scope"
+                hint="Local = near you. Regional/state/national widen the area."
+                required
+              >
                 <select
                   id="ads-location-scope"
                   value={form.locationScope}
@@ -1237,14 +1284,14 @@ export default function GoogleAds() {
                 </select>
               </FormField>
               <FormField
-                label="Locations"
+                label="Cities or areas to target"
                 id="ads-locations"
                 hint={
                   form.locationScope === 'local'
                     ? geolocating
                       ? 'Detecting your location…'
-                      : 'Prefilled from your device when Local is selected. Edit as needed.'
-                    : undefined
+                      : FIELD_HINTS_SIMPLE.locations
+                    : FIELD_HINTS_SIMPLE.locations
                 }
                 required
               >
@@ -1259,7 +1306,7 @@ export default function GoogleAds() {
                 />
               </FormField>
               <div className="sm:col-span-2">
-                <FormField label="Monthly budget (USD)" id="ads-budget" required>
+                <FormField label="Monthly ad budget" id="ads-budget" hint={FIELD_HINTS_SIMPLE.monthlyBudget} required>
                   <MonthlyBudgetSlider
                     value={form.monthlyBudget}
                     onChange={(monthlyBudget) => update('monthlyBudget', monthlyBudget)}
@@ -1267,7 +1314,7 @@ export default function GoogleAds() {
                   />
                 </FormField>
               </div>
-              <FormField label="Primary goal" id="ads-goal" required>
+              <FormField label="Main goal" id="ads-goal" hint={FIELD_HINTS_SIMPLE.goal} required>
                 <select
                   id="ads-goal"
                   value={form.goal}
@@ -1286,50 +1333,32 @@ export default function GoogleAds() {
 
             <div className="mt-4 space-y-4">
               <fieldset>
-                <legend className="text-sm font-medium text-navy-800 mb-2">Platforms</legend>
-                <div className="flex flex-wrap gap-4">
-                  <label className="flex items-center gap-2 text-sm text-navy-800">
-                    <input
-                      id="platform-google"
-                      type="checkbox"
-                      checked={form.platforms.includes('google')}
-                      onChange={() => handlePlatformToggle('google')}
-                      disabled={working}
-                    />
-                    Google Search
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-navy-800">
-                    <input
-                      id="platform-facebook"
-                      type="checkbox"
-                      checked={form.platforms.includes('facebook')}
-                      onChange={() => handlePlatformToggle('facebook')}
-                      disabled={working}
-                    />
-                    Facebook / Instagram
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-navy-800">
-                    <input
-                      id="platform-yelp"
-                      type="checkbox"
-                      checked={form.platforms.includes('yelp')}
-                      onChange={() => handlePlatformToggle('yelp')}
-                      disabled={working}
-                    />
-                    Yelp
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-navy-800">
-                    <input
-                      id="platform-reddit"
-                      type="checkbox"
-                      checked={form.platforms.includes('reddit')}
-                      onChange={() => handlePlatformToggle('reddit')}
-                      disabled={working}
-                    />
-                    Reddit
-                  </label>
+                <legend className="text-sm font-medium text-navy-800 mb-2">Where should ads run?</legend>
+                <p className="text-xs text-navy-500 mb-3">
+                  Pick at least one. Not sure? Google Search + Facebook/Instagram is a common starting point.
+                </p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {AD_PLATFORMS.map((platform) => (
+                    <label
+                      key={platform}
+                      className="flex items-start gap-3 rounded-xl border border-navy-900/10 p-3 text-sm text-navy-800"
+                    >
+                      <input
+                        id={`platform-${platform}`}
+                        type="checkbox"
+                        className="mt-1"
+                        checked={form.platforms.includes(platform)}
+                        onChange={() => handlePlatformToggle(platform)}
+                        disabled={working}
+                      />
+                      <span>
+                        <span className="font-medium block">{PLATFORM_HELP[platform].label}</span>
+                        <span className="text-xs text-navy-500">{PLATFORM_HELP[platform].simpleDescription}</span>
+                      </span>
+                    </label>
+                  ))}
                 </div>
-                {form.platforms.length > 1 && (
+                {advancedMode && form.platforms.length > 1 && (
                   <PlatformBudgetSplitControls
                     platforms={form.platforms}
                     split={activeSplit}
@@ -1340,9 +1369,9 @@ export default function GoogleAds() {
                 )}
               </fieldset>
               <FormField
-                label="Products or services to advertise"
+                label="What are you promoting?"
                 id="ads-offerings"
-                hint="Choose from your business background, or select Other to enter manually. Reload from background to refresh the list."
+                hint={FIELD_HINTS_SIMPLE.offerings}
                 required
               >
                 <select
@@ -1383,7 +1412,7 @@ export default function GoogleAds() {
                   />
                 ) : null}
               </FormField>
-              <FormField label="Who should see these ads?" id="ads-audience">
+              <FormField label="Who should see these ads?" id="ads-audience" hint={FIELD_HINTS_SIMPLE.audience}>
                 <input
                   id="ads-audience"
                   value={form.audience}
@@ -1393,119 +1422,122 @@ export default function GoogleAds() {
                   disabled={working}
                 />
               </FormField>
-              <FormField label="Business background and extra goals" id="ads-notes">
+              <FormField label="Anything else we should know?" id="ads-notes" hint={FIELD_HINTS_SIMPLE.notes}>
                 <textarea
                   id="ads-notes"
                   value={form.notes}
                   onChange={(e) => update('notes', e.target.value)}
                   className={textareaClass}
-                  rows={8}
+                  rows={advancedMode ? 8 : 4}
                   disabled={working}
-                  placeholder="Differentiator, brand voice, claims to avoid, competitors…"
+                  placeholder="Special offers, busy seasons, words to avoid…"
                 />
               </FormField>
-              <fieldset className="space-y-3">
-                <legend className="text-sm font-medium text-navy-900">Creative formats</legend>
-                <p className="text-xs text-navy-500">
-                  Meta and Reddit can use image, video, and carousel ads. Google Search stays text-only.
-                </p>
-                <div className="flex flex-wrap gap-4">
-                  {CREATIVE_FORMATS.map((option) => (
-                    <label key={option.value} className="flex items-center gap-2 text-sm text-navy-800">
-                      <input
-                        type="checkbox"
-                        checked={(form.creativeFormats ?? []).includes(option.value)}
-                        onChange={() => toggleCreativeFormat(option.value)}
-                        disabled={working}
-                      />
-                      {option.label}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              <div className="space-y-3">
-                <div>
-                  <h3 className="text-sm font-medium text-navy-900">Images, video, and carousel cards</h3>
-                  <p className="text-xs text-navy-500 mt-1">
-                    Upload photos and videos from your computer, or paste public HTTPS URLs. Carousel ads
-                    need at least two images. Video ads need a video file.
-                  </p>
-                </div>
-                <FormField label="Upload files" id="ads-media-upload">
-                  <input
-                    id="ads-media-upload"
-                    type="file"
-                    accept={CAMPAIGN_MEDIA_ACCEPT}
-                    multiple
-                    onChange={(e) => {
-                      void handleMediaUpload(e.target.files)
-                      e.target.value = ''
-                    }}
-                    disabled={working || uploadingMedia}
-                    className="block w-full text-sm text-navy-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-navy-900 file:text-cream hover:file:bg-navy-800 disabled:opacity-60"
-                  />
-                </FormField>
-                {uploadingMedia && <p className="text-xs text-navy-500">Uploading…</p>}
-                {(form.mediaAssets ?? []).map((asset, index) => (
-                  <div key={`${asset.url}-${index}`} className="grid sm:grid-cols-[3.5rem_7rem_1fr_1fr_auto] gap-2 items-end">
-                    <div className="h-14 w-14 rounded-lg border border-navy-900/10 overflow-hidden bg-cream flex items-center justify-center">
-                      {asset.kind === 'image' && asset.url ? (
-                        <img src={asset.url} alt={asset.name || 'Creative'} className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="text-[10px] uppercase text-navy-500">{asset.kind}</span>
-                      )}
+              {advancedMode ? (
+                <>
+                  <fieldset className="space-y-3">
+                    <legend className="text-sm font-medium text-navy-900">Ad formats (Meta & Reddit)</legend>
+                    <p className="text-xs text-navy-500">
+                      Choose image, video, and/or carousel ads. Google Search ads stay text-only.
+                    </p>
+                    <div className="flex flex-wrap gap-4">
+                      {CREATIVE_FORMATS.map((option) => (
+                        <label key={option.value} className="flex items-center gap-2 text-sm text-navy-800">
+                          <input
+                            type="checkbox"
+                            checked={(form.creativeFormats ?? []).includes(option.value)}
+                            onChange={() => toggleCreativeFormat(option.value)}
+                            disabled={working}
+                          />
+                          {option.label}
+                        </label>
+                      ))}
                     </div>
-                    <FormField label="Type" id={`media-kind-${index}`}>
-                      <select
-                        id={`media-kind-${index}`}
-                        value={asset.kind}
-                        onChange={(e) => updateMediaAsset(index, { kind: e.target.value === 'video' ? 'video' : 'image' })}
-                        className={inputClass}
-                        disabled={working}
-                      >
-                        <option value="image">Image</option>
-                        <option value="video">Video</option>
-                      </select>
-                    </FormField>
-                    <FormField label="Name" id={`media-name-${index}`}>
+                  </fieldset>
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="text-sm font-medium text-navy-900">Photos and videos (optional)</h3>
+                      <p className="text-xs text-navy-500 mt-1">
+                        Upload files or paste public links. Carousel ads need at least two images.
+                      </p>
+                    </div>
+                    <FormField label="Upload files" id="ads-media-upload">
                       <input
-                        id={`media-name-${index}`}
-                        value={asset.name}
-                        onChange={(e) => updateMediaAsset(index, { name: e.target.value })}
-                        className={inputClass}
-                        placeholder="Storefront"
-                        disabled={working}
+                        id="ads-media-upload"
+                        type="file"
+                        accept={CAMPAIGN_MEDIA_ACCEPT}
+                        multiple
+                        onChange={(e) => {
+                          void handleMediaUpload(e.target.files)
+                          e.target.value = ''
+                        }}
+                        disabled={working || uploadingMedia}
+                        className="block w-full text-sm text-navy-600 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-navy-900 file:text-cream hover:file:bg-navy-800 disabled:opacity-60"
                       />
                     </FormField>
-                    <FormField label="Public URL" id={`media-url-${index}`}>
-                      <input
-                        id={`media-url-${index}`}
-                        value={asset.url}
-                        onChange={(e) => updateMediaAsset(index, { url: e.target.value, kind: kindFromUrl(e.target.value, asset.kind) })}
-                        className={inputClass}
-                        placeholder="https://…"
-                        disabled={working}
-                      />
-                    </FormField>
+                    {uploadingMedia && <p className="text-xs text-navy-500">Uploading…</p>}
+                    {(form.mediaAssets ?? []).map((asset, index) => (
+                      <div key={`${asset.url}-${index}`} className="grid sm:grid-cols-[3.5rem_7rem_1fr_1fr_auto] gap-2 items-end">
+                        <div className="h-14 w-14 rounded-lg border border-navy-900/10 overflow-hidden bg-cream flex items-center justify-center">
+                          {asset.kind === 'image' && asset.url ? (
+                            <img src={asset.url} alt={asset.name || 'Creative'} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-[10px] uppercase text-navy-500">{asset.kind}</span>
+                          )}
+                        </div>
+                        <FormField label="Type" id={`media-kind-${index}`}>
+                          <select
+                            id={`media-kind-${index}`}
+                            value={asset.kind}
+                            onChange={(e) => updateMediaAsset(index, { kind: e.target.value === 'video' ? 'video' : 'image' })}
+                            className={inputClass}
+                            disabled={working}
+                          >
+                            <option value="image">Image</option>
+                            <option value="video">Video</option>
+                          </select>
+                        </FormField>
+                        <FormField label="Name" id={`media-name-${index}`}>
+                          <input
+                            id={`media-name-${index}`}
+                            value={asset.name}
+                            onChange={(e) => updateMediaAsset(index, { name: e.target.value })}
+                            className={inputClass}
+                            placeholder="Storefront"
+                            disabled={working}
+                          />
+                        </FormField>
+                        <FormField label="Public URL" id={`media-url-${index}`}>
+                          <input
+                            id={`media-url-${index}`}
+                            value={asset.url}
+                            onChange={(e) => updateMediaAsset(index, { url: e.target.value, kind: kindFromUrl(e.target.value, asset.kind) })}
+                            className={inputClass}
+                            placeholder="https://…"
+                            disabled={working}
+                          />
+                        </FormField>
+                        <button
+                          type="button"
+                          onClick={() => removeMediaAsset(index)}
+                          disabled={working}
+                          className="text-sm text-navy-600 hover:text-navy-900 pb-2"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
                     <button
                       type="button"
-                      onClick={() => removeMediaAsset(index)}
+                      onClick={addMediaAsset}
                       disabled={working}
-                      className="text-sm text-navy-600 hover:text-navy-900 pb-2"
+                      className="text-sm font-medium text-teal-600 hover:text-teal-700"
                     >
-                      Remove
+                      Add media URL
                     </button>
                   </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={addMediaAsset}
-                  disabled={working}
-                  className="text-sm font-medium text-teal-600 hover:text-teal-700"
-                >
-                  Add media URL
-                </button>
-              </div>
+                </>
+              ) : null}
             </div>
 
             <button
@@ -1513,7 +1545,7 @@ export default function GoogleAds() {
               disabled={working || uploadingMedia}
               className="mt-8 bg-navy-900 text-cream font-medium px-6 py-3 rounded-xl hover:bg-navy-800 transition-colors disabled:opacity-60"
             >
-              {working ? 'Drafting campaigns…' : 'Draft campaigns'}
+              {working ? BRIEF_INTRO.workingLabel : BRIEF_INTRO.submitLabel}
             </button>
           </section>
         </form>
@@ -1521,9 +1553,11 @@ export default function GoogleAds() {
 
       {step === 'clarifying' && snapshot && (
         <form onSubmit={handleClarify} className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-          <h2 className="text-lg font-semibold text-navy-900 mb-1">A few more details</h2>
+          <h2 className="text-lg font-semibold text-navy-900 mb-1">
+            {snapshot.interrupt?.title ?? CLARIFY_INTRO.title}
+          </h2>
           <p className="text-sm text-navy-600 mb-6">
-            We need this before we can build keywords and ads.
+            {snapshot.interrupt?.description ?? CLARIFY_INTRO.description}
           </p>
           <div className="space-y-4">
             {clarifyingFields(snapshot, form.platforms).map(({ field, question, hint }) => (
@@ -1573,11 +1607,23 @@ export default function GoogleAds() {
 
       {step === 'review' && snapshot && hasAnyPlan(snapshot) && (
         <div className="space-y-6">
+          <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+            <h2 className="text-lg font-semibold text-navy-900 mb-1">
+              {snapshot.interrupt?.title ?? REVIEW_INTRO.title}
+            </h2>
+            <p className="text-sm text-navy-600">
+              {snapshot.interrupt?.description ?? REVIEW_INTRO.description}
+            </p>
+            {!advancedMode && (
+              <p className="text-sm text-navy-500 mt-3">{REVIEW_INTRO.simpleNote}</p>
+            )}
+          </section>
           {snapshot.campaign_plan && (
             <CampaignPlanView
               plan={snapshot.campaign_plan}
               review={reviewForPlan('google', snapshot)}
               biddingGuidanceLabel={biddingGuidanceLabel('google', snapshot.bidding_guidance)}
+              advancedMode={advancedMode}
             />
           )}
           {snapshot.facebook_plan && (
@@ -1585,6 +1631,7 @@ export default function GoogleAds() {
               plan={snapshot.facebook_plan}
               review={reviewForPlan('facebook', snapshot)}
               biddingGuidanceLabel={biddingGuidanceLabel('facebook', snapshot.bidding_guidance)}
+              advancedMode={advancedMode}
             />
           )}
           {snapshot.yelp_plan && (
@@ -1592,6 +1639,7 @@ export default function GoogleAds() {
               plan={snapshot.yelp_plan}
               review={reviewForPlan('yelp', snapshot)}
               biddingGuidanceLabel={biddingGuidanceLabel('yelp', snapshot.bidding_guidance)}
+              advancedMode={advancedMode}
             />
           )}
           {snapshot.reddit_plan && (
@@ -1599,14 +1647,20 @@ export default function GoogleAds() {
               plan={snapshot.reddit_plan}
               review={reviewForPlan('reddit', snapshot)}
               biddingGuidanceLabel={biddingGuidanceLabel('reddit', snapshot.bidding_guidance)}
+              advancedMode={advancedMode}
             />
           )}
           <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-            <h3 className="text-base font-semibold text-navy-900 mb-1">Approve this draft?</h3>
+            <h3 className="text-base font-semibold text-navy-900 mb-1">Ready to approve?</h3>
             <p className="text-sm text-navy-600 mb-4">
-              Nothing is enabled automatically. Publishing creates campaigns paused so you can QA first.
+              Nothing runs automatically. If you choose to publish, campaigns are created paused so you can
+              check them in each ad platform first.
             </p>
-            <FormField label="What should change? (required if you send it back)" id="ads-revision">
+            <FormField
+              label="What should we change? (required if you send it back)"
+              id="ads-revision"
+              hint="Example: “Lower the budget” or “Focus on phone calls instead of forms.”"
+            >
               <textarea
                 id="ads-revision"
                 value={revisionNotes}
@@ -1623,7 +1677,7 @@ export default function GoogleAds() {
                 onChange={(e) => setPublish(e.target.checked)}
                 disabled={working}
               />
-              Create paused campaigns in Google Ads, Meta Ads Manager, Yelp Ads, and/or Reddit Ads after I approve
+              After I approve, create paused campaigns in the ad platforms I selected
             </label>
             <div className="flex flex-wrap gap-3 mt-6">
               <button
@@ -1669,6 +1723,7 @@ export default function GoogleAds() {
               plan={snapshot.campaign_plan}
               review={reviewForPlan('google', snapshot)}
               biddingGuidanceLabel={biddingGuidanceLabel('google', snapshot.bidding_guidance)}
+              advancedMode={advancedMode}
             />
           )}
           {snapshot.facebook_plan && (
@@ -1676,6 +1731,7 @@ export default function GoogleAds() {
               plan={snapshot.facebook_plan}
               review={reviewForPlan('facebook', snapshot)}
               biddingGuidanceLabel={biddingGuidanceLabel('facebook', snapshot.bidding_guidance)}
+              advancedMode={advancedMode}
             />
           )}
           {snapshot.yelp_plan && (
@@ -1683,6 +1739,7 @@ export default function GoogleAds() {
               plan={snapshot.yelp_plan}
               review={reviewForPlan('yelp', snapshot)}
               biddingGuidanceLabel={biddingGuidanceLabel('yelp', snapshot.bidding_guidance)}
+              advancedMode={advancedMode}
             />
           )}
           {snapshot.reddit_plan && (
@@ -1690,6 +1747,7 @@ export default function GoogleAds() {
               plan={snapshot.reddit_plan}
               review={reviewForPlan('reddit', snapshot)}
               biddingGuidanceLabel={biddingGuidanceLabel('reddit', snapshot.bidding_guidance)}
+              advancedMode={advancedMode}
             />
           )}
           <div className="flex flex-wrap gap-3 items-center">
@@ -1794,25 +1852,36 @@ function CampaignPlanView({
   plan,
   review,
   biddingGuidanceLabel,
+  advancedMode = false,
 }: {
   plan: CampaignPlan
   review: CampaignSnapshot['review'] | null
   biddingGuidanceLabel?: string | null
+  advancedMode?: boolean
 }) {
   return (
     <>
       <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
         <h2 className="text-lg font-semibold text-navy-900 mb-1">{plan.strategy.campaign_name}</h2>
         <p className="text-xs uppercase tracking-wide text-navy-500 mb-2">Google Search</p>
-        <p className="text-sm text-navy-600 mb-4">{plan.strategy.objective}</p>
         <p className="text-sm text-navy-800 mb-6">{plan.strategy.positioning}</p>
         <dl className="grid sm:grid-cols-2 gap-3 text-sm">
           <Info label="Monthly budget" value={`$${plan.budget.monthly_budget_usd.toLocaleString()}`} />
-          <Info label="Daily budget" value={`$${plan.budget.daily_budget_usd.toFixed(2)}`} />
-          <Info label="Bidding" value={plan.budget.bidding_strategy.replaceAll('_', ' ')} />
-          <Info label="Expected CPC" value={plan.budget.expected_cpc_range_usd} />
-          <Info label="Geo" value={plan.strategy.geo_targets.join(', ')} />
-          <Info label="Campaign type" value={plan.strategy.campaign_type.replaceAll('_', ' ')} />
+          <Info label="Areas targeted" value={plan.strategy.geo_targets.join(', ')} />
+          <Info
+            label="How we spend"
+            value={plainBiddingLabel(plan.budget.bidding_strategy)}
+          />
+          <Info
+            label={advancedMode ? 'Expected cost per click' : 'Typical click cost'}
+            value={advancedMode ? plan.budget.expected_cpc_range_usd : plainCpcRange(plan.budget.expected_cpc_range_usd)}
+          />
+          {advancedMode && (
+            <>
+              <Info label="Daily budget" value={`$${plan.budget.daily_budget_usd.toFixed(2)}`} />
+              <Info label="Campaign type" value={plan.strategy.campaign_type.replaceAll('_', ' ')} />
+            </>
+          )}
         </dl>
         <BiddingSourceBadge label={biddingGuidanceLabel ?? null} />
         <p className="text-sm text-navy-600 mt-4">{plan.budget.notes}</p>
@@ -1822,32 +1891,41 @@ function CampaignPlanView({
         <section key={group.name} className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
           <h3 className="text-base font-semibold text-navy-900 mb-1">{group.name}</h3>
           <p className="text-sm text-navy-600 mb-4">
-            {group.theme} · {group.landing_page_url}
+            {group.theme}
+            {advancedMode ? ` · ${group.landing_page_url}` : null}
           </p>
           <div className="grid md:grid-cols-2 gap-6 text-sm">
             <div>
-              <h4 className="font-medium text-navy-900 mb-2">Keywords</h4>
+              <h4 className="font-medium text-navy-900 mb-2">
+                {advancedMode ? 'Keywords' : 'Searches we will show up for'}
+              </h4>
               <ul className="space-y-1 text-navy-700">
                 {group.keywords.map((keyword) => (
                   <li key={`${keyword.match_type}-${keyword.text}`}>
-                    <span className="text-xs uppercase tracking-wide text-navy-500 mr-2">
-                      {keyword.match_type}
-                    </span>
+                    {advancedMode && (
+                      <span className="text-xs uppercase tracking-wide text-navy-500 mr-2">
+                        {plainMatchType(keyword.match_type)}
+                      </span>
+                    )}
                     {keyword.text}
                   </li>
                 ))}
               </ul>
-              {group.negatives.length > 0 && (
-                <p className="text-xs text-navy-500 mt-3">Negatives: {group.negatives.join(', ')}</p>
+              {advancedMode && group.negatives.length > 0 && (
+                <p className="text-xs text-navy-500 mt-3">Exclude: {group.negatives.join(', ')}</p>
               )}
             </div>
             <div>
-              <h4 className="font-medium text-navy-900 mb-2">Responsive Search Ad</h4>
+              <h4 className="font-medium text-navy-900 mb-2">
+                {advancedMode ? 'Responsive Search Ad' : 'Sample ad text'}
+              </h4>
               <ul className="space-y-1 text-navy-700">
                 {group.rsa.headlines.map((headline) => (
                   <li key={headline}>
-                    {headline}{' '}
-                    <span className="text-xs text-navy-400">({headline.length})</span>
+                    {headline}
+                    {advancedMode && (
+                      <span className="text-xs text-navy-400"> ({headline.length})</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -1861,31 +1939,19 @@ function CampaignPlanView({
         </section>
       ))}
 
-      {plan.campaign_negatives.length > 0 && (
+      {advancedMode && plan.campaign_negatives.length > 0 && (
         <p className="text-sm text-navy-600 px-1">
-          Campaign negatives: {plan.campaign_negatives.join(', ')}
+          Exclude everywhere: {plan.campaign_negatives.join(', ')}
         </p>
       )}
 
       {review && review.issues.length > 0 && (
-        <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-          <h3 className="text-base font-semibold text-navy-900 mb-3">Review notes</h3>
-          <ul className="space-y-2 text-sm">
-            {review.issues.map((issue) => (
-              <li
-                key={`${issue.field}-${issue.message}`}
-                className={issue.severity === 'error' ? 'text-red-700' : 'text-amber-700'}
-              >
-                [{issue.severity}] {issue.field}: {issue.message}
-              </li>
-            ))}
-          </ul>
-        </section>
+        <ReviewIssuesPanel issues={review.issues} advancedMode={advancedMode} />
       )}
 
       {plan.launch_checklist.length > 0 && (
         <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-          <h3 className="text-base font-semibold text-navy-900 mb-3">Launch checklist</h3>
+          <h3 className="text-base font-semibold text-navy-900 mb-3">Before you turn on Google ads</h3>
           <ul className="list-disc pl-5 space-y-1 text-sm text-navy-700">
             {plan.launch_checklist.map((item) => (
               <li key={item}>{item}</li>
@@ -1947,22 +2013,25 @@ function FacebookPlanView({
   plan,
   review,
   biddingGuidanceLabel,
+  advancedMode = false,
 }: {
   plan: FacebookCampaignPlan
   review: CampaignSnapshot['review'] | null
   biddingGuidanceLabel?: string | null
+  advancedMode?: boolean
 }) {
   return (
     <>
       <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
         <h2 className="text-lg font-semibold text-navy-900 mb-1">{plan.campaign_name}</h2>
         <p className="text-xs uppercase tracking-wide text-navy-500 mb-2">Facebook / Instagram</p>
-        <p className="text-sm text-navy-600 mb-4">{plan.objective.replaceAll('_', ' ')}</p>
         <p className="text-sm text-navy-800 mb-6">{plan.rationale}</p>
         <dl className="grid sm:grid-cols-2 gap-3 text-sm">
           <Info label="Monthly budget" value={`$${plan.monthly_budget_usd.toLocaleString()}`} />
-          <Info label="Daily budget" value={`$${plan.daily_budget_usd.toFixed(2)}`} />
-          <Info label="Bidding" value={plan.bid_strategy.replaceAll('_', ' ')} />
+          <Info label="How we spend" value={plainBiddingLabel(plan.bid_strategy)} />
+          {advancedMode && (
+            <Info label="Daily budget" value={`$${plan.daily_budget_usd.toFixed(2)}`} />
+          )}
         </dl>
         <BiddingSourceBadge label={biddingGuidanceLabel ?? null} />
       </section>
@@ -1971,9 +2040,12 @@ function FacebookPlanView({
         <section key={adSet.name} className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
           <h3 className="text-base font-semibold text-navy-900 mb-1">{adSet.name}</h3>
           <p className="text-sm text-navy-600 mb-4">
-            {adSet.theme} · ages {adSet.age_min}–{adSet.age_max} · ${adSet.daily_budget_usd.toFixed(2)}/day
+            {adSet.theme}
+            {advancedMode
+              ? ` · ages ${adSet.age_min}–${adSet.age_max} · $${adSet.daily_budget_usd.toFixed(2)}/day`
+              : null}
           </p>
-          {adSet.interests.length > 0 && (
+          {advancedMode && adSet.interests.length > 0 && (
             <p className="text-xs text-navy-500 mb-4">Interests: {adSet.interests.join(', ')}</p>
           )}
           <div className="grid md:grid-cols-2 gap-6 text-sm">
@@ -1982,11 +2054,15 @@ function FacebookPlanView({
                 <h4 className="font-medium text-navy-900 mb-2">{ad.name}</h4>
                 <p className="text-navy-700 mb-2">{ad.primary_text}</p>
                 <p className="font-medium text-navy-900">
-                  {ad.headline}{' '}
-                  <span className="text-xs text-navy-400">({ad.headline.length})</span>
+                  {ad.headline}
+                  {advancedMode && (
+                    <span className="text-xs text-navy-400"> ({ad.headline.length})</span>
+                  )}
                 </p>
                 {ad.description && <p className="text-navy-600 mt-1">{ad.description}</p>}
-                <p className="text-xs text-navy-500 mt-3">CTA: {ad.call_to_action.replaceAll('_', ' ')}</p>
+                {advancedMode && (
+                  <p className="text-xs text-navy-500 mt-3">Button: {ad.call_to_action.replaceAll('_', ' ')}</p>
+                )}
                 <CreativeMediaPreview format={ad.creative_format} concept={ad.image_concept} media={ad.media} />
               </div>
             ))}
@@ -1995,24 +2071,12 @@ function FacebookPlanView({
       ))}
 
       {review && review.issues.length > 0 && (
-        <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-          <h3 className="text-base font-semibold text-navy-900 mb-3">Review notes</h3>
-          <ul className="space-y-2 text-sm">
-            {review.issues.map((issue) => (
-              <li
-                key={`${issue.field}-${issue.message}`}
-                className={issue.severity === 'error' ? 'text-red-700' : 'text-amber-700'}
-              >
-                [{issue.severity}] {issue.field}: {issue.message}
-              </li>
-            ))}
-          </ul>
-        </section>
+        <ReviewIssuesPanel issues={review.issues} advancedMode={advancedMode} />
       )}
 
       {plan.launch_checklist.length > 0 && (
         <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-          <h3 className="text-base font-semibold text-navy-900 mb-3">Meta launch checklist</h3>
+          <h3 className="text-base font-semibold text-navy-900 mb-3">Before you turn on Meta ads</h3>
           <ul className="list-disc pl-5 space-y-1 text-sm text-navy-700">
             {plan.launch_checklist.map((item) => (
               <li key={item}>{item}</li>
@@ -2024,39 +2088,64 @@ function FacebookPlanView({
   )
 }
 
+function ReviewIssuesPanel({
+  issues,
+  advancedMode,
+}: {
+  issues: NonNullable<CampaignSnapshot['review']>['issues']
+  advancedMode: boolean
+}) {
+  return (
+    <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+      <h3 className="text-base font-semibold text-navy-900 mb-3">Notes before you approve</h3>
+      <ul className="space-y-2 text-sm">
+        {issues.map((issue) => (
+          <li
+            key={`${issue.field}-${issue.message}`}
+            className={issue.severity === 'error' ? 'text-red-700' : 'text-amber-700'}
+          >
+            {plainReviewIssue(issue, advancedMode)}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 function YelpPlanView({
   plan,
   review,
   biddingGuidanceLabel,
+  advancedMode = false,
 }: {
   plan: YelpCampaignPlan
   review: CampaignSnapshot['review'] | null
   biddingGuidanceLabel?: string | null
+  advancedMode?: boolean
 }) {
   return (
     <>
       <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
         <h2 className="text-lg font-semibold text-navy-900 mb-1">{plan.campaign_name}</h2>
-        <p className="text-xs uppercase tracking-wide text-navy-500 mb-2">Yelp CPC</p>
-        <p className="text-sm text-navy-600 mb-4">
-          {plan.program_type} · {plan.ad_goal.replaceAll('_', ' ')}
-        </p>
+        <p className="text-xs uppercase tracking-wide text-navy-500 mb-2">Yelp</p>
         <p className="text-sm text-navy-800 mb-6">{plan.rationale}</p>
         <dl className="grid sm:grid-cols-2 gap-3 text-sm">
           <Info label="Monthly budget" value={`$${plan.monthly_budget_usd.toLocaleString()}`} />
-          <Info label="Daily budget" value={`$${plan.daily_budget_usd.toFixed(2)}`} />
-          <Info label="Autobid" value={plan.is_autobid ? 'Yes' : 'No'} />
-          {plan.max_bid_usd != null && (
-            <Info label="Max bid" value={`$${plan.max_bid_usd.toFixed(2)}`} />
-          )}
-          <Info label="Pacing" value={plan.pacing_method.replaceAll('_', ' ')} />
-          <Info label="Fee period" value={plan.fee_period.replaceAll('_', ' ')} />
-          <Info label="Geo" value={plan.geo_targets.join(', ')} />
-          {plan.radius_miles != null && (
-            <Info label="Radius" value={`${plan.radius_miles} miles`} />
-          )}
-          {plan.categories.length > 0 && (
-            <Info label="Categories" value={plan.categories.join(', ')} />
+          <Info label="Areas targeted" value={plan.geo_targets.join(', ')} />
+          <Info label="Automatic bidding" value={plan.is_autobid ? 'Yes — Yelp sets bids' : 'Manual max bid'} />
+          {advancedMode && (
+            <>
+              <Info label="Daily budget" value={`$${plan.daily_budget_usd.toFixed(2)}`} />
+              {plan.max_bid_usd != null && (
+                <Info label="Max bid" value={`$${plan.max_bid_usd.toFixed(2)}`} />
+              )}
+              {plan.radius_miles != null && (
+                <Info label="Radius" value={`${plan.radius_miles} miles`} />
+              )}
+              {plan.categories.length > 0 && (
+                <Info label="Categories" value={plan.categories.join(', ')} />
+              )}
+            </>
           )}
         </dl>
         <BiddingSourceBadge label={biddingGuidanceLabel ?? null} />
@@ -2066,27 +2155,21 @@ function YelpPlanView({
         <section key={program.name} className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
           <h3 className="text-base font-semibold text-navy-900 mb-1">{program.name}</h3>
           <p className="text-sm text-navy-600 mb-4">
-            {program.theme} · ${program.monthly_budget_usd.toLocaleString()}/month
+            {program.theme}
+            {advancedMode ? ` · $${program.monthly_budget_usd.toLocaleString()}/month` : null}
           </p>
-          {program.categories.length > 0 && (
+          {advancedMode && program.categories.length > 0 && (
             <p className="text-xs text-navy-500 mb-4">Categories: {program.categories.join(', ')}</p>
           )}
           <div className="space-y-3 text-sm">
             <div>
-              <h4 className="font-medium text-navy-900 mb-1">Specialties</h4>
-              <p className="text-navy-700">
-                {program.specialties_text}{' '}
-                <span className="text-xs text-navy-400">({program.specialties_text.length})</span>
-              </p>
+              <h4 className="font-medium text-navy-900 mb-1">What you offer</h4>
+              <p className="text-navy-700">{program.specialties_text}</p>
             </div>
             <div>
               <h4 className="font-medium text-navy-900 mb-1">Ad text</h4>
-              <p className="text-navy-700">
-                {program.custom_ad_text}{' '}
-                <span className="text-xs text-navy-400">({program.custom_ad_text.length})</span>
-              </p>
+              <p className="text-navy-700">{program.custom_ad_text}</p>
             </div>
-            <p className="text-xs text-navy-500">CTA: {program.ad_goal.replaceAll('_', ' ')}</p>
             {(program.photo_url || program.photo_concept) && (
               <CreativeMediaPreview
                 format="image"
@@ -2094,32 +2177,20 @@ function YelpPlanView({
                 media={program.photo_url ? [{ name: 'Yelp photo', kind: 'image', url: program.photo_url }] : []}
               />
             )}
-            {program.negatives.length > 0 && (
-              <p className="text-xs text-navy-500">Negatives: {program.negatives.join(', ')}</p>
+            {advancedMode && program.negatives.length > 0 && (
+              <p className="text-xs text-navy-500">Exclude: {program.negatives.join(', ')}</p>
             )}
           </div>
         </section>
       ))}
 
       {review && review.issues.length > 0 && (
-        <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-          <h3 className="text-base font-semibold text-navy-900 mb-3">Review notes</h3>
-          <ul className="space-y-2 text-sm">
-            {review.issues.map((issue) => (
-              <li
-                key={`${issue.field}-${issue.message}`}
-                className={issue.severity === 'error' ? 'text-red-700' : 'text-amber-700'}
-              >
-                [{issue.severity}] {issue.field}: {issue.message}
-              </li>
-            ))}
-          </ul>
-        </section>
+        <ReviewIssuesPanel issues={review.issues} advancedMode={advancedMode} />
       )}
 
       {plan.launch_checklist.length > 0 && (
         <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-          <h3 className="text-base font-semibold text-navy-900 mb-3">Yelp launch checklist</h3>
+          <h3 className="text-base font-semibold text-navy-900 mb-3">Before you turn on Yelp ads</h3>
           <ul className="list-disc pl-5 space-y-1 text-sm text-navy-700">
             {plan.launch_checklist.map((item) => (
               <li key={item}>{item}</li>
@@ -2135,22 +2206,25 @@ function RedditPlanView({
   plan,
   review,
   biddingGuidanceLabel,
+  advancedMode = false,
 }: {
   plan: RedditCampaignPlan
   review: CampaignSnapshot['review'] | null
   biddingGuidanceLabel?: string | null
+  advancedMode?: boolean
 }) {
   return (
     <>
       <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
         <h2 className="text-lg font-semibold text-navy-900 mb-1">{plan.campaign_name}</h2>
-        <p className="text-xs uppercase tracking-wide text-navy-500 mb-2">Reddit Ads</p>
-        <p className="text-sm text-navy-600 mb-4">{plan.objective.replaceAll('_', ' ')}</p>
+        <p className="text-xs uppercase tracking-wide text-navy-500 mb-2">Reddit</p>
         <p className="text-sm text-navy-800 mb-6">{plan.rationale}</p>
         <dl className="grid sm:grid-cols-2 gap-3 text-sm">
           <Info label="Monthly budget" value={`$${plan.monthly_budget_usd.toLocaleString()}`} />
-          <Info label="Daily budget" value={`$${plan.daily_budget_usd.toFixed(2)}`} />
-          <Info label="Bidding" value={plan.bid_strategy.replaceAll('_', ' ')} />
+          <Info label="How we spend" value={plainBiddingLabel(plan.bid_strategy)} />
+          {advancedMode && (
+            <Info label="Daily budget" value={`$${plan.daily_budget_usd.toFixed(2)}`} />
+          )}
         </dl>
         <BiddingSourceBadge label={biddingGuidanceLabel ?? null} />
       </section>
@@ -2159,14 +2233,16 @@ function RedditPlanView({
         <section key={group.name} className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
           <h3 className="text-base font-semibold text-navy-900 mb-1">{group.name}</h3>
           <p className="text-sm text-navy-600 mb-4">
-            {group.theme} · ${group.daily_budget_usd.toFixed(2)}/day
+            {group.theme}
+            {advancedMode ? ` · $${group.daily_budget_usd.toFixed(2)}/day` : null}
           </p>
           {group.communities.length > 0 && (
             <p className="text-xs text-navy-500 mb-2">
-              Communities: {group.communities.map((name) => `r/${name}`).join(', ')}
+              {advancedMode ? 'Communities: ' : 'Shown in: '}
+              {group.communities.map((name) => `r/${name}`).join(', ')}
             </p>
           )}
-          {group.interests.length > 0 && (
+          {advancedMode && group.interests.length > 0 && (
             <p className="text-xs text-navy-500 mb-4">Interests: {group.interests.join(', ')}</p>
           )}
           <div className="grid md:grid-cols-2 gap-6 text-sm">
@@ -2174,11 +2250,15 @@ function RedditPlanView({
               <div key={ad.name} className="rounded-xl border border-navy-900/10 p-4">
                 <h4 className="font-medium text-navy-900 mb-2">{ad.name}</h4>
                 <p className="font-medium text-navy-900">
-                  {ad.headline}{' '}
-                  <span className="text-xs text-navy-400">({ad.headline.length})</span>
+                  {ad.headline}
+                  {advancedMode && (
+                    <span className="text-xs text-navy-400"> ({ad.headline.length})</span>
+                  )}
                 </p>
                 <p className="text-navy-700 mt-2">{ad.body}</p>
-                <p className="text-xs text-navy-500 mt-3">CTA: {ad.call_to_action.replaceAll('_', ' ')}</p>
+                {advancedMode && (
+                  <p className="text-xs text-navy-500 mt-3">Button: {ad.call_to_action.replaceAll('_', ' ')}</p>
+                )}
                 <CreativeMediaPreview format={ad.creative_format} concept={ad.image_concept} media={ad.media} />
               </div>
             ))}
@@ -2187,24 +2267,12 @@ function RedditPlanView({
       ))}
 
       {review && review.issues.length > 0 && (
-        <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-          <h3 className="text-base font-semibold text-navy-900 mb-3">Review notes</h3>
-          <ul className="space-y-2 text-sm">
-            {review.issues.map((issue) => (
-              <li
-                key={`${issue.field}-${issue.message}`}
-                className={issue.severity === 'error' ? 'text-red-700' : 'text-amber-700'}
-              >
-                [{issue.severity}] {issue.field}: {issue.message}
-              </li>
-            ))}
-          </ul>
-        </section>
+        <ReviewIssuesPanel issues={review.issues} advancedMode={advancedMode} />
       )}
 
       {plan.launch_checklist.length > 0 && (
         <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
-          <h3 className="text-base font-semibold text-navy-900 mb-3">Reddit launch checklist</h3>
+          <h3 className="text-base font-semibold text-navy-900 mb-3">Before you turn on Reddit ads</h3>
           <ul className="list-disc pl-5 space-y-1 text-sm text-navy-700">
             {plan.launch_checklist.map((item) => (
               <li key={item}>{item}</li>

@@ -1,9 +1,9 @@
 export const CAMPAIGN_GOALS = [
-  { value: 'leads', label: 'Leads (form fills, bookings)' },
-  { value: 'sales', label: 'Online sales' },
-  { value: 'website_traffic', label: 'Website traffic' },
-  { value: 'brand_awareness', label: 'Brand awareness' },
-  { value: 'phone_calls', label: 'Phone calls' },
+  { value: 'leads', label: 'Get more leads (forms, bookings)' },
+  { value: 'phone_calls', label: 'Get more phone calls' },
+  { value: 'sales', label: 'Sell more online' },
+  { value: 'website_traffic', label: 'Bring people to my website' },
+  { value: 'brand_awareness', label: 'Help more people discover my business' },
 ] as const
 
 export type CampaignGoal = (typeof CAMPAIGN_GOALS)[number]['value']
@@ -273,6 +273,8 @@ export type CampaignSnapshot = {
   status: AdCampaignStatus
   interrupt: {
     type?: string
+    title?: string
+    description?: string
     questions?: string[]
     missing_fields?: string[]
   } | null
