@@ -262,6 +262,12 @@ export type SavedCampaignDraft = {
   briefForm?: import('../lib/googleAds/settings').GoogleAdsCampaignBrief | null
 }
 
+export type BiddingGuidance = {
+  platform: string
+  source: 'recommended' | 'account_history'
+  label: string
+}
+
 export type CampaignSnapshot = {
   thread_id: string
   status: AdCampaignStatus
@@ -289,4 +295,6 @@ export type CampaignSnapshot = {
   } | null
   missing_fields: string[]
   clarifying_questions: string[]
+  performance_context?: Record<string, unknown> | null
+  bidding_guidance?: BiddingGuidance[]
 }

@@ -79,6 +79,7 @@ export type CreateAdCampaignInput = {
   platformBudgetSplit?: PlatformBudgetSplit
   mediaAssets?: CampaignMediaAsset[]
   creativeFormats?: CreativeFormat[]
+  platformCredentials?: PlatformCredentialsPayload | null
 }
 
 export function buildCreateCampaignRequest({
@@ -87,6 +88,7 @@ export function buildCreateCampaignRequest({
   platformBudgetSplit,
   mediaAssets,
   creativeFormats,
+  platformCredentials,
 }: CreateAdCampaignInput): Record<string, unknown> {
   const normalizedPlatforms = parseAdPlatforms(platforms)
   if (normalizedPlatforms.length === 0) {
@@ -103,6 +105,7 @@ export function buildCreateCampaignRequest({
     ...(budgetSplit ? { budget_split: budgetSplit } : {}),
     ...(assets.length > 0 ? { media_assets: assets } : {}),
     ...(creativeFormats?.length ? { creative_formats: creativeFormats } : {}),
+    ...(platformCredentials ? { platform_credentials: platformCredentials } : {}),
   }
 }
 
@@ -112,6 +115,7 @@ export async function createAdCampaign(
   platformBudgetSplit?: PlatformBudgetSplit,
   mediaAssets?: CampaignMediaAsset[],
   creativeFormats?: CreativeFormat[],
+  platformCredentials?: PlatformCredentialsPayload | null,
 ): Promise<CampaignSnapshot> {
   const body = buildCreateCampaignRequest({
     brief,
@@ -119,6 +123,7 @@ export async function createAdCampaign(
     platformBudgetSplit,
     mediaAssets,
     creativeFormats,
+    platformCredentials,
   })
 
   return request<CampaignSnapshot>('/v1/campaigns', {

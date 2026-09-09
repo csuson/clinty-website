@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import FormField from '../../components/FormField'
-import { CAMPAIGN_GOALS, CREATIVE_FORMATS, type CampaignMediaAsset, type CampaignPlan, type CampaignSnapshot, type CreativeFormat, type FacebookCampaignPlan, type RedditCampaignPlan, type YelpCampaignPlan } from '../../constants/adCampaigns'
+import { CAMPAIGN_GOALS, CREATIVE_FORMATS, type BiddingGuidance, type CampaignMediaAsset, type CampaignPlan, type CampaignSnapshot, type CreativeFormat, type FacebookCampaignPlan, type RedditCampaignPlan, type YelpCampaignPlan } from '../../constants/adCampaigns'
 import {
   AD_CAMPAIGN_BUDGET_DEFAULT,
   AD_CAMPAIGN_BUDGET_MAX,
@@ -20,7 +20,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import CampaignAnalytics from './CampaignAnalytics'
 import { createAdCampaign, configureAdCampaignApi, isAdCampaignApiConfigured, resumeAdCampaign } from '../../lib/adCampaigns'
-import { fetchPlatformCredentialsForPublish } from '../../lib/googleAds/credentials'
+import { fetchPlatformCredentialsForPublish, type PlatformCredentialsPayload } from '../../lib/googleAds/credentials'
 import {
   campaignBriefFieldsFromBackground,
   combineAdBriefForm,
@@ -186,6 +186,21 @@ function reviewForPlan(
         ? 'facebook'
         : 'google'
   return plan === last ? snapshot.review : null
+}
+
+function biddingGuidanceLabel(
+  platform: BiddingGuidance['platform'],
+  guidance: BiddingGuidance[] | undefined,
+): string | null {
+  return guidance?.find((item) => item.platform === platform)?.label ?? null
+}
+
+async function fetchOptionalPlatformCredentials(): Promise<PlatformCredentialsPayload | null> {
+  try {
+    return await fetchPlatformCredentialsForPublish()
+  } catch {
+    return null
+  }
 }
 
 function emptyMediaAsset(): CampaignMediaAsset {
@@ -782,12 +797,14 @@ export default function GoogleAds() {
     setError(null)
     try {
       await saveGoogleAdsCampaignBrief(briefForSave(briefForm))
+      const platformCredentials = await fetchOptionalPlatformCredentials()
       const created = await createAdCampaign(
         brief,
         briefForm.platforms,
         briefForm.platformBudgetSplit,
         briefForm.mediaAssets,
         briefForm.creativeFormats,
+        platformCredentials,
       )
       applySnapshot(created, briefForm.platforms, {
         answers: resolveClarifyingAnswers(created, briefForm.platforms, clarifyingAnswersRef.current),
@@ -812,8 +829,16 @@ export default function GoogleAds() {
       )
       clarifyingAnswersRef.current = expanded
       await saveGoogleAdsCampaignBrief(briefForSave())
+      const platformCredentials = await fetchOptionalPlatformCredentials()
       applySnapshot(
-        await resumeAdCampaign(snapshot.thread_id, { answers: expanded }, snapshot),
+        await resumeAdCampaign(
+          snapshot.thread_id,
+          {
+            answers: expanded,
+            ...(platformCredentials ? { platform_credentials: platformCredentials } : {}),
+          },
+          snapshot,
+        ),
         undefined,
         { answers: expanded },
       )
@@ -1552,19 +1577,29 @@ export default function GoogleAds() {
             <CampaignPlanView
               plan={snapshot.campaign_plan}
               review={reviewForPlan('google', snapshot)}
+              biddingGuidanceLabel={biddingGuidanceLabel('google', snapshot.bidding_guidance)}
             />
           )}
           {snapshot.facebook_plan && (
             <FacebookPlanView
               plan={snapshot.facebook_plan}
               review={reviewForPlan('facebook', snapshot)}
+              biddingGuidanceLabel={biddingGuidanceLabel('facebook', snapshot.bidding_guidance)}
             />
           )}
           {snapshot.yelp_plan && (
-            <YelpPlanView plan={snapshot.yelp_plan} review={reviewForPlan('yelp', snapshot)} />
+            <YelpPlanView
+              plan={snapshot.yelp_plan}
+              review={reviewForPlan('yelp', snapshot)}
+              biddingGuidanceLabel={biddingGuidanceLabel('yelp', snapshot.bidding_guidance)}
+            />
           )}
           {snapshot.reddit_plan && (
-            <RedditPlanView plan={snapshot.reddit_plan} review={reviewForPlan('reddit', snapshot)} />
+            <RedditPlanView
+              plan={snapshot.reddit_plan}
+              review={reviewForPlan('reddit', snapshot)}
+              biddingGuidanceLabel={biddingGuidanceLabel('reddit', snapshot.bidding_guidance)}
+            />
           )}
           <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
             <h3 className="text-base font-semibold text-navy-900 mb-1">Approve this draft?</h3>
@@ -1633,19 +1668,29 @@ export default function GoogleAds() {
             <CampaignPlanView
               plan={snapshot.campaign_plan}
               review={reviewForPlan('google', snapshot)}
+              biddingGuidanceLabel={biddingGuidanceLabel('google', snapshot.bidding_guidance)}
             />
           )}
           {snapshot.facebook_plan && (
             <FacebookPlanView
               plan={snapshot.facebook_plan}
               review={reviewForPlan('facebook', snapshot)}
+              biddingGuidanceLabel={biddingGuidanceLabel('facebook', snapshot.bidding_guidance)}
             />
           )}
           {snapshot.yelp_plan && (
-            <YelpPlanView plan={snapshot.yelp_plan} review={reviewForPlan('yelp', snapshot)} />
+            <YelpPlanView
+              plan={snapshot.yelp_plan}
+              review={reviewForPlan('yelp', snapshot)}
+              biddingGuidanceLabel={biddingGuidanceLabel('yelp', snapshot.bidding_guidance)}
+            />
           )}
           {snapshot.reddit_plan && (
-            <RedditPlanView plan={snapshot.reddit_plan} review={reviewForPlan('reddit', snapshot)} />
+            <RedditPlanView
+              plan={snapshot.reddit_plan}
+              review={reviewForPlan('reddit', snapshot)}
+              biddingGuidanceLabel={biddingGuidanceLabel('reddit', snapshot.bidding_guidance)}
+            />
           )}
           <div className="flex flex-wrap gap-3 items-center">
             {hasAnyPlan(snapshot) && (
@@ -1736,12 +1781,23 @@ function DraftActionButtons({
   )
 }
 
+function BiddingSourceBadge({ label }: { label: string | null }) {
+  if (!label) return null
+  return (
+    <p className="text-xs font-medium text-navy-500 mt-3 inline-flex rounded-full bg-navy-900/5 px-3 py-1">
+      {label}
+    </p>
+  )
+}
+
 function CampaignPlanView({
   plan,
   review,
+  biddingGuidanceLabel,
 }: {
   plan: CampaignPlan
   review: CampaignSnapshot['review'] | null
+  biddingGuidanceLabel?: string | null
 }) {
   return (
     <>
@@ -1758,6 +1814,7 @@ function CampaignPlanView({
           <Info label="Geo" value={plan.strategy.geo_targets.join(', ')} />
           <Info label="Campaign type" value={plan.strategy.campaign_type.replaceAll('_', ' ')} />
         </dl>
+        <BiddingSourceBadge label={biddingGuidanceLabel ?? null} />
         <p className="text-sm text-navy-600 mt-4">{plan.budget.notes}</p>
       </section>
 
@@ -1889,9 +1946,11 @@ function CreativeMediaPreview({
 function FacebookPlanView({
   plan,
   review,
+  biddingGuidanceLabel,
 }: {
   plan: FacebookCampaignPlan
   review: CampaignSnapshot['review'] | null
+  biddingGuidanceLabel?: string | null
 }) {
   return (
     <>
@@ -1905,6 +1964,7 @@ function FacebookPlanView({
           <Info label="Daily budget" value={`$${plan.daily_budget_usd.toFixed(2)}`} />
           <Info label="Bidding" value={plan.bid_strategy.replaceAll('_', ' ')} />
         </dl>
+        <BiddingSourceBadge label={biddingGuidanceLabel ?? null} />
       </section>
 
       {plan.ad_sets.map((adSet) => (
@@ -1967,9 +2027,11 @@ function FacebookPlanView({
 function YelpPlanView({
   plan,
   review,
+  biddingGuidanceLabel,
 }: {
   plan: YelpCampaignPlan
   review: CampaignSnapshot['review'] | null
+  biddingGuidanceLabel?: string | null
 }) {
   return (
     <>
@@ -1997,6 +2059,7 @@ function YelpPlanView({
             <Info label="Categories" value={plan.categories.join(', ')} />
           )}
         </dl>
+        <BiddingSourceBadge label={biddingGuidanceLabel ?? null} />
       </section>
 
       {plan.programs.map((program) => (
@@ -2071,9 +2134,11 @@ function YelpPlanView({
 function RedditPlanView({
   plan,
   review,
+  biddingGuidanceLabel,
 }: {
   plan: RedditCampaignPlan
   review: CampaignSnapshot['review'] | null
+  biddingGuidanceLabel?: string | null
 }) {
   return (
     <>
@@ -2087,6 +2152,7 @@ function RedditPlanView({
           <Info label="Daily budget" value={`$${plan.daily_budget_usd.toFixed(2)}`} />
           <Info label="Bidding" value={plan.bid_strategy.replaceAll('_', ' ')} />
         </dl>
+        <BiddingSourceBadge label={biddingGuidanceLabel ?? null} />
       </section>
 
       {plan.ad_groups.map((group) => (
