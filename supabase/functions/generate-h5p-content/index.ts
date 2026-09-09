@@ -24,6 +24,10 @@ Supported contentType values:
 - timeline: { title, intro, timelineEvents: [{ headline, startDate, text }] }
 - course-presentation: { title, intro, slides: [{ title, content }] }
 - interactive-video: { title, intro, videoUrl, interactions: [{ time, label, text }] }
+- dialog-cards: { title, intro, vocabCards: [{ term, translation }] }
+- flashcards: { title, intro, vocabCards: [{ term, translation }] }
+- single-choice-set: { title, intro, quizQuestions: [{ question, answers: string[], correctIndex: number }] }
+- mark-the-words: { title, markTheWordsTaskDescription, markTheWordsText } — wrap clickable words in *asterisks*
 
 Rules:
 - Use only facts from the user prompt and business context

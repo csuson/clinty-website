@@ -56,7 +56,7 @@ const tabs = [
   },
   {
     to: '/account/h5p',
-    label: 'H5P Builder',
+    label: 'Language Exercises',
     end: false,
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,138 +1,174 @@
-import { H5P_CONTENT_TYPES, type H5PContentTypeId } from './types'
+import { H5P_CONTENT_TYPES, H5P_TEACHER_EXERCISES, type H5PContentTypeId, type H5PLanguageLesson } from './types'
 
 const FORMAT_GUIDES: Record<H5PContentTypeId, string> = {
-  'question-set': `Output format: CSV with header row \`question,answers\`
-- One row per multiple-choice question
-- Separate answer options with \`|\` or \`;\`
-- Mark the correct answer with \`*\` (example: \`Wrong|*Correct*|Wrong\`)
+  'question-set': `Output format: CSV with header row \`word,translation\` OR \`question,answers\`
+- For vocabulary: one row per word; answers column can list options separated by \`|\` with \`*\` on the correct translation
+- For full MCQ: \`question,answers\` with \`Wrong|*Correct*|Wrong\`
+
+Example (vocabulary quiz):
+\`\`\`csv
+word,translation
+bonjour,hello|goodbye|please|*hello*
+merci,*thank you*|sorry|welcome
+\`\`\`
+
+Or simple pairs (import as word list):
+\`\`\`csv
+word,translation
+bonjour,hello
+merci,thank you
+\`\`\``,
+
+  'drag-and-drop': `Output format: CSV or tab-separated word list — one pair per row
+- Column 1: word in target language (draggable)
+- Column 2: translation (drop zone)
 
 Example:
 \`\`\`csv
-question,answers
-What is our return policy?,30 days|*60 days*|90 days
-Which city is our HQ in?,*Foster City*|San Jose|Oakland
-\`\`\`
-
-After generating, save as a .csv file and use **Import CSV** in the Quiz editor.`,
-
-  'drag-and-drop': `Output format: CSV with two columns (any headers), one row per pair
-- Column 1: draggable item
-- Column 2: matching drop zone label
-- Example headers: \`question,answers\` or \`lesson,leçon\`
-
-Example:
-\`\`\`csv
-question,answers
-Revenue,*Income statement*
-Balance sheet,*Assets and liabilities*
-\`\`\`
-
-After generating, save as a .csv file and use **Import CSV** in the Drag and Drop editor.`,
+word,translation
+bonjour,hello
+merci,thank you
+chat,cat
+\`\`\``,
 
   blanks: `Output format: plain text cloze exercise
 - Wrap each correct answer in asterisks: \`*answer*\`
-- Use one sentence or short paragraph learners can complete
+- One or more sentences students complete
 
 Example:
-Our company was founded in *2018* and is headquartered in *Foster City*. We specialize in *customer onboarding* training.
+The French word for hello is *bonjour*.
+To say thank you in French, use *merci*.
 
-Paste the text into the **Cloze text** field in the Fill in the Blanks editor.`,
+Or provide word,translation rows and we will build sentences automatically.`,
 
-  accordion: `Output format: markdown list of panels
-- Each panel: a \`## Title\` heading followed by body text
-- 3–6 panels recommended for FAQs or topic overviews
+  'dialog-cards': `Output format: CSV or tab-separated word list — one pair per row
+- Column 1: word in target language (card front)
+- Column 2: translation (card back)
 
 Example:
-\`\`\`
-## Getting started
-How to create an account and complete your first lesson.
+\`\`\`csv
+word,translation
+bonjour,hello
+merci,thank you
+\`\`\``,
 
-## Billing
-Payment methods, invoices, and refund policy.
+  flashcards: `Output format: CSV or tab-separated word list — one pair per row
+- Column 1: prompt word or phrase
+- Column 2: correct typed answer
 
-## Support
-Contact options and typical response times.
-\`\`\`
+Example:
+\`\`\`csv
+word,translation
+bonjour,hello
+merci,thank you
+\`\`\``,
 
-Copy each title and body into **Accordion panels** in the editor (or ask for CSV: \`title,content\`).`,
+  'single-choice-set': `Output format: CSV with header \`word,translation\` OR \`question,answers\`
+- For vocabulary: one row per word; we auto-generate distractors from other translations
+- For full MCQ: \`question,answers\` with \`Wrong|*Correct*|Wrong\`
+
+Example:
+\`\`\`csv
+word,translation
+bonjour,hello
+merci,thank you
+\`\`\``,
+
+  'mark-the-words': `Output format: plain text with correct words wrapped in asterisks
+- Students click the marked words in the passage
+
+Example:
+Click the French greetings: *bonjour* and *merci* are common words.
+
+Or provide word,translation rows and we will build a find-the-words task.`,
+
+  accordion: `Output format: CSV glossary — one term per row
+- Column 1: word or phrase in target language
+- Column 2: definition or translation
+
+Example:
+\`\`\`csv
+word,translation
+bonjour,hello — used as a greeting
+merci,thank you
+au revoir,goodbye
+\`\`\``,
 
   timeline: `Output format: CSV with header \`headline,startDate,text\`
-- \`startDate\`: YYYY or YYYY,MM,DD
-- \`text\`: short description of the event
+- Use for historical reading or story sequence in language class
 
 Example:
 \`\`\`csv
 headline,startDate,text
-Company founded,2018,Opened our first office.
-Product launch,2020,Released the core training platform.
-\`\`\`
+Story begins,2024,Students meet the main character.
+Conflict,2024,The problem is introduced.
+\`\`\``,
 
-Enter each row in the **Timeline events** section of the editor.`,
-
-  'course-presentation': `Output format: markdown slides
-- Each slide: \`## Slide title\` followed by bullet points or a short paragraph
-- 3–8 slides recommended
+  'course-presentation': `Output format: markdown slides for a grammar or culture lesson
+- Each slide: \`## Slide title\` followed by bullet points
 
 Example:
 \`\`\`
-## Welcome
-- Who this course is for
-- What you will learn
+## Regular -er verbs
+- parler — to speak
+- aimer — to like
+- Example: Je *parle* français.
 
-## Key concepts
-- Term one: brief definition
-- Term two: brief definition
-\`\`\`
+## Practice
+- Complete the conjugation table.
+\`\`\``,
 
-Copy each slide into the **Slides** section of the Course Presentation editor.`,
-
-  'interactive-video': `Output format: markdown or structured text
-- First line: \`Video URL:\` followed by a YouTube or MP4 link (optional)
-- Then interaction blocks with timestamp, label, and popup text
+  'interactive-video': `Output format: structured text for a video lesson
+- Video URL (YouTube or MP4)
+- Timestamped popup notes or mini-quiz hints in the target language
 
 Example:
 \`\`\`
-Video URL: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+Video URL: https://www.youtube.com/watch?v=example
+Time: 30 — Vocabulary note: "bonjour" means hello
+Time: 90 — Grammar tip: formal vs informal greeting
+\`\`\``,
+}
 
-Interaction 1
-Time (seconds): 15
-Label: Key term
-Text: This scene introduces our core value proposition.
+function lessonContext(lesson: H5PLanguageLesson): string {
+  const parts = [
+    lesson.unitName.trim() && `Unit/lesson: ${lesson.unitName.trim()}`,
+    lesson.targetLanguage.trim() && `Target language: ${lesson.targetLanguage.trim()}`,
+    lesson.sourceLanguage.trim() && `Students' language: ${lesson.sourceLanguage.trim()}`,
+  ].filter(Boolean)
 
-Interaction 2
-Time (seconds): 45
-Label: Quiz hint
-Text: Remember the three steps covered so far.
-\`\`\`
-
-Enter details in the **Interactive Video** editor (video URL + interactions).`,
+  return parts.length ? parts.join('\n') : ''
 }
 
 function supportedTypesList(): string {
-  return H5P_CONTENT_TYPES.map((type) => `- **${type.label}** — ${type.description}`).join('\n')
+  return H5P_TEACHER_EXERCISES.map((type) => `- **${type.label}** — ${type.description}`).join('\n')
 }
 
 export function buildDefaultH5PAiPrompt(
   contentType: H5PContentTypeId,
-  businessBackground?: string,
+  languageLesson?: H5PLanguageLesson,
+  extraContext?: string,
 ): string {
   const selected = H5P_CONTENT_TYPES.find((type) => type.id === contentType)
-  const label = selected?.label ?? 'H5P content'
-  const background = businessBackground?.trim()
+  const teacher = H5P_TEACHER_EXERCISES.find((type) => type.id === contentType)
+  const label = teacher?.label ?? selected?.label ?? 'H5P content'
+  const lesson = languageLesson ? lessonContext(languageLesson) : ''
+  const background = extraContext?.trim()
 
-  return `You are helping create H5P e-learning content for import into the Clinty H5P Builder.
+  return `You are helping a language teacher create H5P classroom exercises for import into the Clinty Language Exercise Builder.
 
-## Supported content types
+## Exercise types for teachers
 ${supportedTypesList()}
 
 ## Task
-Create **${label}** content for our team/customers.
+Create **${label}** content for students.
 
-${background ? `## Business context\n${background}\n` : ''}## Requirements
-- Match our brand voice: clear, professional, and helpful
-- Use accurate facts from the business context above; do not invent policies or numbers
+${lesson ? `## Lesson context\n${lesson}\n` : ''}${background ? `## Additional context\n${background}\n` : ''}## Requirements
+- Appropriate for classroom use (clear, age-neutral language)
+- Focus on vocabulary, grammar, or reading skills — not marketing or business training
 - Keep questions and labels concise
-- For quizzes, include 3–4 answer options per question with exactly one correct answer
+- For quizzes, include 3–4 answer options with exactly one correct answer when using full MCQ format
+- Use realistic vocabulary for the target language level
 
 ## Output instructions
 ${FORMAT_GUIDES[contentType]}
@@ -140,29 +176,34 @@ ${FORMAT_GUIDES[contentType]}
 Return only the content in the format above — no extra commentary unless I ask for it.`
 }
 
-export function buildAllTypesH5PAiPrompt(businessBackground?: string): string {
-  const background = businessBackground?.trim()
+export function buildAllTypesH5PAiPrompt(
+  languageLesson?: H5PLanguageLesson,
+  extraContext?: string,
+): string {
+  const lesson = languageLesson ? lessonContext(languageLesson) : ''
+  const background = extraContext?.trim()
 
-  return `You are helping create H5P e-learning content for import into the Clinty H5P Builder.
+  return `You are helping a language teacher plan H5P classroom activities for the Clinty Language Exercise Builder.
 
-## Supported content types
+## Exercise types
 ${supportedTypesList()}
 
-${background ? `## Business context\n${background}\n` : ''}## Task
-Suggest a short learning module plan using the content types above. Pick the best type for each piece (quiz, accordion, fill-in-the-blanks, drag-and-drop, timeline, course presentation, or interactive video).
+${lesson ? `## Lesson context\n${lesson}\n` : ''}${background ? `## Additional context\n${background}\n` : ''}## Task
+Suggest a short lesson activity set for language students. Pick the best type for each piece.
 
 For each item, specify:
-1. Content type
+1. Exercise type
 2. Title
-3. The actual content in the import format for that type (see below)
+3. The actual content in the import format for that type
 
 ## Import formats by type
 ${Object.entries(FORMAT_GUIDES)
+  .filter(([id]) => H5P_TEACHER_EXERCISES.some((entry) => entry.id === id) || id === 'question-set')
   .map(([id, guide]) => {
-    const type = H5P_CONTENT_TYPES.find((entry) => entry.id === id)
+    const type = H5P_TEACHER_EXERCISES.find((entry) => entry.id === id)
     return `### ${type?.label ?? id}\n${guide}`
   })
   .join('\n\n')}
 
-Start with one **Quiz (Question Set)** as CSV (\`question,answers\`) so I can import it immediately.`
+Start with one **Vocabulary quiz** as CSV (\`word,translation\` or \`question,answers\`) so I can import it immediately.`
 }

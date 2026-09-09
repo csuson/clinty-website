@@ -55,13 +55,129 @@ export const H5P_CONTENT_TYPES = [
     minorVersion: 1,
     description: 'Chronological events and milestones.',
   },
+  {
+    id: 'mark-the-words',
+    label: 'Mark the Words',
+    mainLibrary: 'H5P.MarkTheWords',
+    majorVersion: 1,
+    minorVersion: 11,
+    description: 'Click the correct words in a passage.',
+  },
+  {
+    id: 'dialog-cards',
+    label: 'Dialog Cards',
+    mainLibrary: 'H5P.Dialogcards',
+    majorVersion: 1,
+    minorVersion: 9,
+    description: 'Flip cards with term on front and translation on back.',
+  },
+  {
+    id: 'flashcards',
+    label: 'Flashcards',
+    mainLibrary: 'H5P.Flashcards',
+    majorVersion: 1,
+    minorVersion: 7,
+    description: 'Type-the-answer flashcard deck.',
+  },
+  {
+    id: 'single-choice-set',
+    label: 'Single Choice Set',
+    mainLibrary: 'H5P.SingleChoiceSet',
+    majorVersion: 1,
+    minorVersion: 10,
+    description: 'Quick swipe-style multiple choice questions.',
+  },
 ] as const
 
 export type H5PContentTypeId = (typeof H5P_CONTENT_TYPES)[number]['id']
 
+/** Primary exercise types for language teachers (shown first in the builder). */
+export const H5P_TEACHER_EXERCISES: ReadonlyArray<{
+  id: H5PContentTypeId
+  label: string
+  description: string
+  importHint: string
+}> = [
+  {
+    id: 'question-set',
+    label: 'Vocabulary quiz',
+    description: 'Show a word or phrase — students pick the correct translation.',
+    importHint: 'CSV/TXT: word,translation — or word [tab] translation',
+  },
+  {
+    id: 'drag-and-drop',
+    label: 'Matching',
+    description: 'Drag each word to its translation (great for vocabulary review).',
+    importHint: 'CSV/TXT: term,translation — one pair per row',
+  },
+  {
+    id: 'blanks',
+    label: 'Fill in the blanks',
+    description: 'Cloze sentences — wrap answers in *asterisks*.',
+    importHint: 'TXT with *answers* or word,translation to auto-build sentences',
+  },
+  {
+    id: 'accordion',
+    label: 'Glossary',
+    description: 'Expandable word list students can study before a quiz.',
+    importHint: 'CSV/TXT: word,definition — builds accordion panels',
+  },
+  {
+    id: 'dialog-cards',
+    label: 'Flip cards',
+    description: 'Turn cards to reveal translations — ideal for vocabulary drills.',
+    importHint: 'CSV/TXT: word,translation — one pair per row',
+  },
+  {
+    id: 'flashcards',
+    label: 'Type-answer cards',
+    description: 'Students type the translation before checking their answer.',
+    importHint: 'CSV/TXT: word,translation — one pair per row',
+  },
+  {
+    id: 'single-choice-set',
+    label: 'Quick quiz',
+    description: 'Fast multiple-choice cards students answer one at a time.',
+    importHint: 'CSV/TXT: word,translation — auto-generates distractors',
+  },
+  {
+    id: 'mark-the-words',
+    label: 'Mark the words',
+    description: 'Students click correct words in a sentence — grammar and reading.',
+    importHint: 'TXT with *marked* words, or word list to build a find-the-words task',
+  },
+]
+
+export const H5P_MORE_CONTENT_TYPES: ReadonlyArray<{
+  id: H5PContentTypeId
+  label: string
+  description: string
+}> = [
+  {
+    id: 'course-presentation',
+    label: 'Lesson slides',
+    description: 'Slide-based presentation for grammar notes or culture topics.',
+  },
+  {
+    id: 'timeline',
+    label: 'Timeline',
+    description: 'Historical or story sequence for reading classes.',
+  },
+  {
+    id: 'interactive-video',
+    label: 'Interactive video',
+    description: 'Video with pauses and popup notes.',
+  },
+]
+
 export type H5PAccordionPanel = {
   title: string
   content: string
+}
+
+export type H5PVocabCard = {
+  term: string
+  translation: string
 }
 
 export type H5PQuizQuestion = {
@@ -109,8 +225,15 @@ export type H5PInteractiveVideoInteraction = {
   text: string
 }
 
+export type H5PLanguageLesson = {
+  unitName: string
+  targetLanguage: string
+  sourceLanguage: string
+}
+
 export type H5PBuilderForm = {
   contentType: H5PContentTypeId
+  languageLesson: H5PLanguageLesson
   title: string
   intro: string
   videoUrl: string
@@ -122,6 +245,9 @@ export type H5PBuilderForm = {
   timelineEvents: H5PTimelineEvent[]
   slides: H5PSlide[]
   interactions: H5PInteractiveVideoInteraction[]
+  vocabCards: H5PVocabCard[]
+  markTheWordsTaskDescription: string
+  markTheWordsText: string
 }
 
 export type H5PGenerateRequest = {
@@ -136,4 +262,7 @@ export type H5PGenerateRequest = {
   timelineEvents?: H5PTimelineEvent[]
   slides?: H5PSlide[]
   interactions?: H5PInteractiveVideoInteraction[]
+  vocabCards?: H5PVocabCard[]
+  markTheWordsTaskDescription?: string
+  markTheWordsText?: string
 }

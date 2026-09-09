@@ -170,9 +170,11 @@ export function SidebarAddButton({ label, onClick }: { label: string; onClick: (
 
 export function SidebarImportButton({
   label = 'Import CSV',
+  accept = '.csv,.txt,text/csv,text/plain',
   onImport,
 }: {
   label?: string
+  accept?: string
   onImport: (file: File) => void | Promise<void>
 }) {
   return (
@@ -180,7 +182,7 @@ export function SidebarImportButton({
       {label}
       <input
         type="file"
-        accept=".csv,text/csv"
+        accept={accept}
         className="sr-only"
         onChange={(e) => {
           const file = e.target.files?.[0]

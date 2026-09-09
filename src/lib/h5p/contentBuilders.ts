@@ -286,6 +286,110 @@ function buildCoursePresentationContent(form: H5PBuilderForm) {
   }
 }
 
+function buildMarkTheWordsContent(form: H5PBuilderForm) {
+  return {
+    taskDescription: form.markTheWordsTaskDescription.trim() || 'Click on the correct words in the text.',
+    textField: form.markTheWordsText,
+    media: { disableImageZooming: false },
+    overallFeedback: [{ from: 0, to: 100 }],
+    checkAnswerButton: 'Check',
+    submitAnswerButton: 'Submit',
+    tryAgainButton: 'Retry',
+    showSolutionButton: 'Show solution',
+    behaviour: {
+      enableRetry: true,
+      enableSolutionsButton: true,
+      enableCheckButton: true,
+      showScorePoints: true,
+    },
+    correctAnswer: 'Correct!',
+    incorrectAnswer: 'Incorrect!',
+    missedAnswer: 'Answer not found!',
+    displaySolutionDescription: 'Task is updated to contain the solution.',
+    scoreBarLabel: 'You got :num out of :total points',
+  }
+}
+
+function buildDialogCardsContent(form: H5PBuilderForm) {
+  const cards = form.vocabCards.filter((card) => card.term.trim() && card.translation.trim())
+
+  return {
+    title: form.title.trim() ? paragraphHtml(form.title) : '',
+    mode: 'normal',
+    description: form.intro.trim() ? paragraphHtml(form.intro) : '',
+    dialogs: cards.map((card) => ({
+      text: `<p style="text-align: center;">${card.term.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`,
+      answer: `<p style="text-align: center;">${card.translation.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`,
+      tips: { front: '', back: '' },
+    })),
+    behaviour: {
+      enableRetry: true,
+      disableBackwardsNavigation: false,
+      scaleTextNotCard: false,
+      randomCards: false,
+    },
+  }
+}
+
+function buildFlashcardsContent(form: H5PBuilderForm) {
+  const cards = form.vocabCards.filter((card) => card.term.trim() && card.translation.trim())
+
+  return {
+    description: form.intro.trim() || form.title.trim() || 'Type the translation for each card.',
+    cards: cards.map((card) => ({
+      text: card.term.trim(),
+      answer: card.translation.trim(),
+      tip: { tip: '' },
+    })),
+    progressText: 'Card @card of @total',
+    next: 'Next',
+    previous: 'Previous',
+    checkAnswerText: 'Check',
+    showSolutionsRequiresInput: true,
+    defaultAnswerText: 'Your answer',
+    correctAnswerText: 'Correct',
+    incorrectAnswerText: 'Incorrect',
+    showSolutionText: 'Correct answer(s)',
+    results: 'Results',
+    ofCorrect: '@score of @total correct',
+    showResults: 'Show results',
+    answerShortText: 'A:',
+    retry: 'Retry',
+    caseSensitive: false,
+    randomCards: false,
+  }
+}
+
+function buildSingleChoiceSetContent(form: H5PBuilderForm) {
+  const questions = form.quizQuestions.filter(
+    (question) => question.question.trim() && question.answers.some((answer) => answer.trim()),
+  )
+
+  return {
+    choices: questions.map((question) => {
+      const answers = question.answers.filter((answer) => answer.trim())
+      const correct = answers[question.correctIndex] ?? answers[0] ?? ''
+      const others = answers.filter((_, index) => index !== question.correctIndex)
+      const ordered = [correct, ...others].filter(Boolean)
+
+      return {
+        question: paragraphHtml(question.question),
+        answers: ordered.map((answer) => ({ answer: paragraphHtml(answer) })),
+      }
+    }),
+    overallFeedback: [{ from: 0, to: 100 }],
+    behaviour: {
+      autoContinue: true,
+      timeoutCorrect: 2000,
+      timeoutWrong: 3000,
+      soundEffectsEnabled: true,
+      enableRetry: true,
+      enableSolutionsButton: true,
+      passPercentage: 100,
+    },
+  }
+}
+
 function buildInteractiveVideoContent(form: H5PBuilderForm) {
   const videoUrl = form.videoUrl.trim()
   const files = videoUrl
@@ -351,6 +455,14 @@ export function buildH5PContent(
       return buildCoursePresentationContent(form)
     case 'interactive-video':
       return buildInteractiveVideoContent(form)
+    case 'mark-the-words':
+      return buildMarkTheWordsContent(form)
+    case 'dialog-cards':
+      return buildDialogCardsContent(form)
+    case 'flashcards':
+      return buildFlashcardsContent(form)
+    case 'single-choice-set':
+      return buildSingleChoiceSetContent(form)
     default:
       return {}
   }

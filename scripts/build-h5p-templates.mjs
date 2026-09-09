@@ -83,6 +83,12 @@ const LIBRARY_REPOS = {
   'H5P.DragNBar': { repo: 'h5p/h5p-drag-n-bar', ref: '1.5.23' },
   'H5P.DragNDrop': { repo: 'h5p/h5p-drag-n-drop', ref: '1.1.0' },
   'H5P.DragNResize': { repo: 'h5p/h5p-drag-n-resize', ref: '1.2.5' },
+  'H5P.MarkTheWords': { repo: 'h5p/h5p-mark-the-words', ref: '1.11.3' },
+  'H5P.Dialogcards': { repo: 'h5p/h5p-dialogcards', ref: '1.9.0' },
+  'H5P.Flashcards': { repo: 'h5p/h5p-flashcards', ref: '1.7.0' },
+  'H5P.SingleChoiceSet': { repo: 'h5p/h5p-single-choice-set', ref: '1.10.0' },
+  'H5P.Audio': { repo: 'h5p/h5p-audio', ref: '1.4.0' },
+  'H5P.SoundJS': { repo: 'h5p/h5p-soundjs', ref: '1.0.1' },
 }
 
 const CONTENT_TYPE_LIBS = {
@@ -93,6 +99,10 @@ const CONTENT_TYPE_LIBS = {
   'question-set': ['H5P.QuestionSet', 'H5P.MultiChoice'],
   'course-presentation': ['H5P.CoursePresentation'],
   'interactive-video': ['H5P.InteractiveVideo'],
+  'mark-the-words': ['H5P.MarkTheWords'],
+  'dialog-cards': ['H5P.Dialogcards'],
+  flashcards: ['H5P.Flashcards'],
+  'single-choice-set': ['H5P.SingleChoiceSet'],
 }
 
 const CONTENT_TYPE_MAIN = {
@@ -103,6 +113,10 @@ const CONTENT_TYPE_MAIN = {
   'question-set': 'H5P.QuestionSet',
   'course-presentation': 'H5P.CoursePresentation',
   'interactive-video': 'H5P.InteractiveVideo',
+  'mark-the-words': 'H5P.MarkTheWords',
+  'dialog-cards': 'H5P.Dialogcards',
+  flashcards: 'H5P.Flashcards',
+  'single-choice-set': 'H5P.SingleChoiceSet',
 }
 
 function mapMachineName(machineName) {
@@ -281,9 +295,14 @@ async function runLibraryBuild(libDir) {
   const packageJsonPath = join(libDir, 'package.json')
   if (!(await pathExists(packageJsonPath))) return
 
+  const buildEnv = {
+    ...process.env,
+    NODE_OPTIONS: [process.env.NODE_OPTIONS, '--openssl-legacy-provider'].filter(Boolean).join(' '),
+  }
+
   console.log(`Building ${libDir.split('/').pop()}...`)
-  await execFileAsync('npm', ['ci'], { cwd: libDir, stdio: 'inherit' })
-  await execFileAsync('npm', ['run', 'build'], { cwd: libDir, stdio: 'inherit' })
+  await execFileAsync('npm', ['ci'], { cwd: libDir, stdio: 'inherit', env: buildEnv })
+  await execFileAsync('npm', ['run', 'build'], { cwd: libDir, stdio: 'inherit', env: buildEnv })
 }
 
 async function prepareLibrary(machineName, libDir, spec, libraryJson) {
@@ -423,6 +442,49 @@ function placeholderContent(contentType) {
             startScreenOptions: { title: 'Video', hideStartTitle: false },
           },
           assets: { interactions: [], bookmarks: [], endscreens: [] },
+        },
+      }
+    case 'mark-the-words':
+      return {
+        taskDescription: 'Click on the correct words in the text.',
+        textField: 'This is a *sample* word.',
+        media: { disableImageZooming: false },
+        overallFeedback: [{ from: 0, to: 100 }],
+        behaviour: { enableRetry: true, enableSolutionsButton: true, enableCheckButton: true, showScorePoints: true },
+      }
+    case 'dialog-cards':
+      return {
+        title: 'Dialog cards',
+        mode: 'normal',
+        description: '',
+        dialogs: [{ text: '<p>Front</p>', answer: '<p>Back</p>', tips: { front: '', back: '' } }],
+        behaviour: { enableRetry: true, disableBackwardsNavigation: false, scaleTextNotCard: false, randomCards: false },
+      }
+    case 'flashcards':
+      return {
+        description: 'Type the translation for each card.',
+        cards: [{ text: 'bonjour', answer: 'hello', tip: { tip: '' } }],
+        caseSensitive: false,
+        randomCards: false,
+        showSolutionsRequiresInput: true,
+      }
+    case 'single-choice-set':
+      return {
+        choices: [
+          {
+            question: '<p>Sample question?</p>',
+            answers: [{ answer: '<p>Correct</p>' }, { answer: '<p>Wrong</p>' }],
+          },
+        ],
+        overallFeedback: [{ from: 0, to: 100 }],
+        behaviour: {
+          autoContinue: true,
+          timeoutCorrect: 2000,
+          timeoutWrong: 3000,
+          soundEffectsEnabled: true,
+          enableRetry: true,
+          enableSolutionsButton: true,
+          passPercentage: 100,
         },
       }
     default:

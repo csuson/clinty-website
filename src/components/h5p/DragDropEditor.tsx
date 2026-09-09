@@ -22,10 +22,12 @@ export default function DragDropEditor({
   form,
   onChange,
   onImportCsv,
+  simpleMode = false,
 }: {
   form: H5PBuilderForm
   onChange: (patch: Partial<H5PBuilderForm>) => void
   onImportCsv: (file: File) => Promise<void>
+  simpleMode?: boolean
 }) {
   const pairs = form.dragPairs
   const { selectedIndex, setSelectedIndex } = useSelectedIndex(pairs.length)
@@ -56,9 +58,10 @@ export default function DragDropEditor({
 
   return (
     <EditorShell
-      contentTypeLabel="Drag and Drop"
+      contentTypeLabel={simpleMode ? 'Matching' : 'Drag and Drop'}
       countLabel={`${pairs.length} pair${pairs.length === 1 ? '' : 's'}`}
     >
+      {!simpleMode ? (
       <CollapsibleSection title="Task settings">
         <EditorField label="Title" id="dd-title">
           <input
@@ -80,22 +83,27 @@ export default function DragDropEditor({
           />
         </EditorField>
       </CollapsibleSection>
+      ) : null}
 
       <ListSection
-        title="Elements"
-        description="Each row is one draggable item matched to a drop zone label."
+        title={simpleMode ? 'Word pairs' : 'Elements'}
+        description={
+          simpleMode
+            ? 'Students drag each word to its translation.'
+            : 'Each row is one draggable item matched to a drop zone label.'
+        }
         sidebar={
           <>
             <SidebarAddButton label="Add pair" onClick={addPair} />
             <SidebarImportButton
+              label="Import CSV/TXT"
               onImport={async (file) => {
                 await onImportCsv(file)
                 setSelectedIndex(0)
               }}
             />
             <p className="text-[11px] text-slate-500 leading-relaxed px-1">
-              CSV columns: <code className="bg-slate-200/70 px-1 rounded">question,answers</code> or{' '}
-              <code className="bg-slate-200/70 px-1 rounded">lesson,leçon</code>.
+              <code className="bg-slate-200/70 px-1 rounded">word,translation</code> or tab-separated lines.
             </p>
             <ul className="space-y-1 pt-1">
               {pairs.map((pair, index) => (

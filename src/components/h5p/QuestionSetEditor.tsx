@@ -24,10 +24,14 @@ export default function QuestionSetEditor({
   form,
   onChange,
   onImportCsv,
+  simpleMode = false,
+  variant = 'question-set',
 }: {
   form: H5PBuilderForm
   onChange: (patch: Partial<H5PBuilderForm>) => void
   onImportCsv: (file: File) => Promise<void>
+  simpleMode?: boolean
+  variant?: 'question-set' | 'single-choice-set'
 }) {
   const questions = form.quizQuestions
   const settings = form.quizSettings
@@ -63,9 +67,18 @@ export default function QuestionSetEditor({
 
   return (
     <EditorShell
-      contentTypeLabel="Question Set"
+      contentTypeLabel={
+        variant === 'single-choice-set'
+          ? simpleMode
+            ? 'Quick quiz'
+            : 'Single Choice Set'
+          : simpleMode
+            ? 'Vocabulary quiz'
+            : 'Question Set'
+      }
       countLabel={`${questions.length} question${questions.length === 1 ? '' : 's'}`}
     >
+      {!simpleMode ? (
       <CollapsibleSection title="Quiz introduction">
         <ToggleField
           label="Display introduction"
@@ -129,25 +142,52 @@ export default function QuestionSetEditor({
           </select>
         </EditorField>
       </CollapsibleSection>
+      ) : (
+        <EditorField label="Quiz title" id="qs-title-simple">
+          <input
+            id="qs-title-simple"
+            className={editorInputClass}
+            value={form.title}
+            onChange={(e) => onChange({ title: e.target.value })}
+            required
+          />
+        </EditorField>
+      )}
 
       <ListSection
         title="Questions"
-        description="Add multiple choice questions. Import a CSV or edit each question below."
+        description={
+          simpleMode
+            ? 'Each row is a vocabulary item. Import word,translation or edit below.'
+            : 'Add multiple choice questions. Import a CSV or edit each question below.'
+        }
         sidebar={
           <>
             <SidebarAddButton label="Add question" onClick={addQuestion} />
             <SidebarImportButton
+              label="Import CSV/TXT"
+              accept=".csv,.txt,text/csv,text/plain"
               onImport={async (file) => {
                 await onImportCsv(file)
                 setSelectedIndex(0)
               }}
             />
             <p className="text-[11px] text-slate-500 leading-relaxed px-1">
-              CSV columns: <code className="bg-slate-200/70 px-1 rounded">question</code>,{' '}
-              <code className="bg-slate-200/70 px-1 rounded">answers</code>. Separate answers with{' '}
-              <code className="bg-slate-200/70 px-1 rounded">|</code> or{' '}
-              <code className="bg-slate-200/70 px-1 rounded">;</code>. Mark correct with{' '}
-              <code className="bg-slate-200/70 px-1 rounded">*</code>.
+              {simpleMode ? (
+                <>
+                  <code className="bg-slate-200/70 px-1 rounded">word,translation</code> or tab-separated lines.
+                  Full MCQ format: <code className="bg-slate-200/70 px-1 rounded">question,answers</code> with{' '}
+                  <code className="bg-slate-200/70 px-1 rounded">*</code> on the correct option.
+                </>
+              ) : (
+                <>
+                  CSV columns: <code className="bg-slate-200/70 px-1 rounded">question</code>,{' '}
+                  <code className="bg-slate-200/70 px-1 rounded">answers</code>. Separate answers with{' '}
+                  <code className="bg-slate-200/70 px-1 rounded">|</code> or{' '}
+                  <code className="bg-slate-200/70 px-1 rounded">;</code>. Mark correct with{' '}
+                  <code className="bg-slate-200/70 px-1 rounded">*</code>.
+                </>
+              )}
             </p>
             <ul className="space-y-1 pt-1">
               {questions.map((question, index) => (
@@ -264,6 +304,7 @@ export default function QuestionSetEditor({
         )}
       </ListSection>
 
+      {!simpleMode ? (
       <CollapsibleSection title="Quiz finished: Your result" defaultOpen={false}>
         <ToggleField
           label="Display results"
@@ -302,6 +343,7 @@ export default function QuestionSetEditor({
           />
         </EditorField>
       </CollapsibleSection>
+      ) : null}
     </EditorShell>
   )
 }

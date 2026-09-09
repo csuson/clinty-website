@@ -62,6 +62,14 @@ export function applyGeneratedH5PContent(
     // keep current type
   }
 
+  if (generated.languageLesson && typeof generated.languageLesson === 'object') {
+    next.languageLesson = {
+      unitName: asString(generated.languageLesson.unitName) ?? form.languageLesson.unitName,
+      targetLanguage: asString(generated.languageLesson.targetLanguage) ?? form.languageLesson.targetLanguage,
+      sourceLanguage: asString(generated.languageLesson.sourceLanguage) ?? form.languageLesson.sourceLanguage,
+    }
+  }
+
   if (asString(generated.title)) next.title = generated.title!.trim()
   if (asString(generated.intro)) next.intro = generated.intro!.trim()
   if (asString(generated.videoUrl)) next.videoUrl = generated.videoUrl!.trim()
@@ -113,6 +121,18 @@ export function applyGeneratedH5PContent(
       text: asString(interaction.text) ?? '',
     }))
   }
+
+  if (Array.isArray(generated.vocabCards) && generated.vocabCards.length) {
+    next.vocabCards = generated.vocabCards.map((card) => ({
+      term: asString(card.term) ?? '',
+      translation: asString(card.translation) ?? '',
+    }))
+  }
+
+  if (asString(generated.markTheWordsTaskDescription)) {
+    next.markTheWordsTaskDescription = generated.markTheWordsTaskDescription!.trim()
+  }
+  if (asString(generated.markTheWordsText)) next.markTheWordsText = generated.markTheWordsText!
 
   return next
 }

@@ -6,6 +6,7 @@ import {
   ItemToolbar,
   ListSection,
   SidebarAddButton,
+  SidebarImportButton,
   SidebarItemButton,
   editorInputClass,
   editorTextareaClass,
@@ -21,9 +22,13 @@ function createPanel(): H5PAccordionPanel {
 export default function AccordionEditor({
   form,
   onChange,
+  onImportFile,
+  simpleMode = false,
 }: {
   form: H5PBuilderForm
   onChange: (patch: Partial<H5PBuilderForm>) => void
+  onImportFile?: (file: File) => Promise<void>
+  simpleMode?: boolean
 }) {
   const panels = form.accordionPanels
   const { selectedIndex, setSelectedIndex } = useSelectedIndex(panels.length)
@@ -54,10 +59,10 @@ export default function AccordionEditor({
 
   return (
     <EditorShell
-      contentTypeLabel="Accordion"
-      countLabel={`${panels.length} panel${panels.length === 1 ? '' : 's'}`}
+      contentTypeLabel={simpleMode ? 'Glossary' : 'Accordion'}
+      countLabel={`${panels.length} term${panels.length === 1 ? '' : 's'}`}
     >
-      <CollapsibleSection title="Accordion settings">
+      <CollapsibleSection title={simpleMode ? 'Glossary settings' : 'Accordion settings'}>
         <EditorField label="Title" id="acc-title">
           <input
             id="acc-title"
@@ -70,11 +75,25 @@ export default function AccordionEditor({
       </CollapsibleSection>
 
       <ListSection
-        title="Panels"
-        description="Each panel becomes an expandable section."
+        title={simpleMode ? 'Vocabulary terms' : 'Panels'}
+        description={
+          simpleMode
+            ? 'Each term becomes an expandable card with its definition.'
+            : 'Each panel becomes an expandable section.'
+        }
         sidebar={
           <>
-            <SidebarAddButton label="Add panel" onClick={addPanel} />
+            <SidebarAddButton label={simpleMode ? 'Add term' : 'Add panel'} onClick={addPanel} />
+            {onImportFile ? (
+              <SidebarImportButton
+                accept=".csv,.txt,text/csv,text/plain"
+                label="Import CSV/TXT"
+                onImport={async (file) => {
+                  await onImportFile(file)
+                  setSelectedIndex(0)
+                }}
+              />
+            ) : null}
             <ul className="space-y-1 pt-1">
               {panels.map((panel, index) => (
                 <li key={index}>

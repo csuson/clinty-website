@@ -32,12 +32,25 @@ export default function H5PPreviewModal({
       setError(null)
 
       try {
-        if (form.contentType === 'question-set') {
+        if (form.contentType === 'question-set' || form.contentType === 'single-choice-set') {
           const validQuestions = form.quizQuestions.filter(
             (question) => question.question.trim() && question.answers.some((answer) => answer.trim()),
           )
           if (!validQuestions.length) {
             throw new Error('Add at least one question with answers before previewing your quiz.')
+          }
+        }
+
+        if (form.contentType === 'dialog-cards' || form.contentType === 'flashcards') {
+          const validCards = form.vocabCards.filter((card) => card.term.trim() && card.translation.trim())
+          if (!validCards.length) {
+            throw new Error('Add at least one vocabulary card before previewing.')
+          }
+        }
+
+        if (form.contentType === 'mark-the-words') {
+          if (!form.markTheWordsText.trim() || !/\*[^*]+\*/.test(form.markTheWordsText)) {
+            throw new Error('Add text with at least one word wrapped in *asterisks* before previewing.')
           }
         }
 

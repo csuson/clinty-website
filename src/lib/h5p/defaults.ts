@@ -1,5 +1,6 @@
 import type { PromptFields } from '../prompts'
-import { H5P_CONTENT_TYPES } from './types'
+import { defaultLanguageLesson, buildLessonTitle } from './teacherDefaults'
+import { H5P_CONTENT_TYPES, H5P_TEACHER_EXERCISES } from './types'
 import type {
   H5PAccordionPanel,
   H5PBuilderForm,
@@ -222,15 +223,61 @@ function defaultQuizSettings(): H5PQuizSettings {
   }
 }
 
+export function defaultLanguageTeacherForm(
+  contentType: H5PContentTypeId = 'question-set',
+): H5PBuilderForm {
+  const lesson = defaultLanguageLesson()
+  const exercise =
+    H5P_TEACHER_EXERCISES.find((entry) => entry.id === contentType)?.label ??
+    H5P_CONTENT_TYPES.find((type) => type.id === contentType)?.label ??
+    'Exercise'
+
+  return {
+    contentType,
+    languageLesson: lesson,
+    title: buildLessonTitle(lesson, exercise),
+    intro: `Practice ${lesson.targetLanguage} vocabulary for ${lesson.unitName}.`,
+    videoUrl: '',
+    blanksText: 'Complete the sentence: "bonjour" means *hello*.',
+    accordionPanels: [
+      { title: 'bonjour', content: 'hello' },
+      { title: 'merci', content: 'thank you' },
+    ],
+    quizQuestions: [
+      {
+        question: 'What is the translation of "bonjour"?',
+        answers: ['hello', 'goodbye', 'please', 'thank you'],
+        correctIndex: 0,
+      },
+    ],
+    quizSettings: defaultQuizSettings(),
+    dragPairs: [
+      { draggable: 'bonjour', dropZone: 'hello' },
+      { draggable: 'merci', dropZone: 'thank you' },
+    ],
+    vocabCards: [
+      { term: 'bonjour', translation: 'hello' },
+      { term: 'merci', translation: 'thank you' },
+    ],
+    markTheWordsTaskDescription: 'Click the French greetings in the sentence.',
+    markTheWordsText: 'Common greetings include *bonjour* and *merci*.',
+    timelineEvents: [],
+    slides: [{ title: 'Vocabulary', content: 'Key words for this lesson.' }],
+    interactions: [],
+  }
+}
+
 export function defaultH5PBuilderForm(
   contentType: H5PContentTypeId = 'question-set',
   prompts: PromptFields,
 ): H5PBuilderForm {
   const businessName = extractBusinessName(prompts.background)
   const intro = prompts.background.split('\n\n')[0]?.trim() || prompts.background.slice(0, 280)
+  const lesson = defaultLanguageLesson()
 
   return {
     contentType,
+    languageLesson: lesson,
     title: `${businessName} — ${H5P_CONTENT_TYPES.find((type) => type.id === contentType)?.label ?? 'H5P'}`,
     intro,
     videoUrl: '',
@@ -239,6 +286,12 @@ export function defaultH5PBuilderForm(
     quizQuestions: buildQuizQuestions(prompts),
     quizSettings: defaultQuizSettings(),
     dragPairs: buildDragPairs(prompts),
+    vocabCards: buildAccordionPanels(prompts).map((panel) => ({
+      term: panel.title,
+      translation: panel.content.replace(/<[^>]+>/g, '').trim(),
+    })),
+    markTheWordsTaskDescription: 'Click the key terms in the text.',
+    markTheWordsText: buildBlanksText(prompts),
     timelineEvents: buildTimelineEvents(prompts),
     slides: buildSlides(prompts),
     interactions: buildInteractions(prompts),
@@ -252,6 +305,7 @@ export function applyBusinessBackgroundToForm(
   const defaults = defaultH5PBuilderForm(form.contentType, prompts)
   return {
     ...form,
+    languageLesson: defaults.languageLesson,
     title: defaults.title,
     intro: defaults.intro,
     blanksText: defaults.blanksText,
@@ -259,6 +313,9 @@ export function applyBusinessBackgroundToForm(
     quizQuestions: defaults.quizQuestions,
     quizSettings: defaults.quizSettings,
     dragPairs: defaults.dragPairs,
+    vocabCards: defaults.vocabCards,
+    markTheWordsTaskDescription: defaults.markTheWordsTaskDescription,
+    markTheWordsText: defaults.markTheWordsText,
     timelineEvents: defaults.timelineEvents,
     slides: defaults.slides,
     interactions: defaults.interactions,
