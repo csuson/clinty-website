@@ -1,6 +1,6 @@
 /** Keep preset ids in sync with email_assistant/src/email_assistant/response_tone.py */
 
-export const DEFAULT_RESPONSE_TONE = 'professional'
+export const DEFAULT_RESPONSE_TONE = 'warm_informal'
 
 export const WHATSAPP_SAME_AS_EMAIL = ''
 
@@ -20,6 +20,11 @@ export const RESPONSE_TONE_PRESETS: ResponseTonePreset[] = [
     id: 'friendly',
     label: 'Friendly',
     description: 'Warm and approachable with conversational phrasing.',
+  },
+  {
+    id: 'warm_informal',
+    label: 'Warm, informal one-on-one',
+    description: 'Friendly, direct, human — like messaging a customer one-on-one.',
   },
   {
     id: 'casual',

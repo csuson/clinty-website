@@ -181,10 +181,18 @@ Deno.serve(async (req) => {
         prompt_background: prompts.background,
         prompt_calendar_preference: prompts.calendar_preference,
         prompt_default_footer: prompts.default_footer,
+        prompt_promotions: prompts.promotions,
       }
     })
 
-    return json({ users, apiKeys, gmailTokens, outlookTokens, squareTokens, shopifyTokens, agentSettings })
+    const userPrompts = (userPromptsRes.data ?? [])
+      .map((prompts) => ({
+        ...prompts,
+        user_email: emailByUserId.get(prompts.user_id) ?? null,
+      }))
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+
+    return json({ users, apiKeys, gmailTokens, outlookTokens, squareTokens, shopifyTokens, agentSettings, userPrompts })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }

@@ -5,14 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && node scripts/copy-h5p-player.mjs && vite build",
     "deploy:hostinger": "npm run build && node scripts/deploy-hostinger.mjs",
     "supabase": "node scripts/run-supabase.mjs",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:h5p-templates": "node scripts/build-h5p-templates.mjs",
+    "copy:h5p-player": "node scripts/copy-h5p-player.mjs",
+    "postinstall": "node scripts/copy-h5p-player.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",
+    "h5p-standalone": "^3.8.2",
+    "jszip": "^3.10.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",

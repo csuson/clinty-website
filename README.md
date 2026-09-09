@@ -120,7 +120,7 @@ Run the Gmail tables section in `supabase/schema.sql` (creates `gmail_tokens` an
 
 ## Agent Settings API
 
-Returns the `agent_settings` row linked to a Clinty API key as JSON, plus resolved user prompts (`prompts`, `prompt_background`, `prompt_calendar_preference`, `email_footer`).
+Returns the `agent_settings` row linked to a Clinty API key as JSON, plus resolved user prompts (`prompts`, `prompt_background`, `prompt_calendar_preference`, `prompt_promotions`, `email_footer`).
 
 **Endpoint:** `GET {VITE_SUPABASE_URL}/functions/v1/agent-settings`
 

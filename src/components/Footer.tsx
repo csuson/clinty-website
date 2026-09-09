@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import ClintyLogo from './ClintyLogo'
 import SocialLinks from './SocialLinks'
 
 export default function Footer() {
@@ -7,12 +8,9 @@ export default function Footer() {
       <div className="max-w-6xl mx-auto">
         <div className="grid md:grid-cols-4 gap-8 mb-12">
           <div className="md:col-span-1">
-            <Link to="/" className="flex items-center gap-2.5 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-navy-900 flex items-center justify-center">
-                <span className="text-teal-400 font-bold text-sm">C</span>
-              </div>
-              <span className="font-semibold text-lg text-navy-900">Clinty</span>
-            </Link>
+            <div className="mb-4">
+              <ClintyLogo markClassName="w-8 h-8" />
+            </div>
             <p className="text-sm text-navy-600 leading-relaxed">
               AI agents for every customer touchpoint — communication, scheduling, inventory, and paid media.
             </p>

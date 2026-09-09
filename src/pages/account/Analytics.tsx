@@ -17,6 +17,8 @@ import {
   type InboundSummary,
   type WeeklyVolumePoint,
 } from '../../lib/analytics'
+import { fetchAiUsageSummary, formatAiFeature, formatAiUsageLimit, type AiUsageSummary } from '../../lib/aiUsage'
+import { isUnlimitedTokenLimit } from '../../constants/aiTokenLimits'
 
 const PERIOD_OPTIONS = [
   { label: '7 days', value: 7 },
@@ -182,29 +184,39 @@ export default function Analytics() {
   const [tenants, setTenants] = useState<AnalyticsTenant[]>([])
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null)
   const [inbound, setInbound] = useState<InboundSummary | null>(null)
+  const [aiUsage, setAiUsage] = useState<AiUsageSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
   const showAccountPicker = isAdmin || tenants.length > 0
 
   const loadSummary = useCallback(async (periodDays: number, userId?: string) => {
     setLoading(true)
     setError(null)
-    try {
-      const [summaryData, inboundData] = await Promise.all([
-        fetchAnalyticsSummary(periodDays, userId),
-        fetchInboundAnalytics(periodDays, userId),
-      ])
+    setWarning(null)
+
+    const [summaryResult, inboundResult, aiUsageResult] = await Promise.allSettled([
+      fetchAnalyticsSummary(periodDays, userId),
+      fetchInboundAnalytics(periodDays, userId),
+      fetchAiUsageSummary(userId),
+    ])
+
+    let summaryData: AnalyticsSummary | null = null
+    let inboundData: InboundSummary | null = null
+    const issues: string[] = []
+
+    if (summaryResult.status === 'fulfilled') {
+      summaryData = summaryResult.value
       setSummary(summaryData)
-      setInbound(inboundData)
       if (summaryData.analytics_tenants?.length) {
         setTenants(summaryData.analytics_tenants)
       }
       if (summaryData.analytics_user_id && summaryData.analytics_user_id !== userId) {
         setSelectedUserId(summaryData.analytics_user_id)
       }
-    } catch (err) {
+    } else {
       setSummary(null)
-      setInbound(null)
+      const err = summaryResult.reason
       if (err instanceof AnalyticsRequestError) {
         if (err.tenants?.length) {
           setTenants(err.tenants)
@@ -213,10 +225,40 @@ export default function Analytics() {
           setSelectedUserId(err.analyticsUserId)
         }
       }
-      setError(err instanceof Error ? err.message : 'Failed to load analytics')
-    } finally {
-      setLoading(false)
+      issues.push(
+        err instanceof Error ? err.message : 'Failed to load assistant summary',
+      )
     }
+
+    if (inboundResult.status === 'fulfilled') {
+      inboundData = inboundResult.value
+      setInbound(inboundData)
+    } else {
+      setInbound(null)
+      const err = inboundResult.reason
+      issues.push(
+        err instanceof Error ? err.message : 'Failed to load inbound archive',
+      )
+    }
+
+    if (aiUsageResult.status === 'fulfilled') {
+      setAiUsage(aiUsageResult.value)
+    } else {
+      setAiUsage(null)
+    }
+
+    if (!summaryData && !inboundData) {
+      setError(issues[0] ?? 'Failed to load analytics')
+      setWarning(null)
+    } else if (issues.length > 0) {
+      setError(null)
+      setWarning(issues.join(' '))
+    } else {
+      setError(null)
+      setWarning(null)
+    }
+
+    setLoading(false)
   }, [])
 
   useEffect(() => {
@@ -314,10 +356,10 @@ export default function Analytics() {
 
         {loading ? (
           <p className="text-sm text-navy-600">Loading analytics…</p>
-        ) : error ? (
+        ) : error && !summary && !inbound && !aiUsage ? (
           <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 space-y-3">
             <p>{error}</p>
-            {/api key/i.test(error) ? (
+            {/api key|langgraph|assistant|timed out|timeout/i.test(error) ? (
               <ul className="list-disc pl-5 space-y-1 text-red-800/90">
                 <li>
                   Generate a key in{' '}
@@ -327,17 +369,25 @@ export default function Analytics() {
                 </li>
                 <li>Ask your admin to link that key in Agent Settings (Clinty API Key field)</li>
                 <li>Confirm the assistant LangGraph URL is set in Agent Settings</li>
+                <li>If the assistant was sleeping, wait a moment and refresh — cold starts can take up to a minute</li>
               </ul>
             ) : null}
           </div>
-        ) : summary ? (
+        ) : summary || inbound || aiUsage ? (
           <div className="space-y-8">
-            {!summary.analytics_enabled && summary.note ? (
+            {warning ? (
+              <div className="rounded-xl bg-amber-400/10 border border-amber-400/20 text-navy-800 text-sm px-4 py-3">
+                {warning}
+              </div>
+            ) : null}
+
+            {summary && !summary.analytics_enabled && summary.note ? (
               <div className="rounded-xl bg-amber-400/10 border border-amber-400/20 text-navy-800 text-sm px-4 py-3">
                 {summary.note}
               </div>
             ) : null}
 
+            {summary ? (
             <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
               <StatCard
                 label="Messages received"
@@ -364,7 +414,97 @@ export default function Analytics() {
                 sub="Inbound message to first reply"
               />
             </div>
+            ) : null}
 
+            {aiUsage ? (
+              <section className="rounded-2xl border border-navy-900/5 p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-navy-900">AI token usage</h3>
+                    <p className="text-sm text-navy-600 mt-1">
+                      Monthly usage for prompt background and H5P generation (resets UTC month start).
+                    </p>
+                  </div>
+                  {aiUsage.limit_reached ? (
+                    <span className="text-xs font-medium text-red-700 bg-red-50 border border-red-200 px-3 py-1.5 rounded-lg">
+                      Limit reached
+                    </span>
+                  ) : aiUsage.unlimited_limit ? (
+                    <span className="text-xs font-medium text-teal-800 bg-teal-50 border border-teal-200 px-3 py-1.5 rounded-lg">
+                      Unlimited
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <StatCard
+                    label="Tokens used"
+                    value={aiUsage.tokens_used.toLocaleString()}
+                    sub={`Since ${new Date(aiUsage.month_start).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+                  />
+                  <StatCard
+                    label="Monthly limit"
+                    value={formatAiUsageLimit(aiUsage.tokens_limit)}
+                    sub={aiUsage.unlimited_limit ? 'No monthly cap' : 'Global default or per-user override'}
+                  />
+                  <StatCard
+                    label="Remaining"
+                    value={
+                      isUnlimitedTokenLimit(aiUsage.tokens_limit)
+                        ? 'Unlimited'
+                        : (aiUsage.tokens_remaining ?? 0).toLocaleString()
+                    }
+                    sub={aiUsage.limit_reached ? 'Contact support to increase' : 'Available this month'}
+                  />
+                </div>
+
+                {Object.keys(aiUsage.by_feature).length > 0 ? (
+                  <div>
+                    <h4 className="text-xs font-semibold text-navy-700 mb-2 uppercase tracking-wide">By feature</h4>
+                    <ul className="space-y-1 text-sm text-navy-700">
+                      {Object.entries(aiUsage.by_feature).map(([feature, tokens]) => (
+                        <li key={feature} className="flex justify-between gap-4">
+                          <span>{formatAiFeature(feature)}</span>
+                          <span className="font-medium text-navy-900">{tokens.toLocaleString()}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="text-sm text-navy-600">No AI usage recorded yet this month.</p>
+                )}
+
+                {aiUsage.recent_events.length > 0 ? (
+                  <div>
+                    <h4 className="text-xs font-semibold text-navy-700 mb-2 uppercase tracking-wide">Recent calls</h4>
+                    <ul className="space-y-1 text-sm text-navy-700">
+                      {aiUsage.recent_events.slice(0, 8).map((event, index) => (
+                        <li key={`${event.created_at}-${index}`} className="flex justify-between gap-4">
+                          <span>
+                            {formatAiFeature(event.feature)}
+                            <span className="text-navy-500">
+                              {' '}
+                              · {new Date(event.created_at).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </span>
+                          <span className="font-medium text-navy-900 shrink-0">
+                            {event.total_tokens.toLocaleString()}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            {summary ? (
+            <>
             <div className="grid lg:grid-cols-2 gap-4">
               <section className="rounded-2xl border border-navy-900/5 p-5">
                 <h3 className="text-sm font-semibold text-navy-900 mb-4">Triage decisions</h3>
@@ -438,6 +578,8 @@ export default function Analytics() {
               </div>
               <WeeklyVolumeChart volume={weeklyVolume} />
             </section>
+            </>
+            ) : null}
 
             {inboundArchive ? (
               <section className="rounded-2xl border border-navy-900/5 p-5 space-y-5">
@@ -556,6 +698,7 @@ export default function Analytics() {
               </section>
             ) : null}
 
+            {summary ? (
             <section className="rounded-2xl border border-navy-900/5 p-5">
               <h3 className="text-sm font-semibold text-navy-900 mb-4">Pipeline health</h3>
               <dl className="grid sm:grid-cols-3 gap-4 text-sm">
@@ -575,6 +718,7 @@ export default function Analytics() {
                 </div>
               </dl>
             </section>
+            ) : null}
           </div>
         ) : null}
       </div>

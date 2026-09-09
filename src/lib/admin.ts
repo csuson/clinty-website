@@ -1,4 +1,4 @@
-import type { AgentSettings, ApiKey, GmailToken, OutlookConnection, OutlookToken, Profile, ShopifyConnection, ShopifyToken, SquareConnection, SquareToken } from '../types/database'
+import type { AgentSettings, ApiKey, GmailToken, OutlookConnection, OutlookToken, Profile, ShopifyConnection, ShopifyToken, SquareConnection, SquareToken, UserPrompts } from '../types/database'
 import { supabase } from './supabase'
 import { getFunctionErrorMessage } from './supabaseFunctions'
 
@@ -32,6 +32,11 @@ export type AdminAgentSettings = AgentSettings & {
   prompt_background?: string | null
   prompt_calendar_preference?: string | null
   prompt_default_footer?: string | null
+  prompt_promotions?: string | null
+}
+
+export type AdminUserPrompts = UserPrompts & {
+  user_email: string | null
 }
 
 export type AdminData = {
@@ -42,6 +47,7 @@ export type AdminData = {
   shopifyTokens: AdminShopifyToken[]
   outlookTokens: AdminOutlookToken[]
   agentSettings: AdminAgentSettings[]
+  userPrompts: AdminUserPrompts[]
 }
 
 export async function fetchAdminData(): Promise<AdminData> {
@@ -86,7 +92,17 @@ export type CreateAgentSettingsInput = {
   postgres_schema?: string | null
 }
 
-export type AdminDeleteResource = 'user' | 'api_key' | 'gmail_token' | 'square_token' | 'shopify_token' | 'outlook_token' | 'agent_settings'
+export type AdminDeleteResource = 'user' | 'api_key' | 'gmail_token' | 'square_token' | 'shopify_token' | 'outlook_token' | 'agent_settings' | 'user_prompts'
+
+export type AdminPromptsInput = {
+  user_id: string
+  background: string
+  calendar_preference: string
+  default_footer: string
+  promotions: string
+  response_tone: string
+  whatsapp_response_tone: string | null
+}
 
 export async function deleteAdminRecord(resource: AdminDeleteResource, id: string): Promise<void> {
   if (!supabase) {
@@ -135,4 +151,20 @@ export async function updateAgentSettings(
   }
 
   return (result.data as { agentSettings: AgentSettings }).agentSettings
+}
+
+export async function saveAdminUserPrompts(input: AdminPromptsInput): Promise<UserPrompts> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const result = await supabase.functions.invoke('admin-prompts', {
+    body: input,
+  })
+
+  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
+
+  return (result.data as { userPrompts: UserPrompts }).userPrompts
 }

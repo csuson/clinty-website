@@ -7,6 +7,9 @@ verify_jwt = false
 [functions.admin-agent-settings]
 verify_jwt = false
 
+[functions.admin-prompts]
+verify_jwt = false
+
 [functions.admin-delete]
 verify_jwt = false
 
@@ -40,10 +43,22 @@ verify_jwt = false
 [functions.generate-prompt-background]
 verify_jwt = false
 
+[functions.reload-assistant-runtime]
+verify_jwt = false
+
 [functions.analytics-summary]
 verify_jwt = false
 
 [functions.analytics-inbound]
+verify_jwt = false
+
+[functions.ai-usage-summary]
+verify_jwt = false
+
+[functions.admin-ai-settings]
+verify_jwt = false
+
+[functions.generate-h5p-content]
 verify_jwt = false
 
 [functions.meta-oauth-exchange]

@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import FormField from '../../components/FormField'
+import AiUsageMeter from '../../components/AiUsageMeter'
 import { inputClass, textareaClass } from '../../constants/forms'
 import {
   DEFAULT_RESPONSE_TONE,
@@ -7,6 +8,7 @@ import {
   WHATSAPP_SAME_AS_EMAIL,
 } from '../../constants/responseTones'
 import { useAuth } from '../../context/AuthContext'
+import { useAiUsage } from '../../hooks/useAiUsage'
 import {
   defaultPromptFields,
   fetchUserPrompts,
@@ -19,6 +21,7 @@ import {
   whatsappToneSelectValue,
   type PromptFields,
 } from '../../lib/prompts'
+import { isLocalOrPrivateWebsiteUrl, normalizeWebsiteUrl } from '../../lib/websiteTextExtract'
 
 export default function Prompts() {
   const { user } = useAuth()
@@ -31,8 +34,11 @@ export default function Prompts() {
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [websiteUrl, setWebsiteUrl] = useState('')
+  const [websiteHtmlFile, setWebsiteHtmlFile] = useState<File | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [lastUsage, setLastUsage] = useState<number | null>(null)
+  const { usage: aiUsage, loading: aiUsageLoading, refresh: refreshAiUsage, limitReached } = useAiUsage(user?.id)
 
   function applyToneFields(fields: PromptFields) {
     setPrompts(fields)
@@ -73,9 +79,15 @@ export default function Prompts() {
     }
 
     try {
-      await saveUserPrompts(user.id, payload)
+      const saved = await saveUserPrompts(user.id, payload)
       applyToneFields(payload)
-      setMessage('Prompts saved successfully.')
+      setMessage(
+        saved.assistantReloaded
+          ? 'Prompts saved. The assistant reloaded the new values.'
+          : saved.assistantReloadError
+            ? `Prompts saved. The assistant did not reload: ${saved.assistantReloadError}`
+            : 'Prompts saved successfully.',
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save prompts')
     } finally {
@@ -89,6 +101,11 @@ export default function Prompts() {
     setError(null)
   }
 
+  const isLocalWebsiteUrl = useMemo(() => {
+    const siteUrl = normalizeWebsiteUrl(websiteUrl.trim())
+    return siteUrl ? isLocalOrPrivateWebsiteUrl(siteUrl) : false
+  }, [websiteUrl])
+
   async function handleGenerateBackground() {
     const url = websiteUrl.trim()
     if (!url) {
@@ -101,8 +118,13 @@ export default function Prompts() {
     setError(null)
 
     try {
-      const background = await generateBackgroundFromWebsite(url)
+      const { background, usage } = await generateBackgroundFromWebsite(url, {
+        userId: user?.id,
+        htmlFile: websiteHtmlFile,
+      })
       setPrompts((current) => ({ ...current, background }))
+      setLastUsage(usage?.total_tokens ?? null)
+      void refreshAiUsage()
       setMessage('Business Background generated from your website. Review and save when ready.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate background')
@@ -125,19 +147,36 @@ export default function Prompts() {
         <h2 className="text-lg font-semibold text-navy-900 mb-1">Prompts</h2>
         <p className="text-sm text-navy-600 mb-6">
           Customize the context your AI agent uses when replying to customers — business background,
-          response tone, scheduling preferences, and the footer appended to outbound messages.
+          promotions, response tone, scheduling preferences, and the footer appended to outbound
+          messages.
         </p>
 
         {error && <Alert type="error" message={error} />}
         {message && <Alert type="success" message={message} />}
 
         <div className="space-y-8">
-          <div className="rounded-xl border border-navy-900/10 bg-cream/60 p-5">
-            <h3 className="text-base font-semibold text-navy-900 mb-1">Generate from website</h3>
-            <p className="text-sm text-navy-600 mb-4">
-              Enter your business website and Clinty will draft Business Background text from your
-              public pages (home, about, pricing, location, etc.). Review and edit before saving.
-            </p>
+          <div className="rounded-xl border border-navy-900/10 bg-cream/60 p-5 space-y-4">
+            <div>
+              <h3 className="text-base font-semibold text-navy-900 mb-1">Generate from website</h3>
+              <p className="text-sm text-navy-600">
+                Enter your business website and Clinty will draft Business Background text from your
+                public pages (home, about, pricing, location, etc.). Review and edit before saving.
+              </p>
+            </div>
+
+            <AiUsageMeter
+              usage={aiUsage}
+              loading={aiUsageLoading}
+              lastCallTokens={lastUsage}
+            />
+
+            {isLocalWebsiteUrl && (
+              <p className="text-sm text-navy-700 mb-4 rounded-lg border border-navy-900/10 bg-white/80 px-4 py-3">
+                Local dev URLs cannot be read directly from clinty.net because of browser security.
+                Upload a saved HTML page from your site, or let your Clinty assistant fetch the
+                site if it runs on the same machine.
+              </p>
+            )}
             <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
               <div className="flex-1">
                 <FormField label="Website URL" id="prompt-website-url">
@@ -156,12 +195,35 @@ export default function Prompts() {
               <button
                 type="button"
                 onClick={handleGenerateBackground}
-                disabled={generating || saving || !websiteUrl.trim()}
+                disabled={generating || saving || !websiteUrl.trim() || limitReached}
                 className="bg-teal-500 text-white font-medium px-6 py-3 rounded-xl hover:bg-teal-600 transition-colors disabled:opacity-60 whitespace-nowrap"
               >
                 {generating ? 'Generating...' : 'Generate background'}
               </button>
             </div>
+            {limitReached && (
+              <p className="text-sm text-red-700">
+                Monthly AI token limit reached. You can still edit prompts manually or ask an admin to increase your limit.
+              </p>
+            )}
+            {isLocalWebsiteUrl && (
+              <div className="mt-4">
+                <FormField
+                  label="Saved HTML page (optional)"
+                  id="prompt-website-html-file"
+                  hint="Open your local site, choose File → Save As → Webpage, HTML only, then upload it here."
+                >
+                  <input
+                    id="prompt-website-html-file"
+                    type="file"
+                    accept=".html,.htm,text/html"
+                    onChange={(e) => setWebsiteHtmlFile(e.target.files?.[0] ?? null)}
+                    className={inputClass}
+                    disabled={generating || saving}
+                  />
+                </FormField>
+              </div>
+            )}
           </div>
 
           <PromptSection
@@ -171,6 +233,16 @@ export default function Prompts() {
             value={prompts.background}
             onChange={(background) => setPrompts((current) => ({ ...current, background }))}
             disabled={saving || generating}
+          />
+
+          <PromptSection
+            title="Promotions"
+            description="Current specials, discounts, and time-limited offers the agent should mention when relevant."
+            id="prompt-promotions"
+            value={prompts.promotions}
+            onChange={(promotions) => setPrompts((current) => ({ ...current, promotions }))}
+            disabled={saving || generating}
+            rows={5}
           />
 
           <ToneSection
@@ -205,6 +277,7 @@ export default function Prompts() {
               setPrompts((current) => ({ ...current, calendarPreference }))
             }
             disabled={saving || generating}
+            rows={5}
           />
 
           <PromptSection
@@ -214,7 +287,7 @@ export default function Prompts() {
             value={prompts.defaultFooter}
             onChange={(defaultFooter) => setPrompts((current) => ({ ...current, defaultFooter }))}
             disabled={saving || generating}
-            rows={4}
+            rows={5}
           />
         </div>
 

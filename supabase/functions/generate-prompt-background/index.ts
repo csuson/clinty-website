@@ -1,4 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  assertWithinTokenLimit,
+  logAiUsage,
+  readOpenAiUsage,
+} from '../_shared/aiUsage.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -87,6 +92,13 @@ Deno.serve(async (req) => {
       }, 503)
     }
 
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    )
+
+    await assertWithinTokenLimit(admin, user.id)
+
     const body = await req.json().catch(() => ({}))
     const rawUrl = typeof body.url === 'string' ? body.url.trim() : ''
     if (!rawUrl) {
@@ -98,8 +110,27 @@ Deno.serve(async (req) => {
       return json({ error: 'Enter a valid website URL (https://example.com)' }, 400)
     }
 
+    const rawWebsiteText = typeof body.website_text === 'string' ? body.website_text.trim() : ''
+    if (rawWebsiteText) {
+      const combinedText = rawWebsiteText.slice(0, MAX_TEXT_CHARS)
+      if (combinedText.length < MIN_USEFUL_TEXT_CHARS) {
+        return json({ error: 'Could not read any content from that website' }, 422)
+      }
+
+      const { background, usage } = await generateBackground(openaiKey, siteUrl.href, combinedText)
+      await logAiUsage(admin, {
+        user_id: user.id,
+        feature: 'prompt_background',
+        model: 'gpt-4o-mini',
+        usage,
+      })
+      return json({ background, usage })
+    }
+
     if (isBlockedUrl(siteUrl)) {
-      return json({ error: 'That URL cannot be fetched for security reasons' }, 400)
+      return json({
+        error: 'That URL cannot be fetched from the server. Local and private URLs are read from your browser instead — try again, or use a public website URL.',
+      }, 400)
     }
 
     const pages = await collectWebsiteText(siteUrl)
@@ -112,10 +143,18 @@ Deno.serve(async (req) => {
       .join('\n\n')
       .slice(0, MAX_TEXT_CHARS)
 
-    const background = await generateBackground(openaiKey, siteUrl.href, combinedText)
-    return json({ background })
+    const { background, usage } = await generateBackground(openaiKey, siteUrl.href, combinedText)
+    await logAiUsage(admin, {
+      user_id: user.id,
+      feature: 'prompt_background',
+      model: 'gpt-4o-mini',
+      usage,
+    })
+    return json({ background, usage })
   } catch (err) {
-    return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
+    const message = err instanceof Error ? err.message : 'Unexpected error'
+    const status = message.includes('token limit') ? 429 : 500
+    return json({ error: message }, status)
   }
 })
 
@@ -336,7 +375,11 @@ function extractSameOriginLinks(html: string, origin: string): string[] {
   return [...links]
 }
 
-async function generateBackground(openaiKey: string, siteUrl: string, websiteText: string): Promise<string> {
+async function generateBackground(
+  openaiKey: string,
+  siteUrl: string,
+  websiteText: string,
+): Promise<{ background: string; usage: ReturnType<typeof readOpenAiUsage> }> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -370,7 +413,10 @@ async function generateBackground(openaiKey: string, siteUrl: string, websiteTex
     throw new Error('OpenAI returned an empty background')
   }
 
-  return content.trim()
+  return {
+    background: content.trim(),
+    usage: readOpenAiUsage(data),
+  }
 }
 
 function json(body: Record<string, unknown>, status = 200) {

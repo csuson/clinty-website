@@ -7,6 +7,7 @@ import Billing from './account/Billing'
 import GmailCallback from './account/GmailCallback'
 import GoogleAds from './account/GoogleAds'
 import GoogleAdsOAuthCallback from './account/GoogleAdsOAuthCallback'
+import H5PBuilder from './account/H5PBuilder'
 import Integrations from './account/Integrations'
 import MetaAdsCallback from './account/MetaAdsCallback'
 import OutlookCallback from './account/OutlookCallback'
@@ -30,6 +31,7 @@ export default function Account() {
         <Route path="integrations/square/callback" element={<SquareCallback />} />
         <Route path="integrations/shopify/callback" element={<ShopifyCallback />} />
         <Route path="prompts" element={<Prompts />} />
+        <Route path="h5p" element={<H5PBuilder />} />
         <Route path="google-ads" element={<GoogleAds />} />
         <Route path="billing" element={<Billing />} />
         <Route path="api-keys" element={<ApiKeys />} />

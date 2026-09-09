@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import PageMeta from '../components/PageMeta'
 import { useAuth } from '../context/AuthContext'
 import { fetchAdminData, deleteAdminRecord, type AdminData, type AdminDeleteResource } from '../lib/admin'
+import AdminAiSettingsPanel from '../components/admin/AdminAiSettingsPanel'
 import AdminAgentSettingsTable from '../components/AdminAgentSettingsTable'
+import AdminUserPromptsTable from '../components/admin/AdminUserPromptsTable'
 import AdminApiKeysTable from '../components/admin/AdminApiKeysTable'
 import AdminGmailTokensTable from '../components/admin/AdminGmailTokensTable'
 import AdminOutlookTokensTable from '../components/admin/AdminOutlookTokensTable'
@@ -133,6 +135,10 @@ export default function Admin() {
               />
             </Section>
 
+            <Section title="AI token limits" count={data.users.length}>
+              <AdminAiSettingsPanel users={data.users} />
+            </Section>
+
             <Section title="API Keys" count={data.apiKeys.length}>
               <AdminApiKeysTable
                 apiKeys={data.apiKeys}
@@ -191,6 +197,24 @@ export default function Admin() {
                 settings={data.agentSettings ?? []}
                 isDeleting={isDeleting}
                 onDelete={(id, name) => handleDelete('agent_settings', id, `agent settings ${name}`)}
+              />
+            </Section>
+
+            <Section title="Prompts" count={(data.userPrompts ?? []).length}>
+              <div className="px-6 py-4 border-b border-navy-900/5 flex flex-wrap items-center gap-3">
+                <Link
+                  to="/admin/prompts/new"
+                  className="inline-flex items-center text-sm font-medium bg-navy-900 text-cream px-4 py-2 rounded-lg hover:bg-navy-800 transition-colors"
+                >
+                  Add Prompts
+                </Link>
+              </div>
+              <AdminUserPromptsTable
+                userPrompts={data.userPrompts ?? []}
+                isDeleting={isDeleting}
+                onDelete={(userId, label) =>
+                  handleDelete('user_prompts', userId, `prompts for ${label}`)
+                }
               />
             </Section>
           </div>

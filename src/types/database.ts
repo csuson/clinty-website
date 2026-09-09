@@ -9,7 +9,25 @@ export type Profile = {
   plan: Plan
   billing_status: BillingStatus
   trial_ends_at: string | null
+  ai_monthly_token_limit: number | null
   created_at: string
+  updated_at: string
+}
+
+export type AiUsageEvent = {
+  id: string
+  user_id: string
+  feature: string
+  model: string
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  created_at: string
+}
+
+export type PlatformAiSettings = {
+  id: number
+  monthly_token_limit: number
   updated_at: string
 }
 
@@ -126,6 +144,7 @@ export type UserPrompts = {
   background: string | null
   calendar_preference: string | null
   default_footer: string | null
+  promotions: string | null
   response_tone: string | null
   whatsapp_response_tone: string | null
   created_at: string
@@ -431,6 +450,7 @@ export type Database = {
           background?: string | null
           calendar_preference?: string | null
           default_footer?: string | null
+          promotions?: string | null
           response_tone?: string | null
           whatsapp_response_tone?: string | null
           created_at?: string
@@ -440,6 +460,7 @@ export type Database = {
           background?: string | null
           calendar_preference?: string | null
           default_footer?: string | null
+          promotions?: string | null
           response_tone?: string | null
           whatsapp_response_tone?: string | null
           updated_at?: string

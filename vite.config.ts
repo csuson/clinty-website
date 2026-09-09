@@ -3,11 +3,12 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 // @ts-expect-error SSL helper is plain JavaScript
 import { applySupabaseSslEnv } from './scripts/supabase-ssl.mjs'
+import { localSiteFetchPlugin } from './scripts/local-site-fetch-plugin.js'
 
 applySupabaseSslEnv()
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), localSiteFetchPlugin()],
   server: {
     proxy: {
       '/api/ad-campaigns': {

@@ -115,9 +115,9 @@ export type WeeklyVolumePoint = {
   outbound: number
 }
 
-const ANALYTICS_TIMEOUT_MS = 30_000
+const ANALYTICS_TIMEOUT_MS = 120_000
 const ANALYTICS_TIMEOUT_MESSAGE =
-  'Analytics timed out before Clinty finished talking to the assistant. Try again, or confirm the LangGraph URL and Clinty API key in Agent Settings.'
+  'Analytics timed out while waiting for your assistant. Try again in a moment, or confirm the LangGraph URL and Clinty API key in Agent Settings. Cold starts can take up to a minute.'
 
 export class AnalyticsRequestError extends Error {
   tenants: AnalyticsTenant[] | null

@@ -49,3 +49,5 @@ When proposing lesson times, only offer slots within these days and hours.`
 
 export const DEFAULT_PROMPT_FOOTER = `
 To reserve a lesson, please call (650) 686-1179 or book via our website www.thekiteschool.com`
+
+export const DEFAULT_PROMPT_PROMOTIONS = ''

@@ -18,6 +18,8 @@ import Account from './pages/Account'
 import Admin from './pages/Admin'
 import AdminAgentSettingsNew from './pages/AdminAgentSettingsNew'
 import AdminAgentSettingsEdit from './pages/AdminAgentSettingsEdit'
+import AdminPromptsNew from './pages/AdminPromptsNew'
+import AdminPromptsEdit from './pages/AdminPromptsEdit'
 import Dashboard from './pages/Dashboard'
 
 export default function App() {
@@ -64,6 +66,22 @@ export default function App() {
             element={
               <AdminRoute>
                 <AdminAgentSettingsNew />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/prompts/new"
+            element={
+              <AdminRoute>
+                <AdminPromptsNew />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/prompts/:userId/edit"
+            element={
+              <AdminRoute>
+                <AdminPromptsEdit />
               </AdminRoute>
             }
           />

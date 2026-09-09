@@ -3,6 +3,10 @@ import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@s
 const DEFAULT_TIMEOUT_MESSAGE =
   'The request timed out. Try again, or check that the service is reachable.'
 
+function isTimeoutMessage(message: string): boolean {
+  return /aborted|signal timed out|timed out|timeout/i.test(message)
+}
+
 /** Extract the real error message from a Supabase Edge Function response. */
 export async function getFunctionErrorMessage(
   error: unknown,
@@ -11,6 +15,9 @@ export async function getFunctionErrorMessage(
 ): Promise<string> {
   if (data && typeof data === 'object') {
     if ('error' in data && typeof data.error === 'string' && data.error) {
+      if (isTimeoutMessage(data.error)) {
+        return options?.timeoutMessage ?? DEFAULT_TIMEOUT_MESSAGE
+      }
       return data.error
     }
     if ('message' in data && typeof data.message === 'string' && data.message) {
@@ -24,7 +31,7 @@ export async function getFunctionErrorMessage(
       : typeof error.context === 'string'
         ? error.context
         : null
-    if (cause && /aborted|timeout/i.test(cause)) {
+    if (cause && isTimeoutMessage(cause)) {
       return options?.timeoutMessage ?? DEFAULT_TIMEOUT_MESSAGE
     }
     if (cause && cause !== error.message) {
@@ -51,6 +58,9 @@ export async function getFunctionErrorMessage(
   }
 
   if (error instanceof Error) {
+    if (isTimeoutMessage(error.message)) {
+      return options?.timeoutMessage ?? DEFAULT_TIMEOUT_MESSAGE
+    }
     return error.message
   }
 

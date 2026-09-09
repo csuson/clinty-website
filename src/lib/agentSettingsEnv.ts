@@ -164,6 +164,7 @@ export function agentSettingsToEnvContent(settings: AdminAgentSettings): string 
   add('SQUARE_TIMEZONE', settings.square_timezone)
   addQuoted('PROMPT_BACKGROUND', settings.prompt_background)
   addQuoted('PROMPT_CALENDAR_PREFERENCE', settings.prompt_calendar_preference)
+  addQuoted('PROMPT_PROMOTIONS', settings.prompt_promotions)
   addQuoted('EMAIL_FOOTER', settings.prompt_default_footer)
 
   return `${lines.join('\n')}\n`

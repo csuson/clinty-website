@@ -50,12 +50,15 @@ When proposing lesson times, only offer slots within these days and hours.`
 export const DEFAULT_PROMPT_FOOTER = `
 To reserve a lesson, please call (650) 686-1179 or book via our website www.thekiteschool.com`
 
-export const DEFAULT_RESPONSE_TONE = 'professional'
+export const DEFAULT_PROMPT_PROMOTIONS = ''
+
+export const DEFAULT_RESPONSE_TONE = 'warm_informal'
 
 export type ResolvedUserPrompts = {
   background: string
   calendar_preference: string
   default_footer: string
+  promotions: string
   response_tone: string
   whatsapp_response_tone: string | null
 }
@@ -65,6 +68,7 @@ export function resolveUserPrompts(
     background?: string | null
     calendar_preference?: string | null
     default_footer?: string | null
+    promotions?: string | null
     response_tone?: string | null
     whatsapp_response_tone?: string | null
   } | null,
@@ -76,6 +80,7 @@ export function resolveUserPrompts(
     background: row?.background?.trim() || DEFAULT_PROMPT_BACKGROUND,
     calendar_preference: row?.calendar_preference?.trim() || DEFAULT_PROMPT_CALENDAR_PREFERENCE,
     default_footer: row?.default_footer?.trim() || DEFAULT_PROMPT_FOOTER,
+    promotions: row?.promotions?.trim() || DEFAULT_PROMPT_PROMOTIONS,
     response_tone: responseTone,
     whatsapp_response_tone: whatsappTone,
   }

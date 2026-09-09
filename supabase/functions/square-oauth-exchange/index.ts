@@ -144,15 +144,19 @@ async function fetchMerchantContext(
     }
   }
 
-  const teamPath = locationId
-    ? `/v2/bookings/team-member-booking-profiles?location_id=${encodeURIComponent(locationId)}`
-    : '/v2/bookings/team-member-booking-profiles'
-  const teamRes = await squareFetch(sandbox, accessToken, teamPath)
+  const teamParams = new URLSearchParams({ bookable_only: 'true' })
+  if (locationId) teamParams.set('location_id', locationId)
+  const teamRes = await squareFetch(
+    sandbox,
+    accessToken,
+    `/v2/bookings/team-member-booking-profiles?${teamParams}`,
+  )
   if (teamRes.ok) {
     const teamData = await teamRes.json()
     const bookableMember = (teamData.team_member_booking_profiles ?? []).find(
-      (profile: { is_bookable?: boolean }) => profile.is_bookable,
-    ) ?? teamData.team_member_booking_profiles?.[0]
+      (profile: { is_bookable?: boolean; team_member_id?: string }) =>
+        Boolean(profile.is_bookable && profile.team_member_id),
+    )
 
     teamMemberId = bookableMember?.team_member_id ?? null
   }

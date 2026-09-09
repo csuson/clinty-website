@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import ClintyLogo from './ClintyLogo'
 import { useAuth } from '../context/AuthContext'
 
 interface NavLink {
@@ -24,12 +25,7 @@ export default function Navbar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-cream/80 backdrop-blur-lg border-b border-navy-900/5">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-navy-900 flex items-center justify-center">
-            <span className="text-teal-400 font-bold text-sm">C</span>
-          </div>
-          <span className="font-semibold text-lg text-navy-900">Clinty</span>
-        </Link>
+        <ClintyLogo markClassName="w-8 h-8" />
 
         <div className="hidden md:flex items-center gap-8">
           {links.map((link) => (

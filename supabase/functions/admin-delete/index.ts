@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const allowedResources = new Set(['user', 'api_key', 'gmail_token', 'square_token', 'shopify_token', 'outlook_token', 'agent_settings'])
+const allowedResources = new Set(['user', 'api_key', 'gmail_token', 'square_token', 'shopify_token', 'outlook_token', 'agent_settings', 'user_prompts'])
 
 function parseAdminEmails(raw: string | undefined): Set<string> {
   return new Set(
@@ -170,6 +170,15 @@ Deno.serve(async (req) => {
       }
       if (connectionsRes.error) {
         return json({ error: connectionsRes.error.message }, 500)
+      }
+
+      return json({ ok: true })
+    }
+
+    if (resource === 'user_prompts') {
+      const { error: deleteError } = await admin.from('user_prompts').delete().eq('user_id', id)
+      if (deleteError) {
+        return json({ error: deleteError.message }, 500)
       }
 
       return json({ ok: true })

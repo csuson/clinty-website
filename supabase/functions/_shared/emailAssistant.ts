@@ -34,6 +34,17 @@ export type AssistantReloadResult = {
   assistantUrl?: string | null
 }
 
+const ASSISTANT_ANALYTICS_TIMEOUT_MS = 55_000
+const ASSISTANT_RELOAD_TIMEOUT_MS = 20_000
+
+function isTimeoutError(err: unknown): boolean {
+  return err instanceof Error && /abort|timed out|timeout/i.test(err.message)
+}
+
+function assistantTimeoutMessage(): string {
+  return 'The assistant did not respond in time. Confirm the LangGraph URL in Agent Settings is reachable — cold starts can take up to a minute.'
+}
+
 export async function notifyEmailAssistantRuntimeReload(
   admin: AdminClient,
   userId: string,
@@ -98,7 +109,7 @@ async function postAssistantReload(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(4_000),
+      signal: AbortSignal.timeout(ASSISTANT_RELOAD_TIMEOUT_MS),
     })
 
     if (response.ok) return null
@@ -203,7 +214,7 @@ export async function fetchAssistantAnalytics(
         'X-Api-Key': apiKey,
         Accept: 'application/json',
       },
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(ASSISTANT_ANALYTICS_TIMEOUT_MS),
     })
 
     const payload = await response.json().catch(() => ({})) as Record<string, unknown>
@@ -225,12 +236,12 @@ export async function fetchAssistantAnalytics(
 
     return { ok: true, data: payload }
   } catch (err) {
-    const timedOut = err instanceof Error && /abort|timeout/i.test(err.message)
+    const timedOut = isTimeoutError(err)
     return {
       ok: false,
       status: timedOut ? 504 : 502,
       error: timedOut
-        ? 'The assistant did not respond in time. Confirm the LangGraph URL in Agent Settings is reachable.'
+        ? assistantTimeoutMessage()
         : err instanceof Error
           ? err.message
           : 'Could not reach the email assistant.',
