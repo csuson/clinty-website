@@ -173,6 +173,13 @@ export type AgentSettings = {
   auto_book_scheduling: boolean | null
   auto_respond_instruction: boolean | null
   auto_respond_scheduling: boolean | null
+  auto_respond_whatsapp: boolean
+  auto_respond_catalog: boolean
+  whatsapp_ignore_personal: boolean
+  thread_message_cap: number
+  whatsapp_thread_message_cap: number
+  daily_incoming_email_limit: number
+  daily_incoming_email_timezone: string | null
   environment: string | null
   log_level: string | null
   pgoptions: string | null
@@ -533,6 +540,13 @@ export type Database = {
           auto_book_scheduling?: boolean | null
           auto_respond_instruction?: boolean | null
           auto_respond_scheduling?: boolean | null
+          auto_respond_whatsapp?: boolean
+          auto_respond_catalog?: boolean
+          whatsapp_ignore_personal?: boolean
+          thread_message_cap?: number
+          whatsapp_thread_message_cap?: number
+          daily_incoming_email_limit?: number
+          daily_incoming_email_timezone?: string | null
           environment?: string | null
           log_level?: string | null
           pgoptions?: string | null
@@ -560,6 +574,13 @@ export type Database = {
           auto_book_scheduling?: boolean | null
           auto_respond_instruction?: boolean | null
           auto_respond_scheduling?: boolean | null
+          auto_respond_whatsapp?: boolean
+          auto_respond_catalog?: boolean
+          whatsapp_ignore_personal?: boolean
+          thread_message_cap?: number
+          whatsapp_thread_message_cap?: number
+          daily_incoming_email_limit?: number
+          daily_incoming_email_timezone?: string | null
           environment?: string | null
           log_level?: string | null
           pgoptions?: string | null

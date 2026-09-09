@@ -241,6 +241,13 @@ create table if not exists public.agent_settings (
   auto_book_scheduling boolean,
   auto_respond_instruction boolean,
   auto_respond_scheduling boolean,
+  auto_respond_whatsapp boolean not null default true,
+  auto_respond_catalog boolean not null default false,
+  whatsapp_ignore_personal boolean not null default true,
+  thread_message_cap integer not null default 10,
+  whatsapp_thread_message_cap integer not null default 10,
+  daily_incoming_email_limit integer not null default 50,
+  daily_incoming_email_timezone text,
   environment text,
   log_level text,
   pgoptions text,
@@ -311,6 +318,13 @@ alter table public.agent_settings add column if not exists clinty_api_key_id uui
 alter table public.agent_settings add column if not exists auto_book_scheduling boolean;
 alter table public.agent_settings add column if not exists auto_respond_instruction boolean;
 alter table public.agent_settings add column if not exists auto_respond_scheduling boolean;
+alter table public.agent_settings add column if not exists auto_respond_whatsapp boolean not null default true;
+alter table public.agent_settings add column if not exists auto_respond_catalog boolean not null default false;
+alter table public.agent_settings add column if not exists whatsapp_ignore_personal boolean not null default true;
+alter table public.agent_settings add column if not exists thread_message_cap integer not null default 10;
+alter table public.agent_settings add column if not exists whatsapp_thread_message_cap integer not null default 10;
+alter table public.agent_settings add column if not exists daily_incoming_email_limit integer not null default 50;
+alter table public.agent_settings add column if not exists daily_incoming_email_timezone text;
 alter table public.agent_settings add column if not exists environment text;
 alter table public.agent_settings add column if not exists log_level text;
 alter table public.agent_settings add column if not exists pgoptions text;
@@ -464,3 +478,23 @@ create policy "Authenticated users can read AI limits"
   on public.platform_ai_settings for select
   to authenticated
   using (true);
+
+create table if not exists public.ai_usage_alert_state (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  month_start date not null,
+  alert_90_sent_at timestamptz,
+  alert_100_sent_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, month_start)
+);
+
+create index if not exists ai_usage_alert_state_user_month_idx
+  on public.ai_usage_alert_state (user_id, month_start desc);
+
+alter table public.ai_usage_alert_state enable row level security;
+
+drop trigger if exists ai_usage_alert_state_updated_at on public.ai_usage_alert_state;
+create trigger ai_usage_alert_state_updated_at
+  before update on public.ai_usage_alert_state
+  for each row execute function public.set_updated_at();

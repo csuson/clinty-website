@@ -10,6 +10,7 @@ import AdminApiKeysTable from '../components/admin/AdminApiKeysTable'
 import AdminGmailTokensTable from '../components/admin/AdminGmailTokensTable'
 import AdminOutlookTokensTable from '../components/admin/AdminOutlookTokensTable'
 import AdminShopifyTokensTable from '../components/admin/AdminShopifyTokensTable'
+import AdminWhatsAppTokensTable from '../components/admin/AdminWhatsAppTokensTable'
 import AdminSquareTokensTable from '../components/admin/AdminSquareTokensTable'
 import AdminUsersTable from '../components/admin/AdminUsersTable'
 import ImportAgentSettingsEnv from '../components/admin/ImportAgentSettingsEnv'
@@ -179,6 +180,14 @@ export default function Admin() {
               />
             </Section>
 
+            <Section title="WhatsApp Settings" count={(data.whatsappConnections ?? []).length}>
+              <AdminWhatsAppTokensTable
+                whatsappConnections={data.whatsappConnections ?? []}
+                isDeleting={(id) => isDeleting('whatsapp_token', id)}
+                onDelete={(id, label) => handleDelete('whatsapp_token', id, `WhatsApp settings for ${label}`)}
+              />
+            </Section>
+
             <Section title="Agent Settings" count={(data.agentSettings ?? []).length}>
               <div className="px-6 py-4 border-b border-navy-900/5 flex flex-wrap items-center gap-3">
                 <Link
@@ -195,6 +204,12 @@ export default function Admin() {
               </div>
               <AdminAgentSettingsTable
                 settings={data.agentSettings ?? []}
+                gmailTokens={data.gmailTokens ?? []}
+                outlookTokens={data.outlookTokens ?? []}
+                squareTokens={data.squareTokens ?? []}
+                shopifyTokens={data.shopifyTokens ?? []}
+                whatsappConnections={data.whatsappConnections ?? []}
+                websiteSettings={data.websiteSettings}
                 isDeleting={isDeleting}
                 onDelete={(id, name) => handleDelete('agent_settings', id, `agent settings ${name}`)}
               />

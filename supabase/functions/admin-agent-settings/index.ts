@@ -35,6 +35,20 @@ function parseBoolean(value: unknown): boolean | null {
   return null
 }
 
+function parsePositiveInt(value: unknown, defaultValue: number): number {
+  if (value === undefined || value === null || value === '') return defaultValue
+  const parsed = typeof value === 'number' ? value : Number(String(value).trim())
+  if (!Number.isFinite(parsed) || parsed < 1) return defaultValue
+  return Math.floor(parsed)
+}
+
+function parseNonNegativeInt(value: unknown, defaultValue: number): number {
+  if (value === undefined || value === null || value === '') return defaultValue
+  const parsed = typeof value === 'number' ? value : Number(String(value).trim())
+  if (!Number.isFinite(parsed) || parsed < 0) return defaultValue
+  return Math.floor(parsed)
+}
+
 async function hashApiKey(key: string): Promise<string> {
   const data = new TextEncoder().encode(key)
   const hash = await crypto.subtle.digest('SHA-256', data)
@@ -150,6 +164,13 @@ async function buildPayload(body: Record<string, unknown>) {
       auto_book_scheduling: parseBoolean(body.auto_book_scheduling),
       auto_respond_instruction: parseBoolean(body.auto_respond_instruction),
       auto_respond_scheduling: parseBoolean(body.auto_respond_scheduling),
+      auto_respond_whatsapp: parseBoolean(body.auto_respond_whatsapp) ?? true,
+      auto_respond_catalog: parseBoolean(body.auto_respond_catalog) ?? false,
+      whatsapp_ignore_personal: parseBoolean(body.whatsapp_ignore_personal) ?? true,
+      thread_message_cap: parsePositiveInt(body.thread_message_cap, 10),
+      whatsapp_thread_message_cap: parsePositiveInt(body.whatsapp_thread_message_cap, 10),
+      daily_incoming_email_limit: parseNonNegativeInt(body.daily_incoming_email_limit, 50),
+      daily_incoming_email_timezone: emptyToNull(body.daily_incoming_email_timezone),
       environment: emptyToNull(body.environment),
       log_level: emptyToNull(body.log_level),
       pgoptions: emptyToNull(body.pgoptions),

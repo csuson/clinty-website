@@ -28,6 +28,13 @@ export const emptyAgentSettingsForm: CreateAgentSettingsInput = {
   auto_book_scheduling: null,
   auto_respond_instruction: null,
   auto_respond_scheduling: null,
+  auto_respond_whatsapp: true,
+  auto_respond_catalog: false,
+  whatsapp_ignore_personal: true,
+  thread_message_cap: 10,
+  whatsapp_thread_message_cap: 10,
+  daily_incoming_email_limit: 50,
+  daily_incoming_email_timezone: '',
   environment: '',
   log_level: '',
   pgoptions: '',
@@ -56,6 +63,13 @@ export function toAgentSettingsPayload(form: CreateAgentSettingsInput): CreateAg
     auto_book_scheduling: form.auto_book_scheduling ?? null,
     auto_respond_instruction: form.auto_respond_instruction ?? null,
     auto_respond_scheduling: form.auto_respond_scheduling ?? null,
+    auto_respond_whatsapp: form.auto_respond_whatsapp ?? true,
+    auto_respond_catalog: form.auto_respond_catalog ?? false,
+    whatsapp_ignore_personal: form.whatsapp_ignore_personal ?? true,
+    thread_message_cap: form.thread_message_cap ?? 10,
+    whatsapp_thread_message_cap: form.whatsapp_thread_message_cap ?? 10,
+    daily_incoming_email_limit: form.daily_incoming_email_limit ?? 50,
+    daily_incoming_email_timezone: form.daily_incoming_email_timezone || null,
     environment: form.environment || null,
     log_level: form.log_level || null,
     pgoptions: form.pgoptions || null,
@@ -129,6 +143,11 @@ export default function AdminAgentSettingsForm({
     [userApiKeys, form.clinty_api_key_id],
   )
 
+  const selectedUserEmail = useMemo(
+    () => users.find((user) => user.id === form.user_id)?.email ?? form.user_id,
+    [users, form.user_id],
+  )
+
   function updateField<K extends keyof CreateAgentSettingsInput>(
     field: K,
     value: CreateAgentSettingsInput[K],
@@ -169,7 +188,7 @@ export default function AdminAgentSettingsForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       <SectionCard title="Basic">
         <div className="grid gap-5">
-          <FormField label="User" id="agent-user" required>
+          <FormField label="User" id="agent-user" required copyValue={selectedUserEmail}>
             <select
               id="agent-user"
               required
@@ -187,7 +206,7 @@ export default function AdminAgentSettingsForm({
             </select>
           </FormField>
 
-          <FormField label="Name" id="agent-name" required>
+          <FormField label="Name" id="agent-name" required copyValue={form.name}>
             <input
               id="agent-name"
               type="text"
@@ -200,7 +219,11 @@ export default function AdminAgentSettingsForm({
             />
           </FormField>
 
-          <FormField label="Clinty API Key" id="agent-clinty-api-key">
+          <FormField
+            label="Clinty API Key"
+            id="agent-clinty-api-key"
+            copyValue={selectedApiKey ? formatApiKeyLabel(selectedApiKey) : null}
+          >
             {!form.user_id ? (
               <p className="text-sm text-navy-500">Select a user to load their API keys.</p>
             ) : userApiKeys.length === 0 ? (
@@ -242,7 +265,7 @@ export default function AdminAgentSettingsForm({
 
       <SectionCard title="LangGraph">
         <div className="grid gap-5 sm:grid-cols-2">
-          <FormField label="URL" id="agent-url">
+          <FormField label="URL" id="agent-url" copyValue={form.url}>
             <input
               id="agent-url"
               type="url"
@@ -252,7 +275,7 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
-          <FormField label="Graph ID" id="agent-graph-id">
+          <FormField label="Graph ID" id="agent-graph-id" copyValue={form.graph_id}>
             <input
               id="agent-graph-id"
               type="text"
@@ -290,7 +313,7 @@ export default function AdminAgentSettingsForm({
 
       <SectionCard title="Infrastructure">
         <div className="grid gap-5">
-          <FormField label="Database URI" id="agent-database-uri">
+          <FormField label="Database URI" id="agent-database-uri" copyValue={form.database_uri}>
             <input
               id="agent-database-uri"
               type="text"
@@ -300,7 +323,7 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
-          <FormField label="Redis URI" id="agent-redis-uri">
+          <FormField label="Redis URI" id="agent-redis-uri" copyValue={form.redis_uri}>
             <input
               id="agent-redis-uri"
               type="text"
@@ -310,7 +333,7 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
-          <FormField label="Secrets Dir" id="agent-secrets-dir">
+          <FormField label="Secrets Dir" id="agent-secrets-dir" copyValue={form.secrets_dir}>
             <input
               id="agent-secrets-dir"
               type="text"
@@ -320,7 +343,7 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
-          <FormField label="Calendar Provider" id="agent-calendar-provider">
+          <FormField label="Calendar Provider" id="agent-calendar-provider" copyValue={form.calendar_provider}>
             <input
               id="agent-calendar-provider"
               type="text"
@@ -346,7 +369,7 @@ export default function AdminAgentSettingsForm({
               />
             </FormField>
           </div>
-          <FormField label="Square Location ID" id="agent-square-location">
+          <FormField label="Square Location ID" id="agent-square-location" copyValue={form.square_location_id}>
             <input
               id="agent-square-location"
               type="text"
@@ -356,7 +379,11 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
-          <FormField label="Square Service Variation ID" id="agent-square-variation">
+          <FormField
+            label="Square Service Variation ID"
+            id="agent-square-variation"
+            copyValue={form.square_service_variation_id}
+          >
             <input
               id="agent-square-variation"
               type="text"
@@ -366,7 +393,16 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
-          <FormField label="Square Service Variation Version" id="agent-square-version">
+          <FormField
+            label="Square Service Variation Version"
+            id="agent-square-version"
+            copyValue={
+              form.square_service_variation_version === null ||
+              form.square_service_variation_version === undefined
+                ? null
+                : String(form.square_service_variation_version)
+            }
+          >
             <input
               id="agent-square-version"
               type="number"
@@ -381,7 +417,7 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
-          <FormField label="Square Team Member ID" id="agent-square-team">
+          <FormField label="Square Team Member ID" id="agent-square-team" copyValue={form.square_team_member_id}>
             <input
               id="agent-square-team"
               type="text"
@@ -391,7 +427,7 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
-          <FormField label="Square Timezone" id="agent-square-timezone">
+          <FormField label="Square Timezone" id="agent-square-timezone" copyValue={form.square_timezone}>
             <input
               id="agent-square-timezone"
               type="text"
@@ -407,7 +443,11 @@ export default function AdminAgentSettingsForm({
 
       <SectionCard title="Agent Behavior">
         <div className="grid gap-5 sm:grid-cols-2">
-          <FormField label="Auto Book Scheduling" id="agent-auto-book-scheduling">
+          <FormField
+            label="Auto Book Scheduling"
+            id="agent-auto-book-scheduling"
+            copyValue={booleanSelectValue(form.auto_book_scheduling)}
+          >
             <select
               id="agent-auto-book-scheduling"
               value={booleanSelectValue(form.auto_book_scheduling)}
@@ -420,7 +460,11 @@ export default function AdminAgentSettingsForm({
               <option value="false">False</option>
             </select>
           </FormField>
-          <FormField label="Auto Respond Instruction" id="agent-auto-respond-instruction">
+          <FormField
+            label="Auto Respond Instruction"
+            id="agent-auto-respond-instruction"
+            copyValue={booleanSelectValue(form.auto_respond_instruction)}
+          >
             <select
               id="agent-auto-respond-instruction"
               value={booleanSelectValue(form.auto_respond_instruction)}
@@ -433,7 +477,11 @@ export default function AdminAgentSettingsForm({
               <option value="false">False</option>
             </select>
           </FormField>
-          <FormField label="Auto Respond Scheduling" id="agent-auto-respond-scheduling">
+          <FormField
+            label="Auto Respond Scheduling"
+            id="agent-auto-respond-scheduling"
+            copyValue={booleanSelectValue(form.auto_respond_scheduling)}
+          >
             <select
               id="agent-auto-respond-scheduling"
               value={booleanSelectValue(form.auto_respond_scheduling)}
@@ -446,7 +494,117 @@ export default function AdminAgentSettingsForm({
               <option value="false">False</option>
             </select>
           </FormField>
-          <FormField label="Environment" id="agent-environment">
+          <FormField
+            label="Auto Respond WhatsApp"
+            id="agent-auto-respond-whatsapp"
+            copyValue={booleanSelectValue(form.auto_respond_whatsapp)}
+          >
+            <select
+              id="agent-auto-respond-whatsapp"
+              value={booleanSelectValue(form.auto_respond_whatsapp)}
+              onChange={(e) => updateField('auto_respond_whatsapp', parseBooleanSelect(e.target.value))}
+              className={inputClass}
+              disabled={saving}
+            >
+              <option value="true">True</option>
+              <option value="false">False</option>
+            </select>
+          </FormField>
+          <FormField
+            label="Auto Respond Catalog"
+            id="agent-auto-respond-catalog"
+            copyValue={booleanSelectValue(form.auto_respond_catalog)}
+          >
+            <select
+              id="agent-auto-respond-catalog"
+              value={booleanSelectValue(form.auto_respond_catalog)}
+              onChange={(e) => updateField('auto_respond_catalog', parseBooleanSelect(e.target.value))}
+              className={inputClass}
+              disabled={saving}
+            >
+              <option value="true">True</option>
+              <option value="false">False</option>
+            </select>
+          </FormField>
+          <FormField
+            label="WhatsApp Ignore Personal"
+            id="agent-whatsapp-ignore-personal"
+            copyValue={booleanSelectValue(form.whatsapp_ignore_personal)}
+          >
+            <select
+              id="agent-whatsapp-ignore-personal"
+              value={booleanSelectValue(form.whatsapp_ignore_personal)}
+              onChange={(e) => updateField('whatsapp_ignore_personal', parseBooleanSelect(e.target.value))}
+              className={inputClass}
+              disabled={saving}
+            >
+              <option value="true">True</option>
+              <option value="false">False</option>
+            </select>
+          </FormField>
+          <FormField
+            label="Thread Message Cap"
+            id="agent-thread-message-cap"
+            copyValue={String(form.thread_message_cap ?? 10)}
+          >
+            <input
+              id="agent-thread-message-cap"
+              type="number"
+              min={1}
+              value={form.thread_message_cap ?? 10}
+              onChange={(e) => updateField('thread_message_cap', Number(e.target.value) || 10)}
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+          <FormField
+            label="WhatsApp Thread Message Cap"
+            id="agent-whatsapp-thread-message-cap"
+            copyValue={String(form.whatsapp_thread_message_cap ?? 10)}
+          >
+            <input
+              id="agent-whatsapp-thread-message-cap"
+              type="number"
+              min={1}
+              value={form.whatsapp_thread_message_cap ?? 10}
+              onChange={(e) => updateField('whatsapp_thread_message_cap', Number(e.target.value) || 10)}
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+          <FormField
+            label="Daily Incoming Email Limit"
+            id="agent-daily-incoming-email-limit"
+            copyValue={String(form.daily_incoming_email_limit ?? 50)}
+          >
+            <input
+              id="agent-daily-incoming-email-limit"
+              type="number"
+              min={0}
+              value={form.daily_incoming_email_limit ?? 50}
+              onChange={(e) =>
+                updateField('daily_incoming_email_limit', Math.max(0, Number(e.target.value) || 0))
+              }
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+          <FormField
+            label="Daily Incoming Email Timezone"
+            id="agent-daily-incoming-email-timezone"
+            copyValue={form.daily_incoming_email_timezone}
+          >
+            <input
+              id="agent-daily-incoming-email-timezone"
+              type="text"
+              value={form.daily_incoming_email_timezone ?? ''}
+              onChange={(e) => updateField('daily_incoming_email_timezone', e.target.value)}
+              placeholder="America/Los_Angeles"
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+          <FormField label="Environment" id="agent-environment" copyValue={form.environment}>
             <input
               id="agent-environment"
               type="text"
@@ -457,7 +615,7 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
-          <FormField label="Log Level" id="agent-log-level">
+          <FormField label="Log Level" id="agent-log-level" copyValue={form.log_level}>
             <input
               id="agent-log-level"
               type="text"
@@ -468,7 +626,7 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
-          <FormField label="Postgres Schema" id="agent-postgres-schema">
+          <FormField label="Postgres Schema" id="agent-postgres-schema" copyValue={form.postgres_schema}>
             <input
               id="agent-postgres-schema"
               type="text"
@@ -479,7 +637,7 @@ export default function AdminAgentSettingsForm({
             />
           </FormField>
           <div className="sm:col-span-2">
-            <FormField label="PGOPTIONS" id="agent-pgoptions">
+            <FormField label="PGOPTIONS" id="agent-pgoptions" copyValue={form.pgoptions}>
               <input
                 id="agent-pgoptions"
                 type="text"

@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   assertWithinTokenLimit,
-  logAiUsage,
   readOpenAiUsage,
+  recordAiUsageWithAlerts,
 } from '../_shared/aiUsage.ts'
 
 const corsHeaders = {
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
       }
 
       const { background, usage } = await generateBackground(openaiKey, siteUrl.href, combinedText)
-      await logAiUsage(admin, {
+      await recordAiUsageWithAlerts(admin, {
         user_id: user.id,
         feature: 'prompt_background',
         model: 'gpt-4o-mini',
@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
       .slice(0, MAX_TEXT_CHARS)
 
     const { background, usage } = await generateBackground(openaiKey, siteUrl.href, combinedText)
-    await logAiUsage(admin, {
+    await recordAiUsageWithAlerts(admin, {
       user_id: user.id,
       feature: 'prompt_background',
       model: 'gpt-4o-mini',

@@ -1,6 +1,19 @@
 import { Link } from 'react-router-dom'
-import type { AdminAgentSettings, AdminDeleteResource } from '../lib/admin'
-import { agentSettingsEnvFilename, downloadAgentSettingsEnv } from '../lib/agentSettingsEnv'
+import type {
+  AdminAgentSettings,
+  AdminDeleteResource,
+  AdminGmailToken,
+  AdminOutlookToken,
+  AdminShopifyToken,
+  AdminSquareToken,
+  AdminWebsiteSettings,
+  AdminWhatsAppConnection,
+} from '../lib/admin'
+import {
+  agentSettingsEnvFilename,
+  buildAgentSettingsEnvContext,
+  downloadAgentSettingsEnv,
+} from '../lib/agentSettingsEnv'
 import AdminDeleteButton from './AdminDeleteButton'
 import { SecretValue } from './SecretField'
 import AdminResizableTable, { type AdminTableColumn } from './admin/AdminResizableTable'
@@ -75,13 +88,62 @@ function SecretCell({ value, expanded }: { value: string | null; expanded: boole
   return <SecretValue value={value} truncateLength={20} expanded={expanded} />
 }
 
-function ExportAgentSettingsEnvButton({ settings }: { settings: AdminAgentSettings }) {
+function TextCell({
+  value,
+  expanded,
+  label,
+  monospace = false,
+}: {
+  value: string | number | null | undefined
+  expanded: boolean
+  label: string
+  monospace?: boolean
+}) {
+  const formatted = formatCellValue(value)
+  if (formatted === '—') return <span className="text-navy-500">—</span>
+  return (
+    <div className="flex items-start gap-2 flex-wrap">
+      <ExpandableText value={formatted} expanded={expanded} monospace={monospace} />
+      <CopyButton value={formatted} label={label} />
+    </div>
+  )
+}
+
+function ExportAgentSettingsEnvButton({
+  settings,
+  gmailTokens,
+  outlookTokens,
+  squareTokens,
+  shopifyTokens,
+  websiteSettings,
+  whatsappConnections,
+}: {
+  settings: AdminAgentSettings
+  gmailTokens: AdminGmailToken[]
+  outlookTokens: AdminOutlookToken[]
+  squareTokens: AdminSquareToken[]
+  shopifyTokens: AdminShopifyToken[]
+  whatsappConnections: AdminWhatsAppConnection[]
+  websiteSettings?: AdminWebsiteSettings | null
+}) {
   const filename = agentSettingsEnvFilename(settings)
 
   return (
     <button
       type="button"
-      onClick={() => downloadAgentSettingsEnv(settings)}
+      onClick={() =>
+        downloadAgentSettingsEnv(
+          settings,
+          buildAgentSettingsEnvContext(settings, {
+            gmailTokens,
+            outlookTokens,
+            squareTokens,
+            shopifyTokens,
+            whatsappConnections,
+            websiteSettings,
+          }),
+        )
+      }
       className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-700 whitespace-nowrap"
       title={`Download ${filename}`}
     >
@@ -95,12 +157,24 @@ function ExportAgentSettingsEnvButton({ settings }: { settings: AdminAgentSettin
 
 type AdminAgentSettingsTableProps = {
   settings: AdminAgentSettings[]
+  gmailTokens: AdminGmailToken[]
+  outlookTokens: AdminOutlookToken[]
+  squareTokens: AdminSquareToken[]
+  shopifyTokens: AdminShopifyToken[]
+  whatsappConnections: AdminWhatsAppConnection[]
+  websiteSettings?: AdminWebsiteSettings | null
   isDeleting: (resource: AdminDeleteResource, id: string) => boolean
   onDelete: (id: string, name: string) => Promise<void>
 }
 
 export default function AdminAgentSettingsTable({
   settings,
+  gmailTokens,
+  outlookTokens,
+  squareTokens,
+  shopifyTokens,
+  whatsappConnections,
+  websiteSettings,
   isDeleting,
   onDelete,
 }: AdminAgentSettingsTableProps) {
@@ -115,12 +189,16 @@ export default function AdminAgentSettingsTable({
         switch (columnId) {
           case 'user':
             return (
-              <ExpandableText value={formatCellValue(row.user_email ?? row.user_id)} expanded={expanded} />
+              <TextCell
+                value={row.user_email ?? row.user_id}
+                expanded={expanded}
+                label="User"
+              />
             )
           case 'name':
             return (
               <div className="flex items-start gap-3 flex-wrap">
-                <ExpandableText value={row.name} expanded={expanded} />
+                <TextCell value={row.name} expanded={expanded} label="Name" />
                 <Link
                   to={`/admin/agent-settings/${row.id}/edit`}
                   className="text-xs font-medium text-teal-600 hover:text-teal-700 underline shrink-0"
@@ -133,15 +211,13 @@ export default function AdminAgentSettingsTable({
             if (!row.clinty_api_key_id) return '—'
             return (
               <div className="space-y-1">
-                <ExpandableText
-                  value={formatCellValue(row.clinty_api_key_name ?? row.clinty_api_key_id)}
+                <TextCell
+                  value={row.clinty_api_key_name ?? row.clinty_api_key_id}
                   expanded={expanded}
+                  label="Clinty API key name"
                 />
                 {row.clinty_api_key_secret ? (
-                  <div className="flex items-start gap-2 flex-wrap">
-                    <SecretValue value={row.clinty_api_key_secret} truncateLength={24} expanded={expanded} />
-                    <CopyButton value={row.clinty_api_key_secret} label="Clinty API key" />
-                  </div>
+                  <SecretCell value={row.clinty_api_key_secret} expanded={expanded} />
                 ) : (
                   <span className="text-xs text-navy-500">Linked key (secret not stored)</span>
                 )}
@@ -152,7 +228,7 @@ export default function AdminAgentSettingsTable({
           case 'url':
             return <SecretCell value={row.url} expanded={expanded} />
           case 'graphId':
-            return <ExpandableText value={formatCellValue(row.graph_id)} expanded={expanded} monospace />
+            return <TextCell value={row.graph_id} expanded={expanded} label="Graph ID" monospace />
           case 'openapiKey':
             return <SecretCell value={row.openapi_key} expanded={expanded} />
           case 'databaseUri':
@@ -160,63 +236,85 @@ export default function AdminAgentSettingsTable({
           case 'redisUri':
             return <SecretCell value={row.redis_uri} expanded={expanded} />
           case 'secretsDir':
-            return <ExpandableText value={formatCellValue(row.secrets_dir)} expanded={expanded} monospace />
+            return <TextCell value={row.secrets_dir} expanded={expanded} label="Secrets dir" monospace />
           case 'calendar':
-            return <ExpandableText value={formatCellValue(row.calendar_provider)} expanded={expanded} />
+            return <TextCell value={row.calendar_provider} expanded={expanded} label="Calendar provider" />
           case 'autoBook':
-            return <ExpandableText value={formatBoolean(row.auto_book_scheduling)} expanded={expanded} />
+            return (
+              <TextCell value={formatBoolean(row.auto_book_scheduling)} expanded={expanded} label="Auto book" />
+            )
           case 'autoRespondInstruction':
             return (
-              <ExpandableText value={formatBoolean(row.auto_respond_instruction)} expanded={expanded} />
+              <TextCell
+                value={formatBoolean(row.auto_respond_instruction)}
+                expanded={expanded}
+                label="Auto respond instruction"
+              />
             )
           case 'autoRespondScheduling':
             return (
-              <ExpandableText value={formatBoolean(row.auto_respond_scheduling)} expanded={expanded} />
+              <TextCell
+                value={formatBoolean(row.auto_respond_scheduling)}
+                expanded={expanded}
+                label="Auto respond scheduling"
+              />
             )
           case 'environment':
-            return <ExpandableText value={formatCellValue(row.environment)} expanded={expanded} />
+            return <TextCell value={row.environment} expanded={expanded} label="Environment" />
           case 'logLevel':
-            return <ExpandableText value={formatCellValue(row.log_level)} expanded={expanded} />
+            return <TextCell value={row.log_level} expanded={expanded} label="Log level" />
           case 'pgoptions':
-            return <ExpandableText value={formatCellValue(row.pgoptions)} expanded={expanded} monospace />
+            return <TextCell value={row.pgoptions} expanded={expanded} label="PGOPTIONS" monospace />
           case 'postgresSchema':
-            return <ExpandableText value={formatCellValue(row.postgres_schema)} expanded={expanded} monospace />
+            return (
+              <TextCell value={row.postgres_schema} expanded={expanded} label="Postgres schema" monospace />
+            )
           case 'squareToken':
             return <SecretCell value={row.square_access_token} expanded={expanded} />
           case 'squareLocation':
             return (
-              <ExpandableText value={formatCellValue(row.square_location_id)} expanded={expanded} monospace />
+              <TextCell value={row.square_location_id} expanded={expanded} label="Square location" monospace />
             )
           case 'squareVariation':
             return (
-              <ExpandableText
-                value={formatCellValue(row.square_service_variation_id)}
+              <TextCell
+                value={row.square_service_variation_id}
                 expanded={expanded}
+                label="Square variation"
                 monospace
               />
             )
           case 'squareVersion':
             return (
-              <ExpandableText
-                value={formatCellValue(row.square_service_variation_version)}
+              <TextCell
+                value={row.square_service_variation_version}
                 expanded={expanded}
+                label="Square version"
                 monospace
               />
             )
           case 'squareTeam':
             return (
-              <ExpandableText value={formatCellValue(row.square_team_member_id)} expanded={expanded} monospace />
+              <TextCell value={row.square_team_member_id} expanded={expanded} label="Square team" monospace />
             )
           case 'squareTz':
-            return <ExpandableText value={formatCellValue(row.square_timezone)} expanded={expanded} />
+            return <TextCell value={row.square_timezone} expanded={expanded} label="Square timezone" />
           case 'created':
-            return <ExpandableText value={formatDate(row.created_at)} expanded={expanded} />
+            return <TextCell value={formatDate(row.created_at)} expanded={expanded} label="Created" />
           case 'updated':
-            return <ExpandableText value={formatDate(row.updated_at)} expanded={expanded} />
+            return <TextCell value={formatDate(row.updated_at)} expanded={expanded} label="Updated" />
           case 'actions':
             return (
               <div className="flex items-center gap-3">
-                <ExportAgentSettingsEnvButton settings={row} />
+                <ExportAgentSettingsEnvButton
+                  settings={row}
+                  gmailTokens={gmailTokens}
+                  outlookTokens={outlookTokens}
+                  squareTokens={squareTokens}
+                  shopifyTokens={shopifyTokens}
+                  whatsappConnections={whatsappConnections}
+                  websiteSettings={websiteSettings}
+                />
                 <AdminDeleteButton
                   label={`agent settings ${row.name}`}
                   disabled={isDeleting('agent_settings', row.id)}

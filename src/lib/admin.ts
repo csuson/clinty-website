@@ -1,4 +1,17 @@
-import type { AgentSettings, ApiKey, GmailToken, OutlookConnection, OutlookToken, Profile, ShopifyConnection, ShopifyToken, SquareConnection, SquareToken, UserPrompts } from '../types/database'
+import type {
+  AgentSettings,
+  ApiKey,
+  GmailToken,
+  OutlookConnection,
+  OutlookToken,
+  Profile,
+  ShopifyConnection,
+  ShopifyToken,
+  SquareConnection,
+  SquareToken,
+  UserPrompts,
+  WhatsAppConnection,
+} from '../types/database'
 import { supabase } from './supabase'
 import { getFunctionErrorMessage } from './supabaseFunctions'
 
@@ -25,6 +38,12 @@ export type AdminOutlookToken = OutlookToken & {
   connected_at: string | null
   connection_status: OutlookConnection['status'] | null
 }
+export type AdminWhatsAppConnection = WhatsAppConnection & {
+  gateway_api_key: string | null
+  user_email: string | null
+  effective_gateway_api_key: string | null
+  uses_clinty_api_key: boolean
+}
 export type AdminAgentSettings = AgentSettings & {
   user_email: string | null
   clinty_api_key_name: string | null
@@ -39,6 +58,19 @@ export type AdminUserPrompts = UserPrompts & {
   user_email: string | null
 }
 
+export type AdminWebsiteSettings = {
+  supabase_url: string
+  supabase_anon_key: string
+  supabase_service_role: string
+  whatsapp_web_gateway_url: string
+  whatsapp_web_login_api_key: string
+  whatsapp_web_debug: string
+  whatsapp_web_auth_backend: string
+  whatsapp_web_auth_bucket: string
+  whatsapp_web_auth_storage_prefix: string
+  whatsapp_web_auth_dir: string
+}
+
 export type AdminData = {
   users: Profile[]
   apiKeys: AdminApiKey[]
@@ -46,8 +78,10 @@ export type AdminData = {
   squareTokens: AdminSquareToken[]
   shopifyTokens: AdminShopifyToken[]
   outlookTokens: AdminOutlookToken[]
+  whatsappConnections: AdminWhatsAppConnection[]
   agentSettings: AdminAgentSettings[]
   userPrompts: AdminUserPrompts[]
+  websiteSettings?: AdminWebsiteSettings
 }
 
 export async function fetchAdminData(): Promise<AdminData> {
@@ -86,13 +120,29 @@ export type CreateAgentSettingsInput = {
   auto_book_scheduling?: boolean | null
   auto_respond_instruction?: boolean | null
   auto_respond_scheduling?: boolean | null
+  auto_respond_whatsapp?: boolean | null
+  auto_respond_catalog?: boolean | null
+  whatsapp_ignore_personal?: boolean | null
+  thread_message_cap?: number | null
+  whatsapp_thread_message_cap?: number | null
+  daily_incoming_email_limit?: number | null
+  daily_incoming_email_timezone?: string | null
   environment?: string | null
   log_level?: string | null
   pgoptions?: string | null
   postgres_schema?: string | null
 }
 
-export type AdminDeleteResource = 'user' | 'api_key' | 'gmail_token' | 'square_token' | 'shopify_token' | 'outlook_token' | 'agent_settings' | 'user_prompts'
+export type AdminDeleteResource =
+  | 'user'
+  | 'api_key'
+  | 'gmail_token'
+  | 'square_token'
+  | 'shopify_token'
+  | 'outlook_token'
+  | 'whatsapp_token'
+  | 'agent_settings'
+  | 'user_prompts'
 
 export type AdminPromptsInput = {
   user_id: string

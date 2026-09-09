@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Forbidden' }, 403)
     }
 
-    const [profilesRes, apiKeysRes, gmailTokensRes, outlookTokensRes, outlookConnectionsRes, squareTokensRes, squareConnectionsRes, shopifyTokensRes, shopifyConnectionsRes, agentSettingsRes, userPromptsRes] =
+    const [profilesRes, apiKeysRes, gmailTokensRes, outlookTokensRes, outlookConnectionsRes, squareTokensRes, squareConnectionsRes, shopifyTokensRes, shopifyConnectionsRes, whatsappConnectionsRes, agentSettingsRes, userPromptsRes] =
       await Promise.all([
       admin.from('profiles').select('*').order('created_at', { ascending: false }),
       admin.from('api_keys').select('*').order('created_at', { ascending: false }),
@@ -68,6 +68,7 @@ Deno.serve(async (req) => {
       admin.from('square_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('shopify_tokens').select('*').order('updated_at', { ascending: false }),
       admin.from('shopify_connections').select('*').order('connected_at', { ascending: false }),
+      admin.from('whatsapp_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('agent_settings').select('*').order('created_at', { ascending: false }),
       admin.from('user_prompts').select('*'),
     ])
@@ -98,6 +99,9 @@ Deno.serve(async (req) => {
     }
     if (shopifyConnectionsRes.error) {
       return json({ error: shopifyConnectionsRes.error.message }, 500)
+    }
+    if (whatsappConnectionsRes.error) {
+      return json({ error: whatsappConnectionsRes.error.message }, 500)
     }
     if (agentSettingsRes.error) {
       return json({ error: agentSettingsRes.error.message }, 500)
@@ -167,6 +171,27 @@ Deno.serve(async (req) => {
         connection_status: connection?.status ?? null,
       }
     })
+    const defaultApiKeyByUserId = new Map<string, string>()
+    for (const key of apiKeysRes.data ?? []) {
+      if (key.revoked_at || !key.key_secret) continue
+      const existing = defaultApiKeyByUserId.get(key.user_id)
+      if (!existing) {
+        defaultApiKeyByUserId.set(key.user_id, key.key_secret)
+      }
+    }
+    const whatsappConnections = (whatsappConnectionsRes.data ?? []).map((connection) => {
+      const storedGatewayKey =
+        typeof connection.gateway_api_key === 'string' ? connection.gateway_api_key.trim() : ''
+      const clintyApiKey = defaultApiKeyByUserId.get(connection.user_id) ?? null
+      const effectiveGatewayApiKey = storedGatewayKey || clintyApiKey || null
+
+      return {
+        ...connection,
+        user_email: emailByUserId.get(connection.user_id) ?? null,
+        effective_gateway_api_key: effectiveGatewayApiKey,
+        uses_clinty_api_key: !storedGatewayKey && Boolean(clintyApiKey),
+      }
+    })
     const agentSettings = (agentSettingsRes.data ?? []).map((settings) => {
       const linkedApiKey = settings.clinty_api_key_id
         ? apiKeyById.get(settings.clinty_api_key_id) ?? null
@@ -192,7 +217,34 @@ Deno.serve(async (req) => {
       }))
       .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
 
-    return json({ users, apiKeys, gmailTokens, outlookTokens, squareTokens, shopifyTokens, agentSettings, userPrompts })
+    const websiteSettings = {
+      supabase_url: Deno.env.get('SUPABASE_URL') ?? '',
+      supabase_anon_key: Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      supabase_service_role: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      whatsapp_web_gateway_url: (Deno.env.get('WHATSAPP_WEB_GATEWAY_URL') ?? '').replace(/\/$/, ''),
+      whatsapp_web_login_api_key:
+        Deno.env.get('WHATSAPP_WEB_LOGIN_API_KEY') ??
+        Deno.env.get('CLINTY_API_KEY') ??
+        '',
+      whatsapp_web_debug: Deno.env.get('WHATSAPP_WEB_DEBUG') ?? '1',
+      whatsapp_web_auth_backend: Deno.env.get('WHATSAPP_WEB_AUTH_BACKEND') ?? 'supabase',
+      whatsapp_web_auth_bucket: Deno.env.get('WHATSAPP_WEB_AUTH_BUCKET') ?? 'whatsapp-web-auth',
+      whatsapp_web_auth_storage_prefix: Deno.env.get('WHATSAPP_WEB_AUTH_STORAGE_PREFIX') ?? 'default',
+      whatsapp_web_auth_dir: Deno.env.get('WHATSAPP_WEB_AUTH_DIR') ?? '/tmp/whatsapp-web-auth',
+    }
+
+    return json({
+      users,
+      apiKeys,
+      gmailTokens,
+      outlookTokens,
+      squareTokens,
+      shopifyTokens,
+      whatsappConnections,
+      agentSettings,
+      userPrompts,
+      websiteSettings,
+    })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }

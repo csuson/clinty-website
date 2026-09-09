@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import {
   assertWithinTokenLimit,
-  logAiUsage,
   readOpenAiUsage,
+  recordAiUsageWithAlerts,
 } from '../_shared/aiUsage.ts'
 
 const corsHeaders = {
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
     }
 
     const usage = readOpenAiUsage(data)
-    await logAiUsage(admin, {
+    await recordAiUsageWithAlerts(admin, {
       user_id: user.id,
       feature: 'h5p_generate',
       model: MODEL,

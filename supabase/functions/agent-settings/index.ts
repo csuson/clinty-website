@@ -1,5 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveUserPrompts } from '../_shared/promptDefaults.ts'
+import {
+  buildRuntimeEnv,
+  listMissingRuntimeEnvKeys,
+  loadWebsiteSettingsFromEdgeEnv,
+  RUNTIME_ENV_KEYS,
+} from '../_shared/runtimeEnv.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -75,51 +81,61 @@ Deno.serve(async (req) => {
 
     let agentSettings = await loadAgentSettingsForApiKey(admin, apiKeyRow.id, apiKeyRow.user_id)
 
-    if (!agentSettings) {
-      const { data: userPrompts } = await admin
+    const userId = String(agentSettings?.user_id ?? apiKeyRow.user_id)
+
+    const [
+      userPromptsResult,
+      integrationRows,
+    ] = await Promise.all([
+      admin
         .from('user_prompts')
         .select('background, calendar_preference, default_footer, promotions, response_tone, whatsapp_response_tone')
-        .eq('user_id', apiKeyRow.user_id)
-        .maybeSingle()
+        .eq('user_id', userId)
+        .maybeSingle(),
+      loadIntegrationRows(admin, userId),
+    ])
 
-      if (!userPrompts) {
-        return json({ error: 'No agent settings found for this API key' }, 404)
-      }
-
-      const prompts = resolveUserPrompts(userPrompts)
-      return json({
-        user_id: apiKeyRow.user_id,
-        clinty_api_key_id: apiKeyRow.id,
-        prompts,
-        prompt_background: prompts.background,
-        prompt_calendar_preference: prompts.calendar_preference,
-        email_footer: prompts.default_footer,
-        prompt_promotions: prompts.promotions,
-        prompt_response_tone: prompts.response_tone,
-        prompt_whatsapp_response_tone: prompts.whatsapp_response_tone,
-        ...await loadShopifyStorefront(admin, apiKeyRow.user_id),
-      })
+    if (!agentSettings && !userPromptsResult.data) {
+      return json({ error: 'No agent settings found for this API key' }, 404)
     }
 
-    const { data: userPrompts } = await admin
-      .from('user_prompts')
-      .select('background, calendar_preference, default_footer, promotions, response_tone, whatsapp_response_tone')
-      .eq('user_id', agentSettings.user_id)
-      .maybeSingle()
+    const prompts = resolveUserPrompts(userPromptsResult.data)
+    const websiteSettings = loadWebsiteSettingsFromEdgeEnv()
+    const runtimeEnv = buildRuntimeEnv({
+      agentSettings,
+      gmailToken: integrationRows.gmailToken,
+      outlookToken: integrationRows.outlookToken,
+      squareToken: integrationRows.squareToken,
+      squareConnection: integrationRows.squareConnection,
+      shopifyToken: integrationRows.shopifyToken,
+      whatsappConnection: integrationRows.whatsappConnection,
+      websiteSettings,
+    })
+    const runtimeEnvMissing = listMissingRuntimeEnvKeys(runtimeEnv)
 
-    const prompts = resolveUserPrompts(userPrompts)
-
-    return json({
-      ...serializeRow(agentSettings),
+    const sharedPayload = {
+      user_id: userId,
+      clinty_api_key_id: apiKeyRow.id,
       prompts,
-      // Flat keys for env / agent runtimes that map directly to email_assistant variables.
       prompt_background: prompts.background,
       prompt_calendar_preference: prompts.calendar_preference,
       email_footer: prompts.default_footer,
       prompt_promotions: prompts.promotions,
       prompt_response_tone: prompts.response_tone,
       prompt_whatsapp_response_tone: prompts.whatsapp_response_tone,
-      ...await loadShopifyStorefront(admin, agentSettings.user_id as string),
+      runtime_env: runtimeEnv,
+      runtime_env_keys: [...RUNTIME_ENV_KEYS],
+      runtime_env_missing: runtimeEnvMissing,
+      ...await loadShopifyStorefront(admin, userId),
+    }
+
+    if (!agentSettings) {
+      return json(sharedPayload)
+    }
+
+    return json({
+      ...serializeRow(agentSettings),
+      ...sharedPayload,
     })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
@@ -158,6 +174,43 @@ async function loadAgentSettingsForApiKey(
   }
 
   return userRows?.[0] ?? null
+}
+
+async function loadIntegrationRows(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+) {
+  const [
+    gmailTokenResult,
+    outlookTokenResult,
+    squareTokenResult,
+    squareConnectionResult,
+    shopifyTokenResult,
+    whatsappConnectionResult,
+  ] = await Promise.all([
+    admin.from('gmail_tokens').select('*').eq('user_id', userId).maybeSingle(),
+    admin.from('outlook_tokens').select('*').eq('user_id', userId).maybeSingle(),
+    admin.from('square_tokens').select('*').eq('user_id', userId).maybeSingle(),
+    admin.from('square_connections').select('*').eq('user_id', userId).maybeSingle(),
+    admin.from('shopify_tokens').select('*').eq('user_id', userId).maybeSingle(),
+    admin.from('whatsapp_connections').select('*').eq('user_id', userId).maybeSingle(),
+  ])
+
+  if (gmailTokenResult.error) throw new Error(gmailTokenResult.error.message)
+  if (outlookTokenResult.error) throw new Error(outlookTokenResult.error.message)
+  if (squareTokenResult.error) throw new Error(squareTokenResult.error.message)
+  if (squareConnectionResult.error) throw new Error(squareConnectionResult.error.message)
+  if (shopifyTokenResult.error) throw new Error(shopifyTokenResult.error.message)
+  if (whatsappConnectionResult.error) throw new Error(whatsappConnectionResult.error.message)
+
+  return {
+    gmailToken: gmailTokenResult.data,
+    outlookToken: outlookTokenResult.data,
+    squareToken: squareTokenResult.data,
+    squareConnection: squareConnectionResult.data,
+    shopifyToken: shopifyTokenResult.data,
+    whatsappConnection: whatsappConnectionResult.data,
+  }
 }
 
 async function loadShopifyStorefront(
