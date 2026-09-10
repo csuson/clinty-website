@@ -38,6 +38,7 @@ MERGE_FIELDS = (
     "whatsapp_thread_message_cap",
     "daily_incoming_email_limit",
     "daily_incoming_email_timezone",
+    "daily_incoming_whatsapp_limit",
     "environment",
     "log_level",
     "pgoptions",

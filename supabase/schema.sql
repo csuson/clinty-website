@@ -250,6 +250,7 @@ create table if not exists public.agent_settings (
   whatsapp_thread_message_cap integer not null default 10,
   daily_incoming_email_limit integer not null default 50,
   daily_incoming_email_timezone text,
+  daily_incoming_whatsapp_limit integer not null default 50,
   environment text,
   log_level text,
   pgoptions text,
@@ -329,6 +330,7 @@ alter table public.agent_settings add column if not exists thread_message_cap in
 alter table public.agent_settings add column if not exists whatsapp_thread_message_cap integer not null default 10;
 alter table public.agent_settings add column if not exists daily_incoming_email_limit integer not null default 50;
 alter table public.agent_settings add column if not exists daily_incoming_email_timezone text;
+alter table public.agent_settings add column if not exists daily_incoming_whatsapp_limit integer not null default 50;
 alter table public.agent_settings add column if not exists environment text;
 alter table public.agent_settings add column if not exists log_level text;
 alter table public.agent_settings add column if not exists pgoptions text;

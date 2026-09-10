@@ -129,6 +129,7 @@ export type CreateAgentSettingsInput = {
   whatsapp_thread_message_cap?: number | null
   daily_incoming_email_limit?: number | null
   daily_incoming_email_timezone?: string | null
+  daily_incoming_whatsapp_limit?: number | null
   environment?: string | null
   log_level?: string | null
   pgoptions?: string | null

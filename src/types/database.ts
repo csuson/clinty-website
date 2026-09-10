@@ -182,6 +182,7 @@ export type AgentSettings = {
   whatsapp_thread_message_cap: number
   daily_incoming_email_limit: number
   daily_incoming_email_timezone: string | null
+  daily_incoming_whatsapp_limit: number
   environment: string | null
   log_level: string | null
   pgoptions: string | null
@@ -551,6 +552,7 @@ export type Database = {
           whatsapp_thread_message_cap?: number
           daily_incoming_email_limit?: number
           daily_incoming_email_timezone?: string | null
+          daily_incoming_whatsapp_limit?: number
           environment?: string | null
           log_level?: string | null
           pgoptions?: string | null
@@ -587,6 +589,7 @@ export type Database = {
           whatsapp_thread_message_cap?: number
           daily_incoming_email_limit?: number
           daily_incoming_email_timezone?: string | null
+          daily_incoming_whatsapp_limit?: number
           environment?: string | null
           log_level?: string | null
           pgoptions?: string | null

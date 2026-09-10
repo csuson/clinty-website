@@ -1,5 +1,9 @@
 import { useMemo, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import AgentBehaviorFields, {
+  agentBehaviorFromRow,
+  defaultAgentBehaviorSettings,
+} from './AgentBehaviorFields'
 import FormField from './FormField'
 import { SecretInput, SecretValue } from './SecretField'
 import { inputClass } from '../constants/forms'
@@ -25,18 +29,7 @@ export const emptyAgentSettingsForm: CreateAgentSettingsInput = {
   square_service_variation_version: null,
   square_team_member_id: '',
   square_timezone: '',
-  auto_book_scheduling: null,
-  auto_respond_instruction: null,
-  auto_respond_scheduling: null,
-  auto_respond_whatsapp: true,
-  auto_respond_catalog: false,
-  auto_respond_personal: true,
-  email_ignore_personal: false,
-  whatsapp_ignore_personal: true,
-  thread_message_cap: 10,
-  whatsapp_thread_message_cap: 10,
-  daily_incoming_email_limit: 50,
-  daily_incoming_email_timezone: '',
+  ...defaultAgentBehaviorSettings(),
   environment: '',
   log_level: '',
   pgoptions: '',
@@ -74,21 +67,12 @@ export function toAgentSettingsPayload(form: CreateAgentSettingsInput): CreateAg
     whatsapp_thread_message_cap: form.whatsapp_thread_message_cap ?? 10,
     daily_incoming_email_limit: form.daily_incoming_email_limit ?? 50,
     daily_incoming_email_timezone: form.daily_incoming_email_timezone || null,
+    daily_incoming_whatsapp_limit: form.daily_incoming_whatsapp_limit ?? 50,
     environment: form.environment || null,
     log_level: form.log_level || null,
     pgoptions: form.pgoptions || null,
     postgres_schema: form.postgres_schema || null,
   }
-}
-
-function booleanSelectValue(value: boolean | null | undefined): string {
-  if (value === null || value === undefined) return ''
-  return value ? 'true' : 'false'
-}
-
-function parseBooleanSelect(value: string): boolean | null {
-  if (value === '') return null
-  return value === 'true'
 }
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -459,210 +443,14 @@ export default function AdminAgentSettingsForm({
 
       <SectionCard title="Agent Behavior">
         <div className="space-y-8">
-          <BehaviorSubsection
-            title="Email"
-            description="Auto-reply, scheduling, catalog, and inbox limits for email."
-          >
-            <FormField
-              label="Auto Respond Instruction"
-              id="agent-auto-respond-instruction"
-              copyValue={booleanSelectValue(form.auto_respond_instruction)}
-            >
-              <select
-                id="agent-auto-respond-instruction"
-                value={booleanSelectValue(form.auto_respond_instruction)}
-                onChange={(e) => updateField('auto_respond_instruction', parseBooleanSelect(e.target.value))}
-                className={inputClass}
-                disabled={saving}
-              >
-                <option value="">Not set</option>
-                <option value="true">True</option>
-                <option value="false">False</option>
-              </select>
-            </FormField>
-            <FormField
-              label="Auto Respond Scheduling"
-              id="agent-auto-respond-scheduling"
-              copyValue={booleanSelectValue(form.auto_respond_scheduling)}
-            >
-              <select
-                id="agent-auto-respond-scheduling"
-                value={booleanSelectValue(form.auto_respond_scheduling)}
-                onChange={(e) => updateField('auto_respond_scheduling', parseBooleanSelect(e.target.value))}
-                className={inputClass}
-                disabled={saving}
-              >
-                <option value="">Not set</option>
-                <option value="true">True</option>
-                <option value="false">False</option>
-              </select>
-            </FormField>
-            <FormField
-              label="Auto Book Scheduling"
-              id="agent-auto-book-scheduling"
-              copyValue={booleanSelectValue(form.auto_book_scheduling)}
-            >
-              <select
-                id="agent-auto-book-scheduling"
-                value={booleanSelectValue(form.auto_book_scheduling)}
-                onChange={(e) => updateField('auto_book_scheduling', parseBooleanSelect(e.target.value))}
-                className={inputClass}
-                disabled={saving}
-              >
-                <option value="">Not set</option>
-                <option value="true">True</option>
-                <option value="false">False</option>
-              </select>
-            </FormField>
-            <FormField
-              label="Auto Respond Catalog"
-              id="agent-auto-respond-catalog"
-              copyValue={booleanSelectValue(form.auto_respond_catalog)}
-            >
-              <select
-                id="agent-auto-respond-catalog"
-                value={booleanSelectValue(form.auto_respond_catalog)}
-                onChange={(e) => updateField('auto_respond_catalog', parseBooleanSelect(e.target.value))}
-                className={inputClass}
-                disabled={saving}
-              >
-                <option value="true">True</option>
-                <option value="false">False</option>
-              </select>
-            </FormField>
-            <FormField
-              label="Email Ignore Personal"
-              id="agent-email-ignore-personal"
-              copyValue={booleanSelectValue(form.email_ignore_personal)}
-            >
-              <select
-                id="agent-email-ignore-personal"
-                value={booleanSelectValue(form.email_ignore_personal)}
-                onChange={(e) => updateField('email_ignore_personal', parseBooleanSelect(e.target.value))}
-                className={inputClass}
-                disabled={saving}
-              >
-                <option value="true">True</option>
-                <option value="false">False</option>
-              </select>
-            </FormField>
-            <FormField
-              label="Auto Respond Personal"
-              id="agent-auto-respond-personal"
-              copyValue={booleanSelectValue(form.auto_respond_personal)}
-            >
-              <select
-                id="agent-auto-respond-personal"
-                value={booleanSelectValue(form.auto_respond_personal)}
-                onChange={(e) => updateField('auto_respond_personal', parseBooleanSelect(e.target.value))}
-                className={inputClass}
-                disabled={saving}
-              >
-                <option value="true">True</option>
-                <option value="false">False</option>
-              </select>
-            </FormField>
-            <FormField
-              label="Thread Message Cap"
-              id="agent-thread-message-cap"
-              copyValue={String(form.thread_message_cap ?? 10)}
-            >
-              <input
-                id="agent-thread-message-cap"
-                type="number"
-                min={1}
-                value={form.thread_message_cap ?? 10}
-                onChange={(e) => updateField('thread_message_cap', Number(e.target.value) || 10)}
-                className={inputClass}
-                disabled={saving}
-              />
-            </FormField>
-            <FormField
-              label="Daily Incoming Email Limit"
-              id="agent-daily-incoming-email-limit"
-              copyValue={String(form.daily_incoming_email_limit ?? 50)}
-            >
-              <input
-                id="agent-daily-incoming-email-limit"
-                type="number"
-                min={0}
-                value={form.daily_incoming_email_limit ?? 50}
-                onChange={(e) =>
-                  updateField('daily_incoming_email_limit', Math.max(0, Number(e.target.value) || 0))
-                }
-                className={inputClass}
-                disabled={saving}
-              />
-            </FormField>
-            <FormField
-              label="Daily Incoming Email Timezone"
-              id="agent-daily-incoming-email-timezone"
-              copyValue={form.daily_incoming_email_timezone}
-            >
-              <input
-                id="agent-daily-incoming-email-timezone"
-                type="text"
-                value={form.daily_incoming_email_timezone ?? ''}
-                onChange={(e) => updateField('daily_incoming_email_timezone', e.target.value)}
-                placeholder="America/Los_Angeles"
-                className={inputClass}
-                disabled={saving}
-              />
-            </FormField>
-          </BehaviorSubsection>
-
-          <BehaviorSubsection
-            title="WhatsApp"
-            description="Auto-reply and thread limits for WhatsApp Web."
-          >
-            <FormField
-              label="Auto Respond WhatsApp"
-              id="agent-auto-respond-whatsapp"
-              copyValue={booleanSelectValue(form.auto_respond_whatsapp)}
-            >
-              <select
-                id="agent-auto-respond-whatsapp"
-                value={booleanSelectValue(form.auto_respond_whatsapp)}
-                onChange={(e) => updateField('auto_respond_whatsapp', parseBooleanSelect(e.target.value))}
-                className={inputClass}
-                disabled={saving}
-              >
-                <option value="true">True</option>
-                <option value="false">False</option>
-              </select>
-            </FormField>
-            <FormField
-              label="WhatsApp Ignore Personal"
-              id="agent-whatsapp-ignore-personal"
-              copyValue={booleanSelectValue(form.whatsapp_ignore_personal)}
-            >
-              <select
-                id="agent-whatsapp-ignore-personal"
-                value={booleanSelectValue(form.whatsapp_ignore_personal)}
-                onChange={(e) => updateField('whatsapp_ignore_personal', parseBooleanSelect(e.target.value))}
-                className={inputClass}
-                disabled={saving}
-              >
-                <option value="true">True</option>
-                <option value="false">False</option>
-              </select>
-            </FormField>
-            <FormField
-              label="WhatsApp Thread Message Cap"
-              id="agent-whatsapp-thread-message-cap"
-              copyValue={String(form.whatsapp_thread_message_cap ?? 10)}
-            >
-              <input
-                id="agent-whatsapp-thread-message-cap"
-                type="number"
-                min={1}
-                value={form.whatsapp_thread_message_cap ?? 10}
-                onChange={(e) => updateField('whatsapp_thread_message_cap', Number(e.target.value) || 10)}
-                className={inputClass}
-                disabled={saving}
-              />
-            </FormField>
-          </BehaviorSubsection>
+          <AgentBehaviorFields
+            settings={agentBehaviorFromRow(form)}
+            onChange={(field, value) =>
+              updateField(field as keyof CreateAgentSettingsInput, value as CreateAgentSettingsInput[typeof field])
+            }
+            disabled={saving}
+            showCopy
+          />
 
           <BehaviorSubsection title="Runtime">
             <FormField label="Environment" id="agent-environment" copyValue={form.environment}>

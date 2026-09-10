@@ -173,6 +173,7 @@ async function buildPayload(body: Record<string, unknown>) {
       whatsapp_thread_message_cap: parsePositiveInt(body.whatsapp_thread_message_cap, 10),
       daily_incoming_email_limit: parseNonNegativeInt(body.daily_incoming_email_limit, 50),
       daily_incoming_email_timezone: emptyToNull(body.daily_incoming_email_timezone),
+      daily_incoming_whatsapp_limit: parseNonNegativeInt(body.daily_incoming_whatsapp_limit, 50),
       environment: emptyToNull(body.environment),
       log_level: emptyToNull(body.log_level),
       pgoptions: emptyToNull(body.pgoptions),

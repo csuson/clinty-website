@@ -11,6 +11,7 @@ export const RUNTIME_ENV_KEYS = [
   'CALENDAR_PROVIDER',
   'DAILY_INCOMING_EMAIL_LIMIT',
   'DAILY_INCOMING_EMAIL_TIMEZONE',
+  'DAILY_INCOMING_WHATSAPP_LIMIT',
   'DATABASE_URI',
   'ENVIRONMENT',
   'GMAIL_SECRET',
@@ -127,7 +128,11 @@ function setNonNegativeIntWithDefault(
   value: unknown,
   defaultValue: number,
 ): void {
-  const parsed = typeof value === 'number' ? value : Number(String(value ?? '').trim())
+  if (value === null || value === undefined || (typeof value === 'string' && !value.trim())) {
+    env[key] = String(defaultValue)
+    return
+  }
+  const parsed = typeof value === 'number' ? value : Number(String(value).trim())
   if (Number.isFinite(parsed) && parsed >= 0) {
     env[key] = String(Math.floor(parsed))
     return
@@ -331,6 +336,12 @@ export function agentSettingsToRuntimeEnv(row: AgentSettingsRow | null | undefin
   setPositiveIntWithDefault(env, 'WHATSAPP_THREAD_MESSAGE_CAP', row.whatsapp_thread_message_cap, 10)
   setNonNegativeIntWithDefault(env, 'DAILY_INCOMING_EMAIL_LIMIT', row.daily_incoming_email_limit, 50)
   setIfPresent(env, 'DAILY_INCOMING_EMAIL_TIMEZONE', row.daily_incoming_email_timezone)
+  setNonNegativeIntWithDefault(
+    env,
+    'DAILY_INCOMING_WHATSAPP_LIMIT',
+    row.daily_incoming_whatsapp_limit,
+    50,
+  )
   setIfPresent(env, 'CALENDAR_PROVIDER', row.calendar_provider)
   setIfPresent(env, 'DATABASE_URI', row.database_uri)
   setIfPresent(env, 'ENVIRONMENT', row.environment ?? 'production')

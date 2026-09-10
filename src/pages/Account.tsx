@@ -11,6 +11,7 @@ import H5PBuilder from './account/H5PBuilder'
 import Integrations from './account/Integrations'
 import MetaAdsCallback from './account/MetaAdsCallback'
 import OutlookCallback from './account/OutlookCallback'
+import AgentSettings from './account/AgentSettings'
 import Prompts from './account/Prompts'
 import ShopifyCallback from './account/ShopifyCallback'
 import SquareCallback from './account/SquareCallback'
@@ -31,6 +32,7 @@ export default function Account() {
         <Route path="integrations/square/callback" element={<SquareCallback />} />
         <Route path="integrations/shopify/callback" element={<ShopifyCallback />} />
         <Route path="prompts" element={<Prompts />} />
+        <Route path="agent-settings" element={<AgentSettings />} />
         <Route path="h5p" element={<H5PBuilder />} />
         <Route path="google-ads" element={<GoogleAds />} />
         <Route path="billing" element={<Billing />} />

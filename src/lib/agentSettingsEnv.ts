@@ -208,6 +208,7 @@ export function parsedEnvToAgentSettingsInput(
     whatsapp_thread_message_cap: parseEnvPositiveInt(parsed.WHATSAPP_THREAD_MESSAGE_CAP, 10),
     daily_incoming_email_limit: parseEnvNonNegativeInt(parsed.DAILY_INCOMING_EMAIL_LIMIT, 50),
     daily_incoming_email_timezone: parsed.DAILY_INCOMING_EMAIL_TIMEZONE ?? '',
+    daily_incoming_whatsapp_limit: parseEnvNonNegativeInt(parsed.DAILY_INCOMING_WHATSAPP_LIMIT, 50),
     environment: parsed.ENVIRONMENT ?? '',
     log_level: parsed.LOG_LEVEL ?? '',
     pgoptions: parsed.PGOPTIONS ?? '',
@@ -282,6 +283,7 @@ export function agentSettingsToEnvContent(
   add('WHATSAPP_THREAD_MESSAGE_CAP', settings.whatsapp_thread_message_cap ?? 10)
   add('DAILY_INCOMING_EMAIL_LIMIT', settings.daily_incoming_email_limit ?? 50)
   add('DAILY_INCOMING_EMAIL_TIMEZONE', settings.daily_incoming_email_timezone)
+  add('DAILY_INCOMING_WHATSAPP_LIMIT', settings.daily_incoming_whatsapp_limit ?? 50)
   add('CALENDAR_PROVIDER', settings.calendar_provider)
   add('CLINTY_API_KEY', settings.clinty_api_key_secret)
   add('DATABASE_URI', settings.database_uri)

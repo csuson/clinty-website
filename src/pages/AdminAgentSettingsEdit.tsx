@@ -41,6 +41,7 @@ function agentSettingsToForm(settings: AdminAgentSettings): CreateAgentSettingsI
     whatsapp_thread_message_cap: settings.whatsapp_thread_message_cap ?? 10,
     daily_incoming_email_limit: settings.daily_incoming_email_limit ?? 50,
     daily_incoming_email_timezone: settings.daily_incoming_email_timezone ?? '',
+    daily_incoming_whatsapp_limit: settings.daily_incoming_whatsapp_limit ?? 50,
     environment: settings.environment ?? '',
     log_level: settings.log_level ?? '',
     pgoptions: settings.pgoptions ?? '',
