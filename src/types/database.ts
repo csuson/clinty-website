@@ -175,6 +175,8 @@ export type AgentSettings = {
   auto_respond_scheduling: boolean | null
   auto_respond_whatsapp: boolean
   auto_respond_catalog: boolean
+  auto_respond_personal: boolean
+  email_ignore_personal: boolean
   whatsapp_ignore_personal: boolean
   thread_message_cap: number
   whatsapp_thread_message_cap: number
@@ -542,6 +544,8 @@ export type Database = {
           auto_respond_scheduling?: boolean | null
           auto_respond_whatsapp?: boolean
           auto_respond_catalog?: boolean
+          auto_respond_personal?: boolean
+          email_ignore_personal?: boolean
           whatsapp_ignore_personal?: boolean
           thread_message_cap?: number
           whatsapp_thread_message_cap?: number
@@ -576,6 +580,8 @@ export type Database = {
           auto_respond_scheduling?: boolean | null
           auto_respond_whatsapp?: boolean
           auto_respond_catalog?: boolean
+          auto_respond_personal?: boolean
+          email_ignore_personal?: boolean
           whatsapp_ignore_personal?: boolean
           thread_message_cap?: number
           whatsapp_thread_message_cap?: number

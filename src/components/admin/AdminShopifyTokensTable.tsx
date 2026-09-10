@@ -2,7 +2,7 @@ import type { AdminShopifyToken } from '../../lib/admin'
 import { SecretValue } from '../SecretField'
 import AdminDeleteButton from '../AdminDeleteButton'
 import AdminResizableTable, { type AdminTableColumn } from './AdminResizableTable'
-import { CopyButton, ExpandableText, formatCellValue, formatDate } from './adminTableUtils'
+import { ExpandableText, formatCellValue, formatDate } from './adminTableUtils'
 
 type ColumnId =
   | 'user'
@@ -81,10 +81,7 @@ export default function AdminShopifyTokensTable({
             return <ExpandableText value={formatCellValue(token.shop_domain)} expanded={expanded} monospace />
           case 'storefrontToken':
             return token.storefront_access_token ? (
-              <div className="flex items-start gap-2 flex-wrap">
-                <TokenCell value={token.storefront_access_token} expanded={expanded} />
-                <CopyButton value={token.storefront_access_token} label="Shopify Storefront token" />
-              </div>
+              <TokenCell value={token.storefront_access_token} expanded={expanded} />
             ) : (
               '—'
             )
@@ -97,10 +94,7 @@ export default function AdminShopifyTokensTable({
             )
           case 'accessToken':
             return token.access_token ? (
-              <div className="flex items-start gap-2 flex-wrap">
-                <TokenCell value={token.access_token} expanded={expanded} />
-                <CopyButton value={token.access_token} label="Shopify OAuth token" />
-              </div>
+              <TokenCell value={token.access_token} expanded={expanded} />
             ) : (
               '—'
             )

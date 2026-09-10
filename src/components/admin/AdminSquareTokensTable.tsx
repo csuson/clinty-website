@@ -2,7 +2,7 @@ import type { AdminSquareToken } from '../../lib/admin'
 import { SecretValue } from '../SecretField'
 import AdminDeleteButton from '../AdminDeleteButton'
 import AdminResizableTable, { type AdminTableColumn } from './AdminResizableTable'
-import { CopyButton, ExpandableText, formatCellValue, formatDate } from './adminTableUtils'
+import { ExpandableText, formatCellValue, formatDate } from './adminTableUtils'
 
 type ColumnId =
   | 'user'
@@ -83,10 +83,7 @@ export default function AdminSquareTokensTable({
             return <ExpandableText value={formatCellValue(token.merchant_id)} expanded={expanded} monospace />
           case 'accessToken':
             return token.access_token ? (
-              <div className="flex items-start gap-2 flex-wrap">
-                <TokenCell value={token.access_token} expanded={expanded} />
-                <CopyButton value={token.access_token} label="Square access token" />
-              </div>
+              <TokenCell value={token.access_token} expanded={expanded} />
             ) : (
               '—'
             )

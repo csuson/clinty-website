@@ -19,13 +19,28 @@ export type AgentSettingsEnvContext = {
   websiteSettings?: AdminWebsiteSettings | null
 }
 
+/** Website VITE values are preferred — they match the deployed site and email-assistant .env exports. */
 export function resolveWebsiteSupabaseSettings(
   websiteSettings?: AdminWebsiteSettings | null,
 ): Pick<AdminWebsiteSettings, 'supabase_url' | 'supabase_anon_key' | 'supabase_service_role'> {
+  const viteUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || ''
+  const viteAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || ''
+  const edgeUrl = websiteSettings?.supabase_url?.trim() || ''
+  const edgeAnonKey = websiteSettings?.supabase_anon_key?.trim() || ''
+
   return {
-    supabase_url: websiteSettings?.supabase_url?.trim() || import.meta.env.VITE_SUPABASE_URL?.trim() || '',
-    supabase_anon_key:
-      websiteSettings?.supabase_anon_key?.trim() || import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '',
+    supabase_url: viteUrl || edgeUrl,
+    supabase_anon_key: viteAnonKey || edgeAnonKey,
+    supabase_service_role: websiteSettings?.supabase_service_role?.trim() || '',
+  }
+}
+
+export function edgeWebsiteSupabaseSettings(
+  websiteSettings?: AdminWebsiteSettings | null,
+): Pick<AdminWebsiteSettings, 'supabase_url' | 'supabase_anon_key' | 'supabase_service_role'> {
+  return {
+    supabase_url: websiteSettings?.supabase_url?.trim() || '',
+    supabase_anon_key: websiteSettings?.supabase_anon_key?.trim() || '',
     supabase_service_role: websiteSettings?.supabase_service_role?.trim() || '',
   }
 }
@@ -186,6 +201,8 @@ export function parsedEnvToAgentSettingsInput(
     auto_respond_scheduling: parseEnvBoolean(parsed.AUTO_RESPOND_SCHEDULING),
     auto_respond_whatsapp: parseEnvBoolean(parsed.AUTO_RESPOND_WHATSAPP) ?? true,
     auto_respond_catalog: parseEnvBoolean(parsed.AUTO_RESPOND_CATALOG) ?? false,
+    auto_respond_personal: parseEnvBoolean(parsed.AUTO_RESPOND_PERSONAL) ?? true,
+    email_ignore_personal: parseEnvBoolean(parsed.EMAIL_IGNORE_PERSONAL) ?? false,
     whatsapp_ignore_personal: parseEnvBoolean(parsed.WHATSAPP_IGNORE_PERSONAL) ?? true,
     thread_message_cap: parseEnvPositiveInt(parsed.THREAD_MESSAGE_CAP, 10),
     whatsapp_thread_message_cap: parseEnvPositiveInt(parsed.WHATSAPP_THREAD_MESSAGE_CAP, 10),
@@ -258,6 +275,8 @@ export function agentSettingsToEnvContent(
   addBoolean('AUTO_RESPOND_SCHEDULING', settings.auto_respond_scheduling)
   addBoolean('AUTO_RESPOND_WHATSAPP', settings.auto_respond_whatsapp ?? true)
   addBoolean('AUTO_RESPOND_CATALOG', settings.auto_respond_catalog ?? false)
+  addBoolean('AUTO_RESPOND_PERSONAL', settings.auto_respond_personal ?? true)
+  addBoolean('EMAIL_IGNORE_PERSONAL', settings.email_ignore_personal ?? false)
   addBoolean('WHATSAPP_IGNORE_PERSONAL', settings.whatsapp_ignore_personal ?? true)
   add('THREAD_MESSAGE_CAP', settings.thread_message_cap ?? 10)
   add('WHATSAPP_THREAD_MESSAGE_CAP', settings.whatsapp_thread_message_cap ?? 10)

@@ -3,7 +3,7 @@ import type { AdminOutlookToken } from '../../lib/admin'
 import { SecretValue } from '../SecretField'
 import AdminDeleteButton from '../AdminDeleteButton'
 import AdminResizableTable, { type AdminTableColumn } from './AdminResizableTable'
-import { CopyButton, ExpandableText, formatCellValue, formatDate } from './adminTableUtils'
+import { ExpandableText, formatCellValue, formatDate } from './adminTableUtils'
 
 type ColumnId =
   | 'user'
@@ -111,19 +111,13 @@ export default function AdminOutlookTokensTable({
             )
           case 'accessToken':
             return token.access_token ? (
-              <div className="flex items-start gap-2 flex-wrap">
-                <TokenCell value={token.access_token} expanded={expanded} />
-                <CopyButton value={token.access_token} label="Outlook access token" />
-              </div>
+              <TokenCell value={token.access_token} expanded={expanded} />
             ) : (
               '—'
             )
           case 'refreshToken':
             return token.refresh_token ? (
-              <div className="flex items-start gap-2 flex-wrap">
-                <TokenCell value={token.refresh_token} expanded={expanded} />
-                <CopyButton value={token.refresh_token} label="Outlook refresh token" />
-              </div>
+              <TokenCell value={token.refresh_token} expanded={expanded} />
             ) : (
               '—'
             )

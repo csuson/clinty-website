@@ -13,6 +13,9 @@ import AdminShopifyTokensTable from '../components/admin/AdminShopifyTokensTable
 import AdminWhatsAppTokensTable from '../components/admin/AdminWhatsAppTokensTable'
 import AdminSquareTokensTable from '../components/admin/AdminSquareTokensTable'
 import AdminUsersTable from '../components/admin/AdminUsersTable'
+import AdminWebsiteSettingsPanel, {
+  countConfiguredWebsiteSettings,
+} from '../components/admin/AdminWebsiteSettingsPanel'
 import ImportAgentSettingsEnv from '../components/admin/ImportAgentSettingsEnv'
 
 function Section({
@@ -134,6 +137,13 @@ export default function Admin() {
                   )
                 }
               />
+            </Section>
+
+            <Section
+              title="Supabase & website settings"
+              count={countConfiguredWebsiteSettings(data.websiteSettings)}
+            >
+              <AdminWebsiteSettingsPanel settings={data.websiteSettings} />
             </Section>
 
             <Section title="AI token limits" count={data.users.length}>

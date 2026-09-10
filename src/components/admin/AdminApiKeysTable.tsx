@@ -1,7 +1,7 @@
 import { SecretValue } from '../SecretField'
 import AdminDeleteButton from '../AdminDeleteButton'
 import AdminResizableTable, { type AdminTableColumn } from './AdminResizableTable'
-import { CopyButton, ExpandableText, formatCellValue, formatDate } from './adminTableUtils'
+import { ExpandableText, formatCellValue, formatDate } from './adminTableUtils'
 import type { AdminApiKey } from '../../lib/admin'
 
 type ColumnId =
@@ -55,12 +55,7 @@ export default function AdminApiKeysTable({ apiKeys, isDeleting, onDelete }: Adm
                 <span className="text-xs text-navy-500">Not stored (created before secret column)</span>
               )
             }
-            return (
-              <div className="flex items-start gap-2 flex-wrap">
-                <SecretValue value={key.key_secret} truncateLength={32} expanded={expanded} />
-                <CopyButton value={key.key_secret} label="API key" />
-              </div>
-            )
+            return <SecretValue value={key.key_secret} truncateLength={32} expanded={expanded} />
           case 'prefix':
             return <ExpandableText value={key.key_prefix} expanded={expanded} monospace />
           case 'hash':

@@ -43,18 +43,22 @@ export function defaultPromptFields(): PromptFields {
   }
 }
 
-function toPromptFields(row: UserPrompts | null): PromptFields {
-  const defaults = defaultPromptFields()
-  if (!row) return defaults
+function emptyToNull(value: string): string | null {
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
 
-  const responseTone = row.response_tone?.trim() || defaults.responseTone
+function toPromptFields(row: UserPrompts | null): PromptFields {
+  if (!row) return defaultPromptFields()
+
+  const responseTone = row.response_tone?.trim() || DEFAULT_RESPONSE_TONE
   const whatsappTone = row.whatsapp_response_tone?.trim()
 
   return {
-    background: row.background ?? defaults.background,
-    calendarPreference: row.calendar_preference ?? defaults.calendarPreference,
-    defaultFooter: row.default_footer ?? defaults.defaultFooter,
-    promotions: row.promotions ?? defaults.promotions,
+    background: row.background?.trim() ?? '',
+    calendarPreference: row.calendar_preference?.trim() ?? '',
+    defaultFooter: row.default_footer?.trim() ?? '',
+    promotions: row.promotions?.trim() ?? '',
     responseTone,
     whatsappResponseTone: whatsappTone || WHATSAPP_SAME_AS_EMAIL,
   }
@@ -128,12 +132,12 @@ export async function saveUserPrompts(userId: string, prompts: PromptFields): Pr
 
   const row = {
     user_id: userId,
-    background: prompts.background,
-    calendar_preference: prompts.calendarPreference,
-    default_footer: prompts.defaultFooter,
-    promotions: prompts.promotions,
+    background: emptyToNull(prompts.background),
+    calendar_preference: emptyToNull(prompts.calendarPreference),
+    default_footer: emptyToNull(prompts.defaultFooter),
+    promotions: emptyToNull(prompts.promotions),
     response_tone: prompts.responseTone.trim() || DEFAULT_RESPONSE_TONE,
-    whatsapp_response_tone: prompts.whatsappResponseTone.trim() || null,
+    whatsapp_response_tone: emptyToNull(prompts.whatsappResponseTone),
   }
 
   const { data: updated, error: updateError } = await supabase

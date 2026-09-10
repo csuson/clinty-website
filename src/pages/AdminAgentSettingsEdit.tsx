@@ -34,6 +34,8 @@ function agentSettingsToForm(settings: AdminAgentSettings): CreateAgentSettingsI
     auto_respond_scheduling: settings.auto_respond_scheduling,
     auto_respond_whatsapp: settings.auto_respond_whatsapp ?? true,
     auto_respond_catalog: settings.auto_respond_catalog ?? false,
+    auto_respond_personal: settings.auto_respond_personal ?? true,
+    email_ignore_personal: settings.email_ignore_personal ?? false,
     whatsapp_ignore_personal: settings.whatsapp_ignore_personal ?? true,
     thread_message_cap: settings.thread_message_cap ?? 10,
     whatsapp_thread_message_cap: settings.whatsapp_thread_message_cap ?? 10,
