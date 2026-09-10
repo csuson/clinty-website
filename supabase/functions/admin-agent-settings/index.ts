@@ -168,6 +168,7 @@ async function buildPayload(body: Record<string, unknown>) {
       auto_respond_catalog: parseBoolean(body.auto_respond_catalog) ?? false,
       auto_respond_personal: parseBoolean(body.auto_respond_personal) ?? true,
       email_ignore_personal: parseBoolean(body.email_ignore_personal) ?? false,
+      email_ad_enabled: parseBoolean(body.email_ad_enabled) ?? true,
       whatsapp_ignore_personal: parseBoolean(body.whatsapp_ignore_personal) ?? true,
       thread_message_cap: parsePositiveInt(body.thread_message_cap, 10),
       whatsapp_thread_message_cap: parsePositiveInt(body.whatsapp_thread_message_cap, 10),

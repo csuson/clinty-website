@@ -124,6 +124,7 @@ export type CreateAgentSettingsInput = {
   auto_respond_catalog?: boolean | null
   auto_respond_personal?: boolean | null
   email_ignore_personal?: boolean | null
+  email_ad_enabled?: boolean | null
   whatsapp_ignore_personal?: boolean | null
   thread_message_cap?: number | null
   whatsapp_thread_message_cap?: number | null

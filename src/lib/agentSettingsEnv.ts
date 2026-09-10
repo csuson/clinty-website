@@ -203,6 +203,7 @@ export function parsedEnvToAgentSettingsInput(
     auto_respond_catalog: parseEnvBoolean(parsed.AUTO_RESPOND_CATALOG) ?? false,
     auto_respond_personal: parseEnvBoolean(parsed.AUTO_RESPOND_PERSONAL) ?? true,
     email_ignore_personal: parseEnvBoolean(parsed.EMAIL_IGNORE_PERSONAL) ?? false,
+    email_ad_enabled: parseEnvBoolean(parsed.EMAIL_AD_ENABLED) ?? true,
     whatsapp_ignore_personal: parseEnvBoolean(parsed.WHATSAPP_IGNORE_PERSONAL) ?? true,
     thread_message_cap: parseEnvPositiveInt(parsed.THREAD_MESSAGE_CAP, 10),
     whatsapp_thread_message_cap: parseEnvPositiveInt(parsed.WHATSAPP_THREAD_MESSAGE_CAP, 10),
@@ -278,6 +279,7 @@ export function agentSettingsToEnvContent(
   addBoolean('AUTO_RESPOND_CATALOG', settings.auto_respond_catalog ?? false)
   addBoolean('AUTO_RESPOND_PERSONAL', settings.auto_respond_personal ?? true)
   addBoolean('EMAIL_IGNORE_PERSONAL', settings.email_ignore_personal ?? false)
+  addBoolean('EMAIL_AD_ENABLED', settings.email_ad_enabled ?? true)
   addBoolean('WHATSAPP_IGNORE_PERSONAL', settings.whatsapp_ignore_personal ?? true)
   add('THREAD_MESSAGE_CAP', settings.thread_message_cap ?? 10)
   add('WHATSAPP_THREAD_MESSAGE_CAP', settings.whatsapp_thread_message_cap ?? 10)

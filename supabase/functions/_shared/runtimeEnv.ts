@@ -7,6 +7,7 @@ export const RUNTIME_ENV_KEYS = [
   'AUTO_RESPOND_PERSONAL',
   'AUTO_RESPOND_SCHEDULING',
   'AUTO_RESPOND_WHATSAPP',
+  'EMAIL_AD_ENABLED',
   'EMAIL_IGNORE_PERSONAL',
   'CALENDAR_PROVIDER',
   'DAILY_INCOMING_EMAIL_LIMIT',
@@ -330,6 +331,7 @@ export function agentSettingsToRuntimeEnv(row: AgentSettingsRow | null | undefin
   setBooleanWithDefault(env, 'AUTO_RESPOND_WHATSAPP', row.auto_respond_whatsapp, true)
   setBooleanWithDefault(env, 'AUTO_RESPOND_CATALOG', row.auto_respond_catalog, false)
   setBooleanWithDefault(env, 'AUTO_RESPOND_PERSONAL', row.auto_respond_personal, true)
+  setBooleanWithDefault(env, 'EMAIL_AD_ENABLED', row.email_ad_enabled, true)
   setBooleanWithDefault(env, 'EMAIL_IGNORE_PERSONAL', row.email_ignore_personal, false)
   setBooleanWithDefault(env, 'WHATSAPP_IGNORE_PERSONAL', row.whatsapp_ignore_personal, true)
   setPositiveIntWithDefault(env, 'THREAD_MESSAGE_CAP', row.thread_message_cap, 10)
