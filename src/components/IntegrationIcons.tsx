@@ -74,6 +74,17 @@ export function ExcelIcon({ className = 'w-7 h-7' }: IconProps) {
   )
 }
 
+export function YahooIcon({ className = 'w-7 h-7' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#6001D2"
+        d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 3.2c1.99 0 3.64 1.43 3.98 3.31H8.02C8.36 6.63 10.01 5.2 12 5.2zM7.2 12c0-1.1.35-2.12.94-2.96h7.72A3.78 3.78 0 0 1 16.8 12c0 1.1-.35 2.12-.94 2.96H8.14A3.78 3.78 0 0 1 7.2 12zm4.8 6.8c-1.99 0-3.64-1.43-3.98-3.31h7.96c-.34 1.88-1.99 3.31-3.98 3.31z"
+      />
+    </svg>
+  )
+}
+
 export function OutlookIcon({ className = 'w-7 h-7' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true">

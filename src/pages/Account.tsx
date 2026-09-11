@@ -11,6 +11,7 @@ import H5PBuilder from './account/H5PBuilder'
 import Integrations from './account/Integrations'
 import MetaAdsCallback from './account/MetaAdsCallback'
 import OutlookCallback from './account/OutlookCallback'
+import YahooCallback from './account/YahooCallback'
 import AgentSettings from './account/AgentSettings'
 import Prompts from './account/Prompts'
 import ShopifyCallback from './account/ShopifyCallback'
@@ -29,6 +30,7 @@ export default function Account() {
         <Route path="integrations/google-ads/callback" element={<GoogleAdsOAuthCallback />} />
         <Route path="integrations/meta/callback" element={<MetaAdsCallback />} />
         <Route path="integrations/outlook/callback" element={<OutlookCallback />} />
+        <Route path="integrations/yahoo/callback" element={<YahooCallback />} />
         <Route path="integrations/square/callback" element={<SquareCallback />} />
         <Route path="integrations/shopify/callback" element={<ShopifyCallback />} />
         <Route path="prompts" element={<Prompts />} />

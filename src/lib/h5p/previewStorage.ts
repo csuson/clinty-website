@@ -41,6 +41,10 @@ export function libraryAliasPath(path: string): string | null {
   return `${match[1]}${match[3]}`
 }
 
+function normalizePreviewPath(filePath: string): string {
+  return filePath.replace(/^\/+/, '').replace(/\\/g, '/')
+}
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
@@ -72,6 +76,7 @@ async function putPreviewFile(
 
 async function deletePreview(db: IDBDatabase, previewId: string) {
   revokePreviewBlobUrls(previewId)
+  previewFileCache.delete(previewId)
   const prefix = `${previewId}/`
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite')
@@ -94,6 +99,7 @@ async function deletePreview(db: IDBDatabase, previewId: string) {
 let activePreviewId: string | null = null
 let serviceWorkerReady: Promise<ServiceWorkerRegistration | null> | null = null
 const previewBlobUrls = new Map<string, Map<string, string>>()
+const previewFileCache = new Map<string, Map<string, PreviewFileRecord>>()
 
 function revokePreviewBlobUrls(previewId: string) {
   const urlMap = previewBlobUrls.get(previewId)
@@ -104,8 +110,21 @@ function revokePreviewBlobUrls(previewId: string) {
   previewBlobUrls.delete(previewId)
 }
 
+function getPreviewFileFromCache(previewId: string, filePath: string): PreviewFileRecord | null {
+  const cache = previewFileCache.get(previewId)
+  if (!cache) return null
+
+  const normalized = normalizePreviewPath(filePath)
+  const direct = cache.get(normalized)
+  if (direct) return direct
+
+  const alias = libraryAliasPath(normalized)
+  if (!alias) return null
+  return cache.get(alias) ?? null
+}
+
 export function resolvePreviewAssetUrl(previewId: string, filePath: string): string | null {
-  const normalized = filePath.replace(/^\/+/, '').replace(/\\/g, '/')
+  const normalized = normalizePreviewPath(filePath)
   const urlMap = previewBlobUrls.get(previewId)
   if (!urlMap) return null
 
@@ -121,24 +140,102 @@ export function resolvePreviewAssetUrl(previewId: string, filePath: string): str
   return null
 }
 
-function rewritePreviewAssetUrl(previewId: string, rawUrl: string): string {
+const PREVIEW_REQUIRED_FILES: Partial<Record<string, string[]>> = {
+  'question-set': ['h5p.json', 'content/content.json', 'H5P.QuestionSet-1.20/semantics.json'],
+  'single-choice-set': ['h5p.json', 'content/content.json', 'H5P.SingleChoiceSet-1.10/semantics.json'],
+  'drag-and-drop': [
+    'h5p.json',
+    'content/content.json',
+    'H5P.DragText-1.10/library.json',
+    'H5P.DragText-1.10/dist/h5p-drag-text.js',
+  ],
+  'dialog-cards': ['h5p.json', 'content/content.json'],
+  flashcards: ['h5p.json', 'content/content.json'],
+  crossword: [
+    'h5p.json',
+    'content/content.json',
+    'H5P.Crossword-0.5/library.json',
+    'H5P.Crossword-0.5/dist/h5p-crossword.js',
+  ],
+}
+
+export function assertPreviewAssets(previewId: string, contentType: string) {
+  const required = PREVIEW_REQUIRED_FILES[contentType] ?? ['h5p.json', 'content/content.json']
+  const missing = required.filter((path) => !getPreviewFileFromCache(previewId, path))
+  if (missing.length) {
+    throw new Error(
+      `Preview package is incomplete (missing ${missing.join(', ')}). Refresh and try again.`,
+    )
+  }
+}
+
+function parsePreviewRequestUrl(previewId: string, rawUrl: string): string | null {
   const prefix = `${previewBasePath(previewId)}/`
 
   let pathname: string
   try {
     pathname = new URL(rawUrl, window.location.origin).pathname
   } catch {
-    return rawUrl
+    return null
   }
 
-  if (!pathname.startsWith(prefix)) return rawUrl
+  if (!pathname.startsWith(prefix)) return null
+  return decodeURIComponent(pathname.slice(prefix.length))
+}
 
-  const filePath = decodeURIComponent(pathname.slice(prefix.length))
-  return resolvePreviewAssetUrl(previewId, filePath) ?? rawUrl
+function previewResponse(file: PreviewFileRecord): Response {
+  return new Response(file.data.slice(0), {
+    status: 200,
+    headers: {
+      'Content-Type': file.mime,
+      'Cache-Control': 'no-store',
+    },
+  })
+}
+
+type PreviewXhrState = {
+  filePath: string
+}
+
+declare global {
+  interface XMLHttpRequest {
+    __clintyPreview?: PreviewXhrState
+  }
+}
+
+function respondToPreviewXhr(xhr: XMLHttpRequest, file: PreviewFileRecord) {
+  const body = file.data.slice(0)
+  const text = file.mime.includes('json') || file.mime.startsWith('text/')
+    ? new TextDecoder().decode(body)
+    : ''
+
+  Object.defineProperty(xhr, 'readyState', { configurable: true, value: 4 })
+  Object.defineProperty(xhr, 'status', { configurable: true, value: 200 })
+  Object.defineProperty(xhr, 'statusText', { configurable: true, value: 'OK' })
+
+  if (!xhr.responseType || xhr.responseType === 'text') {
+    Object.defineProperty(xhr, 'responseText', { configurable: true, value: text })
+    Object.defineProperty(xhr, 'response', { configurable: true, value: text })
+  } else if (xhr.responseType === 'json') {
+    Object.defineProperty(xhr, 'response', { configurable: true, value: JSON.parse(text) })
+    Object.defineProperty(xhr, 'responseText', { configurable: true, value: text })
+  } else if (xhr.responseType === 'arraybuffer') {
+    Object.defineProperty(xhr, 'response', { configurable: true, value: body })
+  } else {
+    Object.defineProperty(xhr, 'response', { configurable: true, value: body })
+  }
+
+  xhr.dispatchEvent(new ProgressEvent('loadstart'))
+  xhr.dispatchEvent(new ProgressEvent('load'))
+  xhr.dispatchEvent(new ProgressEvent('loadend'))
 }
 
 export function installPreviewAssetUrlRewriter(previewId: string): () => void {
-  const rewrite = (rawUrl: string) => rewritePreviewAssetUrl(previewId, rawUrl)
+  const rewrite = (rawUrl: string) => {
+    const filePath = parsePreviewRequestUrl(previewId, rawUrl)
+    if (!filePath) return rawUrl
+    return resolvePreviewAssetUrl(previewId, filePath) ?? rawUrl
+  }
 
   const scriptSrcDescriptor = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')
   const linkHrefDescriptor = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, 'href')
@@ -185,8 +282,48 @@ export function installPreviewAssetUrlRewriter(previewId: string): () => void {
 
   observer.observe(document.documentElement, { childList: true, subtree: true })
 
+  const originalXhrOpen = XMLHttpRequest.prototype.open
+  const originalXhrSend = XMLHttpRequest.prototype.send
+
+  XMLHttpRequest.prototype.open = function (
+    method: string,
+    url: string | URL,
+    async?: boolean,
+    username?: string | null,
+    password?: string | null,
+  ) {
+    const rawUrl = typeof url === 'string' ? url : url.toString()
+    const filePath = parsePreviewRequestUrl(previewId, rawUrl)
+    if (filePath) {
+      this.__clintyPreview = { filePath }
+      const blobUrl = resolvePreviewAssetUrl(previewId, filePath)
+      if (blobUrl) {
+        return originalXhrOpen.call(this, method, blobUrl, async ?? true, username, password)
+      }
+      return originalXhrOpen.call(this, method, rawUrl, async ?? true, username, password)
+    }
+
+    this.__clintyPreview = undefined
+    const rewritten = rewrite(rawUrl)
+    return originalXhrOpen.call(this, method, rewritten, async ?? true, username, password)
+  }
+
+  XMLHttpRequest.prototype.send = function (body?: Document | XMLHttpRequestBodyInit | null) {
+    const preview = this.__clintyPreview
+    if (preview) {
+      const file = getPreviewFileFromCache(previewId, preview.filePath)
+      if (file) {
+        queueMicrotask(() => respondToPreviewXhr(this, file))
+        return
+      }
+    }
+    return originalXhrSend.call(this, body)
+  }
+
   return () => {
     observer.disconnect()
+    XMLHttpRequest.prototype.open = originalXhrOpen
+    XMLHttpRequest.prototype.send = originalXhrSend
     if (scriptSrcDescriptor) {
       Object.defineProperty(HTMLScriptElement.prototype, 'src', scriptSrcDescriptor)
     }
@@ -208,7 +345,10 @@ export async function readPreviewFile(
   previewId: string,
   filePath: string,
 ): Promise<PreviewFileRecord | null> {
-  const normalized = filePath.replace(/^\/+/, '').replace(/\\/g, '/')
+  const cached = getPreviewFileFromCache(previewId, filePath)
+  if (cached) return cached
+
+  const normalized = normalizePreviewPath(filePath)
   const db = await openDb()
 
   const direct = await new Promise<PreviewFileRecord | null>((resolve, reject) => {
@@ -302,18 +442,23 @@ export function installPreviewFetchInterceptor(previewId: string): () => void {
     }
 
     const filePath = decodeURIComponent(pathname.slice(prefix.length))
-    const file = await readPreviewFile(previewId, filePath)
-    if (!file) {
-      return new Response('Preview file not found', { status: 404 })
+    const cached = getPreviewFileFromCache(previewId, filePath)
+    if (cached) {
+      return previewResponse(cached)
     }
 
-    return new Response(file.data.slice(0), {
-      status: 200,
-      headers: {
-        'Content-Type': file.mime,
-        'Cache-Control': 'no-store',
-      },
-    })
+    const blobUrl = resolvePreviewAssetUrl(previewId, filePath)
+    if (blobUrl) {
+      return originalFetch(blobUrl, init)
+    }
+
+    const file = await readPreviewFile(previewId, filePath)
+    if (!file) {
+      console.warn(`H5P preview asset missing: ${filePath}`)
+      return new Response(`Preview file not found: ${filePath}`, { status: 404 })
+    }
+
+    return previewResponse(file)
   }
 
   return () => {
@@ -322,8 +467,6 @@ export function installPreviewFetchInterceptor(previewId: string): () => void {
 }
 
 export async function storeH5PPreviewPackage(blob: Blob): Promise<string> {
-  await ensurePreviewServiceWorker()
-
   const previewId = crypto.randomUUID()
   const zip = await JSZip.loadAsync(blob)
   const db = await openDb()
@@ -333,19 +476,25 @@ export async function storeH5PPreviewPackage(blob: Blob): Promise<string> {
   }
 
   const urlMap = new Map<string, string>()
+  const fileCache = new Map<string, PreviewFileRecord>()
   const writes: Promise<void>[] = []
+
   for (const [path, entry] of Object.entries(zip.files)) {
     if (entry.dir) continue
     const normalizedPath = path.replace(/\\/g, '/')
     writes.push(
       entry.async('arraybuffer').then(async (data) => {
         const mime = mimeForPath(normalizedPath)
+        const record: PreviewFileRecord = { data, mime }
+        fileCache.set(normalizedPath, record)
+
         const blobUrl = URL.createObjectURL(new Blob([data], { type: mime }))
         urlMap.set(normalizedPath, blobUrl)
 
         await putPreviewFile(db, previewId, normalizedPath, data, mime)
         const alias = libraryAliasPath(normalizedPath)
         if (alias) {
+          fileCache.set(alias, record)
           urlMap.set(alias, blobUrl)
           await putPreviewFile(db, previewId, alias, data, mime)
         }
@@ -355,8 +504,10 @@ export async function storeH5PPreviewPackage(blob: Blob): Promise<string> {
 
   await Promise.all(writes)
   previewBlobUrls.set(previewId, urlMap)
-
+  previewFileCache.set(previewId, fileCache)
   activePreviewId = previewId
+
+  void ensurePreviewServiceWorker()
   return previewId
 }
 

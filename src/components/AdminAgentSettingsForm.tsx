@@ -63,6 +63,7 @@ export function toAgentSettingsPayload(form: CreateAgentSettingsInput): CreateAg
     auto_respond_personal: form.auto_respond_personal ?? true,
     email_ignore_personal: form.email_ignore_personal ?? false,
     email_ad_enabled: form.email_ad_enabled ?? true,
+    email_draft_instead_of_hitl: form.email_draft_instead_of_hitl ?? false,
     whatsapp_ignore_personal: form.whatsapp_ignore_personal ?? true,
     thread_message_cap: form.thread_message_cap ?? 10,
     whatsapp_thread_message_cap: form.whatsapp_thread_message_cap ?? 10,

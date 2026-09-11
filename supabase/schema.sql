@@ -246,6 +246,7 @@ create table if not exists public.agent_settings (
   auto_respond_personal boolean not null default true,
   email_ignore_personal boolean not null default false,
   email_ad_enabled boolean not null default true,
+  email_draft_instead_of_hitl boolean not null default false,
   whatsapp_ignore_personal boolean not null default true,
   thread_message_cap integer not null default 10,
   whatsapp_thread_message_cap integer not null default 10,
@@ -327,6 +328,7 @@ alter table public.agent_settings add column if not exists auto_respond_catalog 
 alter table public.agent_settings add column if not exists auto_respond_personal boolean not null default true;
 alter table public.agent_settings add column if not exists email_ignore_personal boolean not null default false;
 alter table public.agent_settings add column if not exists email_ad_enabled boolean not null default true;
+alter table public.agent_settings add column if not exists email_draft_instead_of_hitl boolean not null default false;
 alter table public.agent_settings add column if not exists whatsapp_ignore_personal boolean not null default true;
 alter table public.agent_settings add column if not exists thread_message_cap integer not null default 10;
 alter table public.agent_settings add column if not exists whatsapp_thread_message_cap integer not null default 10;

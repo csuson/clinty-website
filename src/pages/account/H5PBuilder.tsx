@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import H5PContentEditor from '../../components/h5p/H5PContentEditor'
 import H5PFileImportPanel from '../../components/h5p/H5PFileImportPanel'
 import H5PAiPromptPanel from '../../components/h5p/H5PAiPromptPanel'
+import H5PPlatformGuide from '../../components/h5p/H5PPlatformGuide'
 import H5PPreviewModal from '../../components/h5p/H5PPreviewModal'
 import { inputClass } from '../../constants/forms'
 import { useAuth } from '../../context/AuthContext'
@@ -125,11 +126,13 @@ export default function H5PBuilder() {
           break
         }
         case 'dialog-cards':
-        case 'flashcards': {
+        case 'flashcards':
+        case 'crossword': {
           const pairs = await readVocabFile(file)
           const vocabCards = vocabPairsToVocabCards(pairs)
           updateForm({ vocabCards, contentType: form.contentType })
-          setMessage(`Imported ${vocabCards.length} card${vocabCards.length === 1 ? '' : 's'}.`)
+          const unit = form.contentType === 'crossword' ? 'word' : 'card'
+          setMessage(`Imported ${vocabCards.length} ${unit}${vocabCards.length === 1 ? '' : 's'}.`)
           break
         }
         case 'single-choice-set': {
@@ -254,14 +257,22 @@ export default function H5PBuilder() {
 
   async function handleDownload(e: FormEvent) {
     e.preventDefault()
+    await downloadPackage(false)
+  }
+
+  async function downloadPackage(forLumi: boolean) {
     setPackaging(true)
     setMessage(null)
     setError(null)
 
     try {
-      const { blob, filename } = await packageH5P(form)
+      const { blob, filename } = await packageH5P(form, { contentOnly: forLumi })
       downloadH5P(blob, filename)
-      setMessage(`Downloaded ${filename}. Upload to Moodle, WordPress, Canvas, or any H5P-enabled LMS.`)
+      setMessage(
+        forLumi
+          ? `Downloaded ${filename} (content only). Use this for Lumi Cloud — libraries come from Lumi, not the file.`
+          : `Downloaded ${filename} (full bundle). Upload to Moodle, WordPress on Hostinger, or any H5P site that installs libraries from .h5p files.`,
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to build H5P package')
     } finally {
@@ -406,6 +417,8 @@ export default function H5PBuilder() {
           ) : null}
         </section>
 
+        <H5PPlatformGuide />
+
         <H5PFileImportPanel contentType={form.contentType} onImportFile={importContentFile} />
 
         <H5PContentEditor
@@ -465,8 +478,18 @@ export default function H5PBuilder() {
               Preview
             </button>
             <button
+              type="button"
+              disabled={packaging}
+              onClick={() => void downloadPackage(true)}
+              title="Content only — for Lumi Cloud and sites that already have H5P libraries installed"
+              className="px-5 py-2.5 rounded-xl border border-navy-900/15 bg-white text-navy-900 text-sm font-medium hover:bg-navy-900/5 disabled:opacity-60"
+            >
+              {packaging ? 'Building…' : 'Lumi / content only'}
+            </button>
+            <button
               type="submit"
               disabled={packaging}
+              title="Full bundle with libraries — for Moodle, WordPress, and Hostinger WordPress"
               className="px-5 py-2.5 rounded-xl bg-navy-900 text-cream text-sm font-medium hover:bg-navy-800 disabled:opacity-60"
             >
               {packaging ? 'Building…' : 'Download .h5p'}

@@ -64,6 +64,9 @@ verify_jwt = false
 [functions.generate-h5p-content]
 verify_jwt = false
 
+[functions.contact-form]
+verify_jwt = false
+
 [functions.meta-oauth-exchange]
 verify_jwt = false
 

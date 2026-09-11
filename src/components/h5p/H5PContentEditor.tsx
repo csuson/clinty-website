@@ -85,6 +85,16 @@ export default function H5PContentEditor({
           variant="flashcards"
         />
       )
+    case 'crossword':
+      return (
+        <VocabCardsEditor
+          form={form}
+          onChange={onChange}
+          onImportFile={onImportVocabFile}
+          simpleMode={simpleMode}
+          variant="crossword"
+        />
+      )
     case 'mark-the-words':
       return (
         <MarkTheWordsEditor

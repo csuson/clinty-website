@@ -20,8 +20,8 @@ merci,thank you
 \`\`\``,
 
   'drag-and-drop': `Output format: CSV or tab-separated word list — one pair per row
-- Column 1: word in target language (draggable)
-- Column 2: translation (drop zone)
+- Column 1: word or phrase in target language (draggable, wrapped in *asterisks* in H5P)
+- Column 2: translation or definition (drop zone label after =)
 
 Example:
 \`\`\`csv
@@ -72,6 +72,18 @@ Example:
 word,translation
 bonjour,hello
 merci,thank you
+\`\`\``,
+
+  crossword: `Output format: CSV or tab-separated word list — one pair per row
+- Column 1: answer word for the grid (target language, single words work best)
+- Column 2: clue (translation or short definition)
+
+Example:
+\`\`\`csv
+word,translation
+bonjour,hello
+merci,thank you
+chat,cat
 \`\`\``,
 
   'mark-the-words': `Output format: plain text with correct words wrapped in asterisks

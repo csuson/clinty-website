@@ -1,7 +1,8 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import PageMeta from '../components/PageMeta'
-import { SUPPORT_EMAIL, WHATSAPP_PHONE_DISPLAY, WHATSAPP_URL } from '../constants/contact'
+import { WHATSAPP_PHONE_DISPLAY, WHATSAPP_URL } from '../constants/contact'
+import { submitContactForm } from '../lib/contactForm'
 
 const whatsappContactUrl = `${WHATSAPP_URL}?text=${encodeURIComponent('Hi Clinty — I have a question about your AI agents.')}`
 
@@ -19,24 +20,30 @@ export default function Contact() {
   const [company, setCompany] = useState('')
   const [inquiryType, setInquiryType] = useState(inquiryTypes[0])
   const [message, setMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setSubmitting(true)
+    setError(null)
 
-    const subject = `[Clinty] ${inquiryType}${company ? ` — ${company}` : ''}`
-    const body = [
-      `Name: ${name}`,
-      `Email: ${email}`,
-      company ? `Company: ${company}` : '',
-      `Inquiry type: ${inquiryType}`,
-      '',
-      'Message:',
-      message,
-    ]
-      .filter(Boolean)
-      .join('\n')
+    const website = String(new FormData(e.currentTarget).get('website') ?? '')
 
-    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    try {
+      await submitContactForm({ name, email, company, inquiryType, message, website })
+      setSubmitted(true)
+      setName('')
+      setEmail('')
+      setCompany('')
+      setMessage('')
+      setInquiryType(inquiryTypes[0])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send message')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -141,6 +148,23 @@ export default function Contact() {
           >
             <h2 className="text-lg font-semibold text-navy-900">Send us a message</h2>
 
+            {submitted ? (
+              <div className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+                Thanks — your message was sent. We typically respond within one business day.
+              </div>
+            ) : null}
+
+            {error ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+                {error}
+              </div>
+            ) : null}
+
+            <div className="hidden" aria-hidden="true">
+              <label htmlFor="website">Website</label>
+              <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+            </div>
+
             <div className="grid sm:grid-cols-2 gap-5">
               <Field label="Name" id="name" required>
                 <input
@@ -207,13 +231,14 @@ export default function Contact() {
 
             <button
               type="submit"
-              className="w-full sm:w-auto bg-navy-900 text-cream font-medium px-6 py-3.5 rounded-xl hover:bg-navy-800 transition-colors"
+              disabled={submitting}
+              className="w-full sm:w-auto bg-navy-900 text-cream font-medium px-6 py-3.5 rounded-xl hover:bg-navy-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Send Message
+              {submitting ? 'Sending…' : 'Send Message'}
             </button>
 
             <p className="text-xs text-navy-600">
-              Submitting opens your email client so you can send your message.
+              Your message is sent securely. We&apos;ll reply to the email address you provide.
             </p>
           </form>
         </div>

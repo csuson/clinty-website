@@ -7,13 +7,25 @@ function createSubContentId(): string {
   return `sub-${Math.random().toString(36).slice(2)}-${Date.now()}`
 }
 
-function paragraphHtml(text: string): string {
-  const escaped = text
+function escapeHtml(text: string): string {
+  return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-  return `<p>${escaped.trim()}</p>`
+}
+
+function paragraphHtml(text: string): string {
+  return `<p>${escapeHtml(text).trim()}</p>`
+}
+
+function shuffleIndices(length: number): number[] {
+  const indices = Array.from({ length }, (_, index) => index)
+  for (let i = indices.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[indices[i], indices[j]] = [indices[j], indices[i]]
+  }
+  return indices
 }
 
 function buildMultiChoiceQuestion(question: H5PBuilderForm['quizQuestions'][number]) {
@@ -137,62 +149,51 @@ function buildTimelineContent(form: H5PBuilderForm) {
   }
 }
 
+function dragTextFieldToken(text: string): string {
+  return text.trim().replace(/\*/g, '').replace(/\s+/g, ' ')
+}
+
+function buildDragTextLine(draggable: string, dropZone: string): string {
+  return `*${dragTextFieldToken(draggable)}* = ${dragTextFieldToken(dropZone)}`
+}
+
 function buildDragAndDropContent(form: H5PBuilderForm) {
   const pairs = form.dragPairs.filter((pair) => pair.draggable.trim() && pair.dropZone.trim())
-  const dropZoneCount = Math.max(pairs.length, 1)
-  const width = Math.min(90 / dropZoneCount, 40)
-
-  const dropZones = pairs.map((pair, index) => ({
-    label: `<div>${pair.dropZone}</div>`,
-    showLabel: true,
-    x: 1 + index * (width + 2),
-    y: 18,
-    width,
-    height: 14,
-    correctElements: [String(index)],
-    backgroundOpacity: 100,
-    tipsAndFeedback: { tip: '', feedbackOnCorrect: '', feedbackOnIncorrect: '' },
-    single: true,
-    autoAlign: false,
-  }))
-
-  const elements = pairs.map((pair, index) => ({
-    type: {
-      library: 'H5P.AdvancedText 1.1',
-      params: { text: paragraphHtml(pair.draggable) },
-      metadata: { contentType: 'Text', license: 'U', title: pair.draggable.slice(0, 80) },
-      subContentId: createSubContentId(),
-    },
-    x: 1 + index * (width + 2),
-    y: 72,
-    width,
-    height: 8,
-    dropZones: [String(index)],
-    backgroundOpacity: 100,
-    multiple: false,
-  }))
+  const ordered = shuffleIndices(pairs.length).map((index) => pairs[index])
+  const textField = ordered.map((pair) => buildDragTextLine(pair.draggable, pair.dropZone)).join('\n')
 
   return {
-    question: {
-      settings: {
-        size: { width: 620, height: 310 },
-        background: { path: '', mime: 'image/png', copyright: { license: 'U' } },
-      },
-      task: { elements, dropZones },
-    },
+    media: { disableImageZooming: false },
+    taskDescription: form.intro.trim() || 'Drag the words into the correct boxes',
     overallFeedback: [{ from: 0, to: 100 }],
+    checkAnswer: 'Check',
+    submitAnswer: 'Submit',
+    tryAgain: 'Retry',
+    showSolution: 'Show solution',
+    dropZoneIndex: 'Drop Zone @index.',
+    empty: 'Drop Zone @index is empty.',
+    contains: 'Drop Zone @index contains draggable @draggable.',
+    ariaDraggableIndex: '@index of @count draggables.',
+    tipLabel: 'Show tip',
+    correctText: 'Correct!',
+    incorrectText: 'Incorrect!',
+    resetDropTitle: 'Reset drop',
+    resetDropDescription: 'Are you sure you want to reset this drop zone?',
+    grabbed: 'Draggable is grabbed.',
+    cancelledDragging: 'Cancelled dragging.',
+    correctAnswer: 'Correct answer:',
+    feedbackHeader: 'Feedback',
     behaviour: {
       enableRetry: true,
+      enableSolutionsButton: true,
       enableCheckButton: true,
-      singlePoint: false,
-      applyPenalty: false,
-      enableScoreExplanation: true,
-      dropZoneHighlighting: 'dragging',
-      autoAlignSpacing: 2,
-      enableFullScreen: false,
-      showScorePoints: true,
-      showTitle: false,
+      instantFeedback: false,
     },
+    scoreBarLabel: 'You got :num out of :total points',
+    a11yCheck: 'Check the answers. The responses will be marked as correct, incorrect, or unanswered.',
+    a11yShowSolution: 'Show the solution. The task will be marked with its correct solution.',
+    a11yRetry: 'Retry the task. Reset all responses and start the task over again.',
+    textField,
   }
 }
 
@@ -360,6 +361,81 @@ function buildFlashcardsContent(form: H5PBuilderForm) {
   }
 }
 
+/** Layout defaults matching crossword-13273.h5p (H5P.Crossword 0.5). */
+const CROSSWORD_LAYOUT = {
+  overallFeedback: [{ from: 0, to: 100 }],
+  theme: {
+    backgroundColor: '#173354',
+    gridColor: '#000000',
+    cellBackgroundColor: '#ffffff',
+    cellColor: '#000000',
+    clueIdColor: '#606060',
+    cellBackgroundColorHighlight: '#3e8de8',
+    cellColorHighlight: '#ffffff',
+    clueIdColorHighlight: '#e0e0e0',
+  },
+  behaviour: {
+    enableInstantFeedback: false,
+    scoreWords: true,
+    applyPenalties: false,
+    enableRetry: true,
+    enableSolutionsButton: true,
+  },
+  l10n: {
+    across: 'Across',
+    down: 'Down',
+    checkAnswer: 'Check',
+    submitAnswer: 'Submit',
+    tryAgain: 'Retry',
+    showSolution: 'Show solution',
+    couldNotGenerateCrossword:
+      'Could not generate a crossword with the given words. Please try again with fewer words or words that have more characters in common.',
+    couldNotGenerateCrosswordTooFewWords: 'Could not generate a crossword. You need at least two words.',
+    probematicWords:
+      "Some words could not be placed. If you are using fixed words, please make sure that their position doesn&#039;t prevent other words from being placed. Words with the same alignment may not be placed touching each other. Problematic word(s): @words",
+    extraClue: 'Extra clue',
+    closeWindow: 'Close window',
+  },
+  a11y: {
+    crosswordGrid:
+      'Crossword grid. Use arrow keys to navigate and the keyboard to enter characters. Alternatively, use Tab to navigate to type the answers in Fill in the Blanks style fields instead of the grid.',
+    column: 'Column',
+    row: 'Row',
+    across: 'Across',
+    down: 'Down',
+    empty: 'Empty',
+    resultFor: 'Result for: @clue',
+    correct: 'Correct',
+    wrong: 'Wrong',
+    point: 'point',
+    solutionFor: 'For @clue the solution is: @solution',
+    extraClueFor: 'Open extra clue for @clue',
+    letterSevenOfNine: 'Letter @position of @length',
+    lettersWord: '@length letter word',
+    check: 'Check the characters. The responses will be marked as correct, incorrect, or unanswered.',
+    showSolution: 'Show the solution. The crossword will be filled with its correct solution.',
+    retry: 'Retry the task. Reset all responses and start the task over again.',
+    yourResult: 'You got @score out of @total points',
+  },
+} as const
+
+function buildCrosswordContent(form: H5PBuilderForm) {
+  const words = form.vocabCards
+    .filter((card) => card.term.trim() && card.translation.trim())
+    .map((card) => ({
+      fixWord: false,
+      orientation: 'across' as const,
+      clue: card.translation.trim(),
+      answer: card.term.trim(),
+    }))
+
+  return {
+    taskDescription: form.intro.trim() || '',
+    words,
+    ...CROSSWORD_LAYOUT,
+  }
+}
+
 function buildSingleChoiceSetContent(form: H5PBuilderForm) {
   const questions = form.quizQuestions.filter(
     (question) => question.question.trim() && question.answers.some((answer) => answer.trim()),
@@ -463,6 +539,8 @@ export function buildH5PContent(
       return buildFlashcardsContent(form)
     case 'single-choice-set':
       return buildSingleChoiceSetContent(form)
+    case 'crossword':
+      return buildCrosswordContent(form)
     default:
       return {}
   }

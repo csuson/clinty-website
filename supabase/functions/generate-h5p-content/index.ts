@@ -28,6 +28,7 @@ Supported contentType values:
 - flashcards: { title, intro, vocabCards: [{ term, translation }] }
 - single-choice-set: { title, intro, quizQuestions: [{ question, answers: string[], correctIndex: number }] }
 - mark-the-words: { title, markTheWordsTaskDescription, markTheWordsText } — wrap clickable words in *asterisks*
+- crossword: { title, intro, vocabCards: [{ term, translation }] } — term is grid answer, translation is clue
 
 Rules:
 - Use only facts from the user prompt and business context

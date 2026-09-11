@@ -1,5 +1,3 @@
-import { SUPPORT_EMAIL } from './contact'
-
 export const SITE_NAME = 'Clinty'
 
 export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? 'https://clinty.net').replace(/\/$/, '')
@@ -36,7 +34,11 @@ export function homePageJsonLd(): Record<string, unknown> {
         name: SITE_NAME,
         url: SITE_URL,
         logo: `${SITE_URL}/favicon.svg`,
-        email: SUPPORT_EMAIL,
+        contactPoint: {
+          '@type': 'ContactPoint',
+          contactType: 'customer support',
+          url: `${SITE_URL}/contact`,
+        },
       },
       {
         '@type': 'WebSite',

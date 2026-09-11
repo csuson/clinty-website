@@ -88,6 +88,28 @@ export type OutlookToken = {
   updated_at: string
 }
 
+export type YahooConnection = {
+  user_id: string
+  yahoo_email: string | null
+  scopes: string[]
+  connected_at: string
+  token_expiry: string | null
+  status: 'connected' | 'disconnected' | 'error'
+}
+
+export type YahooToken = {
+  user_id: string
+  access_token: string
+  refresh_token: string | null
+  token_uri: string
+  client_id: string
+  client_secret: string
+  scopes: string[]
+  yahoo_account: string | null
+  expiry: string | null
+  updated_at: string
+}
+
 export type ShopifyConnection = {
   user_id: string
   shop_domain: string | null
@@ -178,6 +200,7 @@ export type AgentSettings = {
   auto_respond_personal: boolean
   email_ignore_personal: boolean
   email_ad_enabled: boolean
+  email_draft_instead_of_hitl: boolean
   whatsapp_ignore_personal: boolean
   thread_message_cap: number
   whatsapp_thread_message_cap: number
@@ -345,6 +368,51 @@ export type Database = {
           client_secret?: string
           scopes?: string[]
           outlook_account?: string | null
+          expiry?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      yahoo_connections: {
+        Row: YahooConnection
+        Insert: {
+          user_id: string
+          yahoo_email?: string | null
+          scopes?: string[]
+          connected_at?: string
+          token_expiry?: string | null
+          status?: 'connected' | 'disconnected' | 'error'
+        }
+        Update: {
+          yahoo_email?: string | null
+          scopes?: string[]
+          token_expiry?: string | null
+          status?: 'connected' | 'disconnected' | 'error'
+        }
+        Relationships: []
+      }
+      yahoo_tokens: {
+        Row: YahooToken
+        Insert: {
+          user_id: string
+          access_token: string
+          refresh_token?: string | null
+          token_uri?: string
+          client_id: string
+          client_secret: string
+          scopes?: string[]
+          yahoo_account?: string | null
+          expiry?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          refresh_token?: string | null
+          token_uri?: string
+          client_id?: string
+          client_secret?: string
+          scopes?: string[]
+          yahoo_account?: string | null
           expiry?: string | null
           updated_at?: string
         }
@@ -549,6 +617,7 @@ export type Database = {
           auto_respond_personal?: boolean
           email_ignore_personal?: boolean
           email_ad_enabled?: boolean
+          email_draft_instead_of_hitl?: boolean
           whatsapp_ignore_personal?: boolean
           thread_message_cap?: number
           whatsapp_thread_message_cap?: number
@@ -587,6 +656,7 @@ export type Database = {
           auto_respond_personal?: boolean
           email_ignore_personal?: boolean
           email_ad_enabled?: boolean
+          email_draft_instead_of_hitl?: boolean
           whatsapp_ignore_personal?: boolean
           thread_message_cap?: number
           whatsapp_thread_message_cap?: number

@@ -1,5 +1,4 @@
 import {
-  ensurePreviewServiceWorker,
   installPreviewAssetUrlRewriter,
   installPreviewFetchInterceptor,
   previewBasePath,
@@ -54,7 +53,6 @@ async function getH5PConstructor(): Promise<H5PConstructor> {
 export async function mountH5PPreview(container: HTMLElement, previewId: string): Promise<() => void> {
   container.replaceChildren()
 
-  await ensurePreviewServiceWorker()
   const removeFetchInterceptor = installPreviewFetchInterceptor(previewId)
   const removeAssetUrlRewriter = installPreviewAssetUrlRewriter(previewId)
 

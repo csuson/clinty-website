@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import type { H5PBuilderForm } from '../../lib/h5p/types'
 import { packageH5P } from '../../lib/h5p/packager'
 import { mountH5PPreview } from '../../lib/h5p/previewPlayer'
-import { clearActivePreview, storeH5PPreviewPackage } from '../../lib/h5p/previewStorage'
+import {
+  assertPreviewAssets,
+  clearActivePreview,
+  storeH5PPreviewPackage,
+} from '../../lib/h5p/previewStorage'
 
 export default function H5PPreviewModal({
   form,
@@ -48,14 +52,31 @@ export default function H5PPreviewModal({
           }
         }
 
+        if (form.contentType === 'crossword') {
+          const validWords = form.vocabCards.filter((card) => card.term.trim() && card.translation.trim())
+          if (validWords.length < 2) {
+            throw new Error('Add at least two clue/answer pairs before previewing the crossword.')
+          }
+        }
+
         if (form.contentType === 'mark-the-words') {
           if (!form.markTheWordsText.trim() || !/\*[^*]+\*/.test(form.markTheWordsText)) {
             throw new Error('Add text with at least one word wrapped in *asterisks* before previewing.')
           }
         }
 
+        if (form.contentType === 'drag-and-drop') {
+          const validPairs = form.dragPairs.filter(
+            (pair) => pair.draggable.trim() && pair.dropZone.trim(),
+          )
+          if (!validPairs.length) {
+            throw new Error('Add at least one matching pair before previewing.')
+          }
+        }
+
         const { blob } = await packageH5P(form, { forPreview: true })
         const previewId = await storeH5PPreviewPackage(blob)
+        assertPreviewAssets(previewId, form.contentType)
 
         if (cancelled || !containerRef.current) return
 

@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
+import { buildCrosswordContent, buildCrosswordWord } from './h5p-crossword-layout.mjs'
 
 const execFileAsync = promisify(execFile)
 
@@ -72,6 +73,8 @@ const LIBRARY_REPOS = {
   'H5P.Timeline': { repo: 'h5p/h5p-timeline', ref: '1.1.17' },
   TimelineJS: { repo: 'h5p/timelinejs', ref: 'master' },
   'H5P.DragQuestion': { repo: 'h5p/h5p-drag-question', ref: '1.14.22' },
+  'H5P.DragText': { repo: 'h5p/h5p-drag-text', ref: '1.10.17' },
+  'H5P.AdvancedText': { repo: 'h5p/h5p-advanced-text', ref: '1.1.16' },
   'jquery.ui': { repo: 'h5p/jquery-ui', ref: 'master' },
   'H5P.QuestionSet': { repo: 'h5p/h5p-question-set', ref: '1.20.31' },
   'H5P.MultiChoice': { repo: 'h5p/h5p-multi-choice', ref: '1.16.14' },
@@ -89,13 +92,16 @@ const LIBRARY_REPOS = {
   'H5P.SingleChoiceSet': { repo: 'h5p/h5p-single-choice-set', ref: '1.10.0' },
   'H5P.Audio': { repo: 'h5p/h5p-audio', ref: '1.4.0' },
   'H5P.SoundJS': { repo: 'h5p/h5p-soundjs', ref: '1.0.1' },
+  'H5P.Crossword': { repo: 'otacke/h5p-crossword', ref: '0.5.5' },
+  'H5P.MaterialDesignIcons': { repo: 'h5p/h5p-material-design-icons', ref: 'master' },
+  'H5P.Image': { repo: 'h5p/h5p-image', ref: '1.1.23' },
 }
 
 const CONTENT_TYPE_LIBS = {
   accordion: ['H5P.Accordion'],
   blanks: ['H5P.Blanks'],
   timeline: ['H5P.Timeline'],
-  'drag-and-drop': ['H5P.DragQuestion'],
+  'drag-and-drop': ['H5P.DragText'],
   'question-set': ['H5P.QuestionSet', 'H5P.MultiChoice'],
   'course-presentation': ['H5P.CoursePresentation'],
   'interactive-video': ['H5P.InteractiveVideo'],
@@ -103,13 +109,14 @@ const CONTENT_TYPE_LIBS = {
   'dialog-cards': ['H5P.Dialogcards'],
   flashcards: ['H5P.Flashcards'],
   'single-choice-set': ['H5P.SingleChoiceSet'],
+  crossword: ['H5P.Crossword'],
 }
 
 const CONTENT_TYPE_MAIN = {
   accordion: 'H5P.Accordion',
   blanks: 'H5P.Blanks',
   timeline: 'H5P.Timeline',
-  'drag-and-drop': 'H5P.DragQuestion',
+  'drag-and-drop': 'H5P.DragText',
   'question-set': 'H5P.QuestionSet',
   'course-presentation': 'H5P.CoursePresentation',
   'interactive-video': 'H5P.InteractiveVideo',
@@ -117,6 +124,7 @@ const CONTENT_TYPE_MAIN = {
   'dialog-cards': 'H5P.Dialogcards',
   flashcards: 'H5P.Flashcards',
   'single-choice-set': 'H5P.SingleChoiceSet',
+  crossword: 'H5P.Crossword',
 }
 
 function mapMachineName(machineName) {
@@ -274,11 +282,15 @@ async function collectPackagableFiles(libDir, libraryJson) {
     }
   }
 
-  for (const optional of ['icon.svg', 'semantics.json']) {
+  for (const optional of ['icon.svg', 'semantics.json', 'upgrades.js']) {
     const full = join(libDir, optional)
     if (await pathExists(full)) {
       selected.add(optional)
     }
+  }
+
+  if (!(await pathExists(join(libDir, 'semantics.json')))) {
+    console.warn(`Warning: ${libraryJson.machineName} is missing semantics.json in ${libDir}`)
   }
 
   const existing = []
@@ -351,6 +363,70 @@ async function downloadLibrary(machineName) {
   return { folderName: packageFolderName, libraryJson, libDir: targetDir }
 }
 
+// Bump packaged library patch versions so LMS installs pick up semantics.json from
+// our bundle instead of skipping a broken copy already on the server.
+const PACKAGING_PATCH_OFFSET = 1000
+
+/** CSS appended to H5P.Crossword — full-width grid layout with scroll when needed. */
+const CROSSWORD_CELL_SIZE_CSS = `
+/* Clinty: doubled crossword cell size */
+.h5p-crossword .h5p-crossword-table-wrapper {
+  overflow-x: auto;
+  width: 100%;
+  margin-right: 0;
+}
+.h5p-crossword .h5p-crossword-content {
+  flex-direction: column;
+}
+.h5p-crossword .h5p-crossword-input-container {
+  width: 100% !important;
+}
+`
+
+const CROSSWORD_TABLE_RESIZE_OLD =
+  'e.resize=function(){const t=this.content.clientWidth/this.params.dimensions.columns;this.content.style.fontSize=t/2+"px"}'
+const CROSSWORD_TABLE_RESIZE_NEW =
+  'e.resize=function(){const e=this.content.parentElement,s=(e?e.clientWidth:this.content.clientWidth)/this.params.dimensions.columns,o=2*s;this.content.style.width=this.params.dimensions.columns*o+"px",this.content.style.fontSize=o+"px"}'
+const CROSSWORD_SOLUTION_RESIZE_OLD =
+  'e.resize=function(){const t=this.content.clientWidth/this.scaleWidth;this.content.style.fontSize=t/2+"px",this.cells.forEach((e=>{e.setWidth(t)}))}'
+const CROSSWORD_SOLUTION_RESIZE_NEW =
+  'e.resize=function(){const e=this.content.parentElement,s=(e?e.clientWidth:this.content.clientWidth)/this.scaleWidth,o=2*s;return this.content.style.width=this.scaleWidth*o+"px",this.content.style.fontSize=o+"px",this.cells.forEach((e=>{e.setWidth(o)}))}'
+
+function patchCrosswordLibraryBuffer(data, file) {
+  if (file === 'dist/h5p-crossword.js') {
+    let text = data.toString('utf8')
+    if (!text.includes('32px')) {
+      throw new Error('Crossword JS patch failed: expected 32px maxWidth anchor missing')
+    }
+    text = text.replace('32px', '64px')
+    if (!text.includes(CROSSWORD_TABLE_RESIZE_OLD)) {
+      throw new Error('Crossword JS patch failed: table resize anchor missing')
+    }
+    text = text.replace(CROSSWORD_TABLE_RESIZE_OLD, CROSSWORD_TABLE_RESIZE_NEW)
+    if (!text.includes(CROSSWORD_SOLUTION_RESIZE_OLD)) {
+      throw new Error('Crossword JS patch failed: solution word resize anchor missing')
+    }
+    text = text.replace(CROSSWORD_SOLUTION_RESIZE_OLD, CROSSWORD_SOLUTION_RESIZE_NEW)
+    return Buffer.from(text, 'utf8')
+  }
+  if (file === 'dist/h5p-crossword.css') {
+    return Buffer.concat([data, Buffer.from(CROSSWORD_CELL_SIZE_CSS, 'utf8')])
+  }
+  return data
+}
+
+/** WordPress/Moodle reject folder-only zip entries (paths ending with /). */
+async function generateH5PArchive(zip) {
+  const clean = new JSZip()
+  await Promise.all(
+    Object.entries(zip.files).map(async ([path, entry]) => {
+      if (entry.dir) return
+      clean.file(path, await entry.async('nodebuffer'), { createFolders: false })
+    }),
+  )
+  return clean.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+}
+
 async function addLibraryToZip(zip, machineName) {
   const { folderName, libraryJson, libDir } = await downloadLibrary(machineName)
   const files = await collectPackagableFiles(libDir, libraryJson)
@@ -361,7 +437,15 @@ async function addLibraryToZip(zip, machineName) {
 
   for (const file of files) {
     const rel = join(folderName, file).replace(/\\/g, '/')
-    const data = await readFile(join(libDir, file))
+    let data = await readFile(join(libDir, file))
+    if (file === 'library.json') {
+      const json = JSON.parse(data.toString())
+      json.patchVersion = (json.patchVersion ?? 0) + PACKAGING_PATCH_OFFSET
+      data = Buffer.from(`${JSON.stringify(json, null, 2)}\n`)
+    }
+    if (machineName === 'H5P.Crossword') {
+      data = patchCrosswordLibraryBuffer(data, file)
+    }
     zip.file(rel, data)
   }
 
@@ -399,21 +483,20 @@ function placeholderContent(contentType) {
       }
     case 'drag-and-drop':
       return {
-        question: {
-          settings: { size: { width: 620, height: 310 } },
-          task: { elements: [], dropZones: [] },
-        },
+        media: { disableImageZooming: false },
+        taskDescription: 'Drag the words into the correct boxes',
         overallFeedback: [{ from: 0, to: 100 }],
+        checkAnswer: 'Check',
+        submitAnswer: 'Submit',
+        tryAgain: 'Retry',
+        showSolution: 'Show solution',
         behaviour: {
           enableRetry: true,
+          enableSolutionsButton: true,
           enableCheckButton: true,
-          singlePoint: false,
-          dropZoneHighlighting: 'dragging',
-          autoAlignSpacing: 2,
-          enableFullScreen: false,
-          showScorePoints: true,
-          showTitle: false,
+          instantFeedback: false,
         },
+        textField: '*bonjour* = hello\n*merci* = thank you',
       }
     case 'question-set':
       return {
@@ -487,6 +570,14 @@ function placeholderContent(contentType) {
           passPercentage: 100,
         },
       }
+    case 'crossword':
+      return buildCrosswordContent({
+        taskDescription: '',
+        words: [
+          buildCrosswordWord('hello', 'bonjour'),
+          buildCrosswordWord('thank you', 'merci'),
+        ],
+      })
     default:
       return {}
   }
@@ -523,7 +614,7 @@ async function buildTemplate(contentType) {
   zip.file('h5p.json', JSON.stringify(h5pJson, null, 2))
   zip.file('content/content.json', JSON.stringify(placeholderContent(contentType), null, 2))
 
-  const buffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+  const buffer = await generateH5PArchive(zip)
   await writeFile(join(outDir, `${contentType}.h5p`), buffer)
   console.log(`Built ${contentType}.h5p`)
 }

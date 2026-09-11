@@ -89,8 +89,8 @@ export default function DragDropEditor({
         title={simpleMode ? 'Word pairs' : 'Elements'}
         description={
           simpleMode
-            ? 'Students drag each word to its translation.'
-            : 'Each row is one draggable item matched to a drop zone label.'
+            ? 'Each row becomes a line like *French phrase* = English translation. Students drag words into the matching boxes.'
+            : 'Drag-the-words layout: draggable term, drop zone label, one pair per line.'
         }
         sidebar={
           <>

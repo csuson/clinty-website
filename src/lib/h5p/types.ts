@@ -33,11 +33,11 @@ export const H5P_CONTENT_TYPES = [
   },
   {
     id: 'drag-and-drop',
-    label: 'Drag and Drop',
-    mainLibrary: 'H5P.DragQuestion',
+    label: 'Drag the Words',
+    mainLibrary: 'H5P.DragText',
     majorVersion: 1,
-    minorVersion: 14,
-    description: 'Match items to correct drop zones.',
+    minorVersion: 10,
+    description: 'Drag each word or phrase to its matching definition.',
   },
   {
     id: 'accordion',
@@ -87,6 +87,14 @@ export const H5P_CONTENT_TYPES = [
     minorVersion: 10,
     description: 'Quick swipe-style multiple choice questions.',
   },
+  {
+    id: 'crossword',
+    label: 'Crossword',
+    mainLibrary: 'H5P.Crossword',
+    majorVersion: 0,
+    minorVersion: 5,
+    description: 'Crossword puzzle generated from clue and answer pairs.',
+  },
 ] as const
 
 export type H5PContentTypeId = (typeof H5P_CONTENT_TYPES)[number]['id']
@@ -102,12 +110,12 @@ export const H5P_TEACHER_EXERCISES: ReadonlyArray<{
     id: 'question-set',
     label: 'Vocabulary quiz',
     description: 'Show a word or phrase — students pick the correct translation.',
-    importHint: 'CSV/TXT: word,translation — or word [tab] translation',
+    importHint: 'CSV/TXT: word,translation — or alternating lines (French then English)',
   },
   {
     id: 'drag-and-drop',
     label: 'Matching',
-    description: 'Drag each word to its translation (great for vocabulary review).',
+    description: 'Drag each word or phrase into the box with its translation (Drag the Words layout).',
     importHint: 'CSV/TXT: term,translation — one pair per row',
   },
   {
@@ -126,13 +134,13 @@ export const H5P_TEACHER_EXERCISES: ReadonlyArray<{
     id: 'dialog-cards',
     label: 'Flip cards',
     description: 'Turn cards to reveal translations — ideal for vocabulary drills.',
-    importHint: 'CSV/TXT: word,translation — one pair per row',
+    importHint: 'CSV/TXT: word,translation — or term on one line, indented translation below',
   },
   {
     id: 'flashcards',
     label: 'Type-answer cards',
     description: 'Students type the translation before checking their answer.',
-    importHint: 'CSV/TXT: word,translation — one pair per row',
+    importHint: 'CSV/TXT: word,translation — or term on one line, indented translation below',
   },
   {
     id: 'single-choice-set',
@@ -145,6 +153,12 @@ export const H5P_TEACHER_EXERCISES: ReadonlyArray<{
     label: 'Mark the words',
     description: 'Students click correct words in a sentence — grammar and reading.',
     importHint: 'TXT with *marked* words, or word list to build a find-the-words task',
+  },
+  {
+    id: 'crossword',
+    label: 'Crossword',
+    description: 'Auto-generated crossword from vocabulary clues and answers.',
+    importHint: 'CSV/TXT: word,translation — clue and answer (single words work best)',
   },
 ]
 
@@ -201,6 +215,12 @@ export type H5PQuizSettings = {
 export type PackageH5POptions = {
   /** Skip intro screen and prefer div embed for in-app preview. */
   forPreview?: boolean
+  /**
+   * Omit bundled library folders (h5p.json + content only).
+   * Use for Lumi Cloud (cannot install libraries) or any LMS that already has
+   * the required content types installed.
+   */
+  contentOnly?: boolean
 }
 
 export type H5PDragPair = {

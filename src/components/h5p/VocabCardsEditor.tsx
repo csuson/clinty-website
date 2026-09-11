@@ -29,7 +29,7 @@ export default function VocabCardsEditor({
   onChange: (patch: Partial<H5PBuilderForm>) => void
   onImportFile?: (file: File) => Promise<void>
   simpleMode?: boolean
-  variant: 'dialog-cards' | 'flashcards'
+  variant: 'dialog-cards' | 'flashcards' | 'crossword'
 }) {
   const cards = form.vocabCards
   const { selectedIndex, setSelectedIndex } = useSelectedIndex(cards.length)
@@ -45,14 +45,23 @@ export default function VocabCardsEditor({
           termPlaceholder: 'bonjour',
           translationPlaceholder: 'hello',
         }
-      : {
-          type: simpleMode ? 'Type-answer cards' : 'Flashcards',
-          list: simpleMode ? 'Vocabulary cards' : 'Cards',
-          term: 'Prompt',
-          translation: 'Correct answer',
-          termPlaceholder: 'bonjour',
-          translationPlaceholder: 'hello',
-        }
+      : variant === 'crossword'
+        ? {
+            type: simpleMode ? 'Crossword' : 'Crossword',
+            list: simpleMode ? 'Clues and answers' : 'Words',
+            term: 'Answer (word in grid)',
+            translation: 'Clue (translation or definition)',
+            termPlaceholder: 'bonjour',
+            translationPlaceholder: 'hello',
+          }
+        : {
+            type: simpleMode ? 'Type-answer cards' : 'Flashcards',
+            list: simpleMode ? 'Vocabulary cards' : 'Cards',
+            term: 'Prompt',
+            translation: 'Correct answer',
+            termPlaceholder: 'bonjour',
+            translationPlaceholder: 'hello',
+          }
 
   function updateCards(next: H5PVocabCard[]) {
     onChange({ vocabCards: next })
@@ -78,7 +87,10 @@ export default function VocabCardsEditor({
   }
 
   return (
-    <EditorShell contentTypeLabel={labels.type} countLabel={`${cards.length} card${cards.length === 1 ? '' : 's'}`}>
+    <EditorShell
+      contentTypeLabel={labels.type}
+      countLabel={`${cards.length} ${variant === 'crossword' ? 'word' : 'card'}${cards.length === 1 ? '' : 's'}`}
+    >
       <CollapsibleSection title="Activity settings">
         <EditorField label="Title" id="vc-title">
           <input
@@ -105,7 +117,9 @@ export default function VocabCardsEditor({
         description={
           variant === 'dialog-cards'
             ? 'Each card shows the term on the front; students flip to see the translation.'
-            : 'Students type the translation before checking their answer.'
+            : variant === 'crossword'
+              ? 'Each row is a clue and the word that fills the grid. Single words intersect best; phrases may not fit.'
+              : 'Students type the translation before checking their answer.'
         }
         sidebar={
           <>

@@ -10,6 +10,7 @@ import {
   MessengerIcon,
   MicrosoftCalendarIcon,
   OutlookIcon,
+  YahooIcon,
   QuickBooksIcon,
   ShopifyIcon,
   SquareIcon,
@@ -86,6 +87,13 @@ const integrations = [
       'Handle Outlook inboxes and customer threads automatically. Works with Microsoft 365 and Outlook.com mailboxes.',
     icon: OutlookIcon,
     iconBg: 'bg-sky-50',
+  },
+  {
+    name: 'Yahoo Mail',
+    category: 'Email',
+    description: 'Read and respond to Yahoo Mail and manage Yahoo Calendar appointments.',
+    icon: YahooIcon,
+    iconBg: 'bg-purple-50',
   },
   {
     name: 'Microsoft Calendar',
@@ -194,7 +202,7 @@ export default function Integrations() {
             </svg>
           </Link>
           <p className="text-sm text-navy-600 mt-3">
-            Google Ads, Meta, Yelp, Gmail, Outlook, Square, Shopify, WhatsApp, and more are available in your account settings.
+            Google Ads, Meta, Yelp, Gmail, Outlook, Yahoo, Square, Shopify, WhatsApp, and more are available in your account settings.
           </p>
         </div>
       </div>

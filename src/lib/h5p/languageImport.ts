@@ -32,6 +32,73 @@ function looksLikeCsv(text: string): boolean {
   return firstLine.includes(',') && !firstLine.includes('*')
 }
 
+function normalizeVocabLine(line: string): string {
+  return line.replace(/^\uFEFF/, '').trim()
+}
+
+/** Two-column lists: one term + translation per consecutive line pair (optional leading tabs). */
+function parseConsecutiveLineVocabPairs(text: string): VocabPair[] | null {
+  const normalized = text
+    .split(/\r?\n/)
+    .map(normalizeVocabLine)
+    .filter(Boolean)
+
+  if (normalized.length < 2 || normalized.length % 2 !== 0) return null
+
+  const sameLineCount = normalized.filter((line) => splitTxtLine(line)).length
+  if (sameLineCount >= Math.max(2, normalized.length / 3)) return null
+
+  const pairs: VocabPair[] = []
+  for (let index = 0; index < normalized.length; index += 2) {
+    pairs.push({ term: normalized[index], translation: normalized[index + 1] })
+  }
+
+  return pairs.length ? pairs : null
+}
+
+/** French/English lists: term on one line, indented translation on the next. */
+function hasAlternatingVocabFormat(lines: string[]): boolean {
+  let pairs = 0
+  for (let index = 0; index < lines.length - 1; index += 1) {
+    const term = lines[index]
+    const translation = lines[index + 1]
+    if (!term.trim() || term.trim().startsWith('#') || /^\s/.test(term)) continue
+    if (/^\s+\S/.test(translation)) {
+      pairs += 1
+      index += 1
+    }
+  }
+  return pairs >= 2
+}
+
+function parseAlternatingVocabPairs(text: string): VocabPair[] {
+  const lines = text.split(/\r?\n/)
+  const pairs: VocabPair[] = []
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const termLine = lines[index]
+    if (!termLine.trim() || termLine.trim().startsWith('#') || /^\s/.test(termLine)) continue
+
+    const term = termLine.trim()
+    let nextIndex = index + 1
+    while (nextIndex < lines.length && !lines[nextIndex].trim()) nextIndex += 1
+    if (nextIndex >= lines.length) break
+
+    const translationLine = lines[nextIndex]
+    if (/^\s/.test(translationLine)) {
+      const translation = translationLine.trim()
+      if (translation) pairs.push({ term, translation })
+      index = nextIndex
+      continue
+    }
+
+    const split = splitTxtLine(term)
+    if (split) pairs.push({ term: split[0], translation: split[1] })
+  }
+
+  return pairs
+}
+
 export function parseVocabPairs(text: string): VocabPair[] {
   const trimmed = text.trim()
   if (!trimmed) {
@@ -82,15 +149,24 @@ export function parseVocabPairs(text: string): VocabPair[] {
     return pairs
   }
 
+  const consecutivePairs = parseConsecutiveLineVocabPairs(trimmed)
+  if (consecutivePairs?.length) return consecutivePairs
+
+  const lines = trimmed.split(/\r?\n/)
+  if (hasAlternatingVocabFormat(lines)) {
+    const alternatingPairs = parseAlternatingVocabPairs(trimmed)
+    if (alternatingPairs.length) return alternatingPairs
+  }
+
   const pairs: VocabPair[] = []
-  for (const line of trimmed.split(/\r?\n/)) {
+  for (const line of lines) {
     const split = splitTxtLine(line)
     if (split) pairs.push({ term: split[0], translation: split[1] })
   }
 
   if (!pairs.length) {
     throw new Error(
-      'No vocabulary lines found. Use tab-separated pairs, word - translation, or a CSV with word,translation columns.',
+      'No vocabulary lines found. Use term on one line with an indented translation below, tab-separated pairs, word - translation, or a CSV with word,translation columns.',
     )
   }
 

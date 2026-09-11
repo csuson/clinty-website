@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import GmailIntegration from './GmailIntegration'
 import GoogleAdsIntegration from './GoogleAdsIntegration'
 import OutlookIntegration from './OutlookIntegration'
+import YahooIntegration from './YahooIntegration'
 import ShopifyIntegration from './ShopifyIntegration'
 import SquareIntegration from './SquareIntegration'
 import WhatsAppIntegration from './WhatsAppIntegration'
@@ -9,6 +10,7 @@ import WhatsAppIntegration from './WhatsAppIntegration'
 export type IntegrationId =
   | 'gmail'
   | 'outlook'
+  | 'yahoo'
   | 'square'
   | 'shopify'
   | 'whatsapp'
@@ -17,6 +19,7 @@ export type IntegrationId =
 function integrationFromSearchParams(params: URLSearchParams): IntegrationId | null {
   if (params.get('connected') || params.get('gmail_error')) return 'gmail'
   if (params.get('outlook_connected') || params.get('outlook_error')) return 'outlook'
+  if (params.get('yahoo_connected') || params.get('yahoo_error')) return 'yahoo'
   if (params.get('square_connected') || params.get('square_error')) return 'square'
   if (params.get('shopify_connected') || params.get('shopify_error')) return 'shopify'
   if (params.get('whatsapp_connected')) return 'whatsapp'
@@ -56,6 +59,10 @@ export default function Integrations() {
       <OutlookIntegration
         expanded={expandedId === 'outlook'}
         onToggle={() => toggle('outlook')}
+      />
+      <YahooIntegration
+        expanded={expandedId === 'yahoo'}
+        onToggle={() => toggle('yahoo')}
       />
       <SquareIntegration
         expanded={expandedId === 'square'}
