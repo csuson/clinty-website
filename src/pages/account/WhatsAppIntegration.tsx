@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useState } from 'react'
-import FormField from '../../components/FormField'
 import IntegrationPanel, { type IntegrationStatusKind } from '../../components/IntegrationPanel'
 import { WHATSAPP_LOGIN_PATH } from '../../constants/whatsapp'
-import { inputClass } from '../../constants/forms'
 import { useAuth } from '../../context/AuthContext'
 import {
   disconnectWhatsApp,
@@ -11,7 +9,6 @@ import {
   fetchWhatsAppGatewaySettings,
   formatPhone,
   isWhatsAppGatewayConfigured,
-  saveWhatsAppGateway,
   type WhatsAppConnection,
   type WhatsAppGatewaySettings,
 } from '../../lib/whatsapp/web'
@@ -29,11 +26,8 @@ export default function WhatsAppIntegration({ expanded, onToggle }: WhatsAppInte
     hasApiKey: false,
     usesDefaultApiKey: false,
   })
-  const [gatewayUrlInput, setGatewayUrlInput] = useState('')
-  const [gatewayApiKeyInput, setGatewayApiKeyInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
-  const [savingGateway, setSavingGateway] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -50,9 +44,6 @@ export default function WhatsAppIntegration({ expanded, onToggle }: WhatsAppInte
       ])
       setConnection(connectionData?.status === 'connected' ? connectionData : null)
       setGatewaySettings(settings)
-      if (settings.gatewayUrl) {
-        setGatewayUrlInput(settings.gatewayUrl)
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load WhatsApp settings')
     } finally {
@@ -70,25 +61,6 @@ export default function WhatsAppIntegration({ expanded, onToggle }: WhatsAppInte
       loadData()
     }
   }, [loadData])
-
-  async function handleSaveGateway() {
-    setSavingGateway(true)
-    setError(null)
-    setSuccess(null)
-    try {
-      const settings = await saveWhatsAppGateway(
-        gatewayUrlInput,
-        gatewayApiKeyInput.trim() || undefined,
-      )
-      setGatewaySettings(settings)
-      setGatewayApiKeyInput('')
-      setSuccess('WhatsApp gateway saved. You can now link your device.')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save WhatsApp gateway')
-    } finally {
-      setSavingGateway(false)
-    }
-  }
 
   async function handleDisconnect() {
     setWorking(true)
@@ -117,7 +89,7 @@ export default function WhatsAppIntegration({ expanded, onToggle }: WhatsAppInte
     statusLabel = 'Connected'
   } else if (gatewayReady) {
     status = 'partial'
-    statusLabel = 'Gateway ready'
+    statusLabel = 'Ready to link'
   }
 
   return (
@@ -135,165 +107,102 @@ export default function WhatsAppIntegration({ expanded, onToggle }: WhatsAppInte
       onToggle={onToggle}
     >
       <p className="text-sm text-navy-600 mb-6">
-        Connect your own WhatsApp Web gateway, then link your number via QR code so Clinty can
-        read and reply to customer messages.
+        Link your WhatsApp number via QR code so Clinty can read and reply to customer messages.
+        Gateway URL, API key, and auth storage are configured by your admin in Admin → WhatsApp Settings.
       </p>
 
+      {!loading && !gatewayReady && (
+        <div className="rounded-xl bg-amber-400/10 border border-amber-400/20 text-sm px-4 py-3 mb-6 text-navy-700">
+          WhatsApp gateway is not configured yet. An admin must set the gateway URL and API key before
+          you can link your device.
+        </div>
+      )}
+
       {error && (
-          <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 mb-6">
-            {error}
-          </div>
-        )}
+        <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 mb-6">
+          {error}
+        </div>
+      )}
 
-        {success && (
-          <div className="rounded-xl bg-teal-400/10 border border-teal-400/20 text-teal-600 text-sm px-4 py-3 mb-6">
-            {success}
-          </div>
-        )}
+      {success && (
+        <div className="rounded-xl bg-teal-400/10 border border-teal-400/20 text-teal-600 text-sm px-4 py-3 mb-6">
+          {success}
+        </div>
+      )}
 
-        {loading ? (
-          <p className="text-sm text-navy-600">Loading WhatsApp settings...</p>
-        ) : (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold text-navy-900 mb-1">Your WhatsApp gateway</h3>
-                <p className="text-sm text-navy-600 mb-4">
-                  Each account uses its own Baileys gateway. The URL must be reachable from Supabase
-                  (HTTPS via VPS or Cloudflare Tunnel recommended).
-                </p>
-              </div>
-
-              <FormField label="Gateway URL" id="whatsapp-gateway-url">
-                <input
-                  id="whatsapp-gateway-url"
-                  type="url"
-                  placeholder="https://your-gateway.example.com:8787"
-                  value={gatewayUrlInput}
-                  onChange={(e) => setGatewayUrlInput(e.target.value)}
-                  className={inputClass}
-                  disabled={savingGateway}
-                />
-              </FormField>
-
-              <FormField label="Gateway API key" id="whatsapp-gateway-api-key">
-                {gatewaySettings.usesDefaultApiKey && (
-                  <p className="text-xs text-navy-500 mb-2">
-                    Using your Clinty API key from Account → API Keys by default.
-                  </p>
-                )}
-                {gatewaySettings.hasApiKey && !gatewaySettings.usesDefaultApiKey && (
-                  <p className="text-xs text-navy-500 mb-2">
-                    Leave blank to keep your saved gateway API key.
-                  </p>
-                )}
-                <input
-                  id="whatsapp-gateway-api-key"
-                  type="password"
-                  placeholder={
-                    gatewaySettings.usesDefaultApiKey
-                      ? 'Optional override'
-                      : gatewaySettings.hasApiKey
-                        ? '••••••••••••••••'
-                        : 'Optional — defaults to your Clinty API key'
-                  }
-                  value={gatewayApiKeyInput}
-                  onChange={(e) => setGatewayApiKeyInput(e.target.value)}
-                  className={inputClass}
-                  disabled={savingGateway}
-                  autoComplete="off"
-                />
-              </FormField>
-              {!gatewaySettings.hasApiKey && (
-                <p className="text-xs text-navy-500 -mt-2">
-                  Generate a key in Account → API Keys, or enter a custom gateway key here.
-                </p>
-              )}
-
-              <button
-                type="button"
-                onClick={handleSaveGateway}
-                disabled={savingGateway || !gatewayUrlInput.trim()}
-                className="inline-flex items-center gap-2 bg-navy-900 text-cream font-medium px-5 py-2.5 rounded-xl hover:bg-navy-800 transition-colors text-sm disabled:opacity-60"
-              >
-                {savingGateway ? 'Saving...' : 'Save gateway'}
-              </button>
+      {loading ? (
+        <p className="text-sm text-navy-600">Loading WhatsApp settings...</p>
+      ) : connection ? (
+        <div className="space-y-4">
+          <div className="bg-cream rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full bg-teal-400" />
+              <span className="text-sm font-semibold text-navy-900">Connected</span>
             </div>
-
-            {connection ? (
-              <div className="space-y-4 pt-2 border-t border-navy-900/5">
-                <div className="bg-cream rounded-xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-2 h-2 rounded-full bg-teal-400" />
-                    <span className="text-sm font-semibold text-navy-900">Connected</span>
-                  </div>
-                  <dl className="grid sm:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <dt className="text-navy-600 mb-1">Phone number</dt>
-                      <dd className="font-medium text-navy-900">
-                        {connection.phone ? formatPhone(connection.phone) : '—'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-navy-600 mb-1">Linked</dt>
-                      <dd className="font-medium text-navy-900">
-                        {new Date(connection.connected_at).toLocaleDateString('en-US', {
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </dd>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <dt className="text-navy-600 mb-1">Gateway</dt>
-                      <dd className="font-medium text-navy-900 break-all">
-                        {gatewaySettings.gatewayUrl ?? connection.gateway_url ?? '—'}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link
-                    to={WHATSAPP_LOGIN_PATH}
-                    className="inline-flex items-center justify-center gap-2 border border-navy-900/15 text-navy-900 font-medium px-5 py-2.5 rounded-xl hover:bg-navy-900/5 transition-colors text-sm"
-                  >
-                    Re-link device
-                  </Link>
-                  <button
-                    onClick={handleDisconnect}
-                    disabled={working}
-                    className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-60 self-center sm:self-auto"
-                  >
-                    {working ? 'Working...' : 'Disconnect WhatsApp'}
-                  </button>
-                </div>
+            <dl className="grid sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <dt className="text-navy-600 mb-1">Phone number</dt>
+                <dd className="font-medium text-navy-900">
+                  {connection.phone ? formatPhone(connection.phone) : '—'}
+                </dd>
               </div>
-            ) : (
-              <div className="space-y-4 pt-2 border-t border-navy-900/5">
-                <p className="text-sm text-navy-600">
-                  After saving your gateway, open the link page to scan a QR code with WhatsApp →
-                  Linked devices on your phone.
-                </p>
-                {gatewayReady ? (
-                  <Link
-                    to={WHATSAPP_LOGIN_PATH}
-                    className="inline-flex items-center gap-2 bg-[#25D366] text-white font-medium px-6 py-3 rounded-xl hover:bg-[#20bd5a] transition-colors"
-                  >
-                    Link WhatsApp
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex items-center gap-2 bg-[#25D366] text-white font-medium px-6 py-3 rounded-xl opacity-60 cursor-not-allowed"
-                  >
-                    Link WhatsApp
-                  </button>
-                )}
+              <div>
+                <dt className="text-navy-600 mb-1">Linked</dt>
+                <dd className="font-medium text-navy-900">
+                  {new Date(connection.connected_at).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </dd>
               </div>
-            )}
+              {gatewaySettings.gatewayUrl ? (
+                <div className="sm:col-span-2">
+                  <dt className="text-navy-600 mb-1">Gateway</dt>
+                  <dd className="font-medium text-navy-900 break-all">{gatewaySettings.gatewayUrl}</dd>
+                </div>
+              ) : null}
+            </dl>
           </div>
-        )}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link
+              to={WHATSAPP_LOGIN_PATH}
+              className="inline-flex items-center justify-center gap-2 border border-navy-900/15 text-navy-900 font-medium px-5 py-2.5 rounded-xl hover:bg-navy-900/5 transition-colors text-sm"
+            >
+              Re-link device
+            </Link>
+            <button
+              onClick={handleDisconnect}
+              disabled={working}
+              className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-60 self-center sm:self-auto"
+            >
+              {working ? 'Working...' : 'Disconnect WhatsApp'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-navy-600">
+            Open the link page and scan the QR code with WhatsApp → Linked devices on your phone.
+          </p>
+          {gatewayReady ? (
+            <Link
+              to={WHATSAPP_LOGIN_PATH}
+              className="inline-flex items-center gap-2 bg-[#25D366] text-white font-medium px-6 py-3 rounded-xl hover:bg-[#20bd5a] transition-colors"
+            >
+              Link WhatsApp
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="inline-flex items-center gap-2 bg-[#25D366] text-white font-medium px-6 py-3 rounded-xl opacity-60 cursor-not-allowed"
+            >
+              Link WhatsApp
+            </button>
+          )}
+        </div>
+      )}
     </IntegrationPanel>
   )
 }

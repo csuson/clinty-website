@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveUserPrompts } from '../_shared/promptDefaults.ts'
+import { resolveWhatsAppInfrastructure } from '../_shared/whatsappInfrastructure.ts'
+import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -128,6 +130,10 @@ Deno.serve(async (req) => {
     const promptsByUserId = new Map(
       (userPromptsRes.data ?? []).map((prompts) => [prompts.user_id, prompts]),
     )
+    const agentSettingsByUserId = new Map(
+      (agentSettingsRes.data ?? []).map((settings) => [settings.user_id, settings]),
+    )
+    const websiteSettings = await loadWebsiteSettings(admin)
 
     const users = profilesRes.data ?? []
     const apiKeys = (apiKeysRes.data ?? []).map((key) => ({
@@ -183,13 +189,21 @@ Deno.serve(async (req) => {
       const storedGatewayKey =
         typeof connection.gateway_api_key === 'string' ? connection.gateway_api_key.trim() : ''
       const clintyApiKey = defaultApiKeyByUserId.get(connection.user_id) ?? null
-      const effectiveGatewayApiKey = storedGatewayKey || clintyApiKey || null
+      const agentSettings = agentSettingsByUserId.get(connection.user_id) ?? null
+      const resolved = resolveWhatsAppInfrastructure(connection, websiteSettings, {
+        defaultApiKey: clintyApiKey,
+        postgresSchema: agentSettings?.postgres_schema ?? null,
+      })
+      const effectiveGatewayApiKey = storedGatewayKey || clintyApiKey || resolved.gatewayApiKey || null
 
       return {
         ...connection,
         user_email: emailByUserId.get(connection.user_id) ?? null,
         effective_gateway_api_key: effectiveGatewayApiKey,
         uses_clinty_api_key: !storedGatewayKey && Boolean(clintyApiKey),
+        effective_gateway_url: resolved.gatewayUrl || null,
+        effective_auth_storage_prefix: resolved.authStoragePrefix,
+        effective_langgraph_url: resolved.langgraphUrl || null,
       }
     })
     const agentSettings = (agentSettingsRes.data ?? []).map((settings) => {
@@ -216,22 +230,6 @@ Deno.serve(async (req) => {
         user_email: emailByUserId.get(prompts.user_id) ?? null,
       }))
       .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-
-    const websiteSettings = {
-      supabase_url: Deno.env.get('SUPABASE_URL') ?? '',
-      supabase_anon_key: Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      supabase_service_role: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      whatsapp_web_gateway_url: (Deno.env.get('WHATSAPP_WEB_GATEWAY_URL') ?? '').replace(/\/$/, ''),
-      whatsapp_web_login_api_key:
-        Deno.env.get('WHATSAPP_WEB_LOGIN_API_KEY') ??
-        Deno.env.get('CLINTY_API_KEY') ??
-        '',
-      whatsapp_web_debug: Deno.env.get('WHATSAPP_WEB_DEBUG') ?? '1',
-      whatsapp_web_auth_backend: Deno.env.get('WHATSAPP_WEB_AUTH_BACKEND') ?? 'supabase',
-      whatsapp_web_auth_bucket: Deno.env.get('WHATSAPP_WEB_AUTH_BUCKET') ?? 'whatsapp-web-auth',
-      whatsapp_web_auth_storage_prefix: Deno.env.get('WHATSAPP_WEB_AUTH_STORAGE_PREFIX') ?? 'default',
-      whatsapp_web_auth_dir: Deno.env.get('WHATSAPP_WEB_AUTH_DIR') ?? '/tmp/whatsapp-web-auth',
-    }
 
     return json({
       users,

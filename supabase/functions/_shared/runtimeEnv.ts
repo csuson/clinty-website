@@ -1,5 +1,13 @@
 /** Map Clinty Supabase rows to email-assistant runtime environment variables. */
 
+import { resolveWhatsAppInfrastructure } from './whatsappInfrastructure.ts'
+import {
+  loadWebsiteSettingsFromEdgeEnv,
+  type WebsiteSettings,
+} from './websiteInfrastructure.ts'
+
+export { loadWebsiteSettingsFromEdgeEnv, type WebsiteSettings }
+
 export const RUNTIME_ENV_KEYS = [
   'AUTO_BOOK_SCHEDULING',
   'AUTO_RESPOND_CATALOG',
@@ -51,6 +59,7 @@ export const RUNTIME_ENV_KEYS = [
   'WHATSAPP_WEB_AUTH_STORAGE_PREFIX',
   'WHATSAPP_WEB_DEBUG',
   'WHATSAPP_WEB_GATEWAY_URL',
+  'WHATSAPP_WEB_LANGGRAPH_URL',
   'WHATSAPP_WEB_LOGIN_API_KEY',
 ] as const
 
@@ -65,18 +74,6 @@ type SquareTokenRow = Record<string, unknown>
 type SquareConnectionRow = Record<string, unknown>
 type ShopifyTokenRow = Record<string, unknown>
 type WhatsAppConnectionRow = Record<string, unknown>
-type WebsiteSettings = {
-  supabase_url: string
-  supabase_anon_key: string
-  supabase_service_role: string
-  whatsapp_web_gateway_url: string
-  whatsapp_web_login_api_key: string
-  whatsapp_web_debug: string
-  whatsapp_web_auth_backend: string
-  whatsapp_web_auth_bucket: string
-  whatsapp_web_auth_storage_prefix: string
-  whatsapp_web_auth_dir: string
-}
 
 function trim(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -291,6 +288,7 @@ export function websiteSettingsToRuntimeEnv(settings: WebsiteSettings): RuntimeE
   setIfPresent(env, 'WHATSAPP_WEB_AUTH_BUCKET', settings.whatsapp_web_auth_bucket)
   setIfPresent(env, 'WHATSAPP_WEB_AUTH_STORAGE_PREFIX', settings.whatsapp_web_auth_storage_prefix)
   setIfPresent(env, 'WHATSAPP_WEB_AUTH_DIR', settings.whatsapp_web_auth_dir)
+  setIfPresent(env, 'WHATSAPP_WEB_LANGGRAPH_URL', settings.whatsapp_web_langgraph_url)
   return env
 }
 
@@ -298,22 +296,25 @@ export function whatsappConnectionToRuntimeEnv(
   row: WhatsAppConnectionRow | null | undefined,
   agentSettings: AgentSettingsRow | null | undefined,
   websiteSettings: WebsiteSettings,
+  options?: { defaultApiKey?: string | null },
 ): RuntimeEnv {
-  const env = websiteSettingsToRuntimeEnv(websiteSettings)
-  const gatewayUrl = trim(row?.gateway_url) || trim(websiteSettings.whatsapp_web_gateway_url)
-  const storedGatewayKey = trim(row?.gateway_api_key)
-  const gatewayApiKey = storedGatewayKey || trim(websiteSettings.whatsapp_web_login_api_key)
-  const authPrefix =
-    trim(agentSettings?.postgres_schema) ||
-    trim(websiteSettings.whatsapp_web_auth_storage_prefix) ||
-    'default'
+  const resolved = resolveWhatsAppInfrastructure(row, websiteSettings, {
+    postgresSchema: agentSettings?.postgres_schema ?? null,
+    defaultApiKey: options?.defaultApiKey ?? null,
+  })
 
-  setIfPresent(env, 'WHATSAPP_WEB_GATEWAY_URL', gatewayUrl)
-  setIfPresent(env, 'WHATSAPP_WEB_LOGIN_API_KEY', gatewayApiKey)
-  setIfPresent(env, 'WHATSAPP_WEB_AUTH_STORAGE_PREFIX', authPrefix)
+  const env = websiteSettingsToRuntimeEnv(websiteSettings)
+  setIfPresent(env, 'WHATSAPP_WEB_GATEWAY_URL', resolved.gatewayUrl)
+  setIfPresent(env, 'WHATSAPP_WEB_LOGIN_API_KEY', resolved.gatewayApiKey)
+  setIfPresent(env, 'WHATSAPP_WEB_DEBUG', resolved.debug)
+  setIfPresent(env, 'WHATSAPP_WEB_AUTH_BACKEND', resolved.authBackend)
+  setIfPresent(env, 'WHATSAPP_WEB_AUTH_BUCKET', resolved.authBucket)
+  setIfPresent(env, 'WHATSAPP_WEB_AUTH_STORAGE_PREFIX', resolved.authStoragePrefix)
+  setIfPresent(env, 'WHATSAPP_WEB_AUTH_DIR', resolved.authDir)
+  setIfPresent(env, 'WHATSAPP_WEB_LANGGRAPH_URL', resolved.langgraphUrl)
   setIfPresent(env, 'WHATSAPP_BUSINESS_PHONE', row?.phone)
 
-  const hasWebGateway = Boolean(gatewayUrl)
+  const hasWebGateway = Boolean(resolved.gatewayUrl)
   const connected = trim(row?.status) === 'connected'
   if (hasWebGateway || connected) {
     env.WHATSAPP_PROVIDER = 'web'
@@ -364,26 +365,9 @@ export function agentSettingsToRuntimeEnv(row: AgentSettingsRow | null | undefin
   return env
 }
 
-export function loadWebsiteSettingsFromEdgeEnv(): WebsiteSettings {
-  return {
-    supabase_url: Deno.env.get('SUPABASE_URL') ?? '',
-    supabase_anon_key: Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    supabase_service_role: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    whatsapp_web_gateway_url: (Deno.env.get('WHATSAPP_WEB_GATEWAY_URL') ?? '').replace(/\/$/, ''),
-    whatsapp_web_login_api_key:
-      Deno.env.get('WHATSAPP_WEB_LOGIN_API_KEY') ??
-      Deno.env.get('CLINTY_API_KEY') ??
-      '',
-    whatsapp_web_debug: Deno.env.get('WHATSAPP_WEB_DEBUG') ?? '1',
-    whatsapp_web_auth_backend: Deno.env.get('WHATSAPP_WEB_AUTH_BACKEND') ?? 'supabase',
-    whatsapp_web_auth_bucket: Deno.env.get('WHATSAPP_WEB_AUTH_BUCKET') ?? 'whatsapp-web-auth',
-    whatsapp_web_auth_storage_prefix: Deno.env.get('WHATSAPP_WEB_AUTH_STORAGE_PREFIX') ?? 'default',
-    whatsapp_web_auth_dir: Deno.env.get('WHATSAPP_WEB_AUTH_DIR') ?? '/tmp/whatsapp-web-auth',
-  }
-}
-
 export type BuildRuntimeEnvInput = {
   agentSettings?: AgentSettingsRow | null
+  clintyApiKey?: string | null
   gmailToken?: GmailTokenRow | null
   outlookToken?: OutlookTokenRow | null
   squareToken?: SquareTokenRow | null
@@ -405,7 +389,12 @@ export function buildRuntimeEnv(input: BuildRuntimeEnvInput): RuntimeEnv {
       input.squareConnection,
       input.agentSettings,
     ),
-    ...whatsappConnectionToRuntimeEnv(input.whatsappConnection, input.agentSettings, websiteSettings),
+    ...whatsappConnectionToRuntimeEnv(
+      input.whatsappConnection,
+      input.agentSettings,
+      websiteSettings,
+      { defaultApiKey: input.clintyApiKey ?? null },
+    ),
   }
 }
 

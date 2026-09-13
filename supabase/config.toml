@@ -61,6 +61,12 @@ verify_jwt = false
 [functions.admin-ai-settings]
 verify_jwt = false
 
+[functions.admin-website-settings]
+verify_jwt = false
+
+[functions.admin-whatsapp-settings]
+verify_jwt = false
+
 [functions.generate-h5p-content]
 verify_jwt = false
 

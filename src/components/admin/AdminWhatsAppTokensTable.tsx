@@ -9,6 +9,7 @@ type ColumnId =
   | 'phone'
   | 'gatewayUrl'
   | 'gatewayApiKey'
+  | 'authPrefix'
   | 'status'
   | 'connected'
   | 'lastError'
@@ -19,6 +20,7 @@ const COLUMNS: AdminTableColumn<ColumnId>[] = [
   { id: 'phone', label: 'Phone', defaultWidth: 140, minWidth: 100 },
   { id: 'gatewayUrl', label: 'Gateway URL', defaultWidth: 220, minWidth: 140 },
   { id: 'gatewayApiKey', label: 'Gateway API key', defaultWidth: 220, minWidth: 140 },
+  { id: 'authPrefix', label: 'Auth prefix', defaultWidth: 140, minWidth: 100 },
   { id: 'status', label: 'Status', defaultWidth: 110, minWidth: 90 },
   { id: 'connected', label: 'Connected', defaultWidth: 160, minWidth: 110 },
   { id: 'lastError', label: 'Last error', defaultWidth: 200, minWidth: 120 },
@@ -72,7 +74,13 @@ export default function AdminWhatsAppTokensTable({
           case 'phone':
             return <ExpandableText value={formatCellValue(connection.phone)} expanded={expanded} />
           case 'gatewayUrl':
-            return <ExpandableText value={formatCellValue(connection.gateway_url)} expanded={expanded} monospace />
+            return (
+              <ExpandableText
+                value={formatCellValue(connection.effective_gateway_url ?? connection.gateway_url)}
+                expanded={expanded}
+                monospace
+              />
+            )
           case 'gatewayApiKey':
             return (
               <div className="space-y-1">
@@ -81,6 +89,14 @@ export default function AdminWhatsAppTokensTable({
                   <span className="text-xs text-navy-500">Uses Clinty API key</span>
                 ) : null}
               </div>
+            )
+          case 'authPrefix':
+            return (
+              <ExpandableText
+                value={formatCellValue(connection.effective_auth_storage_prefix)}
+                expanded={expanded}
+                monospace
+              />
             )
           case 'status':
             return <StatusBadge status={connection.status} />

@@ -10,6 +10,7 @@ import AdminApiKeysTable from '../components/admin/AdminApiKeysTable'
 import AdminGmailTokensTable from '../components/admin/AdminGmailTokensTable'
 import AdminOutlookTokensTable from '../components/admin/AdminOutlookTokensTable'
 import AdminShopifyTokensTable from '../components/admin/AdminShopifyTokensTable'
+import AdminWhatsAppInfrastructurePanel from '../components/admin/AdminWhatsAppInfrastructurePanel'
 import AdminWhatsAppTokensTable from '../components/admin/AdminWhatsAppTokensTable'
 import AdminSquareTokensTable from '../components/admin/AdminSquareTokensTable'
 import AdminUsersTable from '../components/admin/AdminUsersTable'
@@ -139,10 +140,7 @@ export default function Admin() {
               />
             </Section>
 
-            <Section
-              title="Supabase & website settings"
-              count={countConfiguredWebsiteSettings(data.websiteSettings)}
-            >
+            <Section title="Infrastructure" count={countConfiguredWebsiteSettings(data.websiteSettings)}>
               <AdminWebsiteSettingsPanel settings={data.websiteSettings} />
             </Section>
 
@@ -190,7 +188,8 @@ export default function Admin() {
               />
             </Section>
 
-            <Section title="WhatsApp Settings" count={(data.whatsappConnections ?? []).length}>
+            <Section title="WhatsApp Settings" count={data.users.length}>
+              <AdminWhatsAppInfrastructurePanel users={data.users} onSaved={loadData} />
               <AdminWhatsAppTokensTable
                 whatsappConnections={data.whatsappConnections ?? []}
                 isDeleting={(id) => isDeleting('whatsapp_token', id)}

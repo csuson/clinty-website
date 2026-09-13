@@ -1,4 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  resolveWhatsAppInfrastructure,
+  WHATSAPP_INFRA_SELECT,
+} from '../_shared/whatsappInfrastructure.ts'
+import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,7 +16,6 @@ type LoginAction =
   | 'stop'
   | 'disconnect'
   | 'status'
-  | 'save_gateway'
   | 'get_settings'
 
 function parseRequestBody(raw: unknown): Record<string, unknown> {
@@ -42,7 +46,6 @@ function normalizeAction(value: unknown): LoginAction | undefined {
     || action === 'stop'
     || action === 'disconnect'
     || action === 'status'
-    || action === 'save_gateway'
     || action === 'get_settings'
   ) {
     return action
@@ -91,68 +94,25 @@ Deno.serve(async (req) => {
     const action = normalizeAction(body.action)
 
     if (action === 'get_settings') {
-      const { data } = await admin
+      const websiteSettings = await loadWebsiteSettings(admin)
+      const defaultApiKey = await fetchUserDefaultApiKey(admin, user.id)
+      const { data: connection } = await admin
         .from('whatsapp_connections')
-        .select('gateway_url, gateway_api_key')
+        .select(WHATSAPP_INFRA_SELECT)
         .eq('user_id', user.id)
         .maybeSingle()
 
-      const defaultApiKey = await fetchUserDefaultApiKey(admin, user.id)
+      const resolved = resolveWhatsAppInfrastructure(connection, websiteSettings, {
+        defaultApiKey,
+      })
+      const storedGatewayKey =
+        typeof connection?.gateway_api_key === 'string' ? connection.gateway_api_key.trim() : ''
+      const hasApiKey = Boolean(storedGatewayKey || defaultApiKey || resolved.gatewayApiKey)
 
       return json({
-        gatewayUrl: data?.gateway_url ?? null,
-        hasApiKey: Boolean(data?.gateway_api_key || defaultApiKey),
-        usesDefaultApiKey: Boolean(!data?.gateway_api_key && defaultApiKey),
-      })
-    }
-
-    if (action === 'save_gateway') {
-      const gatewayUrlRaw = typeof body.gatewayUrl === 'string' ? body.gatewayUrl.trim() : ''
-      const gatewayApiKey = typeof body.gatewayApiKey === 'string' ? body.gatewayApiKey.trim() : ''
-      const gatewayUrl = normalizeGatewayUrl(gatewayUrlRaw)
-
-      if (!gatewayUrl) {
-        return json({
-          error: 'Enter a valid gateway URL (e.g. https://your-host:8787).',
-        }, 400)
-      }
-
-      const { data: existing } = await admin
-        .from('whatsapp_connections')
-        .select('gateway_api_key, status, phone, connected_at, last_error')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      const defaultApiKey = await fetchUserDefaultApiKey(admin, user.id)
-      const resolvedApiKey = gatewayApiKey || existing?.gateway_api_key || null
-
-      if (!resolvedApiKey && !defaultApiKey) {
-        return json({
-          error: 'Generate a Clinty API key in Account → API Keys, or enter a WhatsApp gateway API key.',
-        }, 400)
-      }
-
-      const { error: upsertError } = await admin.from('whatsapp_connections').upsert({
-        user_id: user.id,
-        gateway_url: gatewayUrl,
-        gateway_api_key: gatewayApiKey || existing?.gateway_api_key || null,
-        status: existing?.status ?? 'disconnected',
-        phone: existing?.phone ?? null,
-        last_error: existing?.last_error ?? null,
-        ...(existing?.connected_at
-          ? { connected_at: existing.connected_at }
-          : { connected_at: new Date().toISOString() }),
-      })
-
-      if (upsertError) {
-        throw new Error(`Failed to save WhatsApp gateway: ${upsertError.message}`)
-      }
-
-      return json({
-        success: true,
-        gatewayUrl,
-        hasApiKey: true,
-        usesDefaultApiKey: Boolean(!gatewayApiKey && !existing?.gateway_api_key && defaultApiKey),
+        gatewayUrl: resolved.gatewayUrl || null,
+        hasApiKey,
+        usesDefaultApiKey: !storedGatewayKey && Boolean(defaultApiKey),
       })
     }
 
@@ -179,7 +139,7 @@ Deno.serve(async (req) => {
         patch.last_error = typeof status.error === 'string' ? status.error : 'Link failed'
       }
       if (Object.keys(patch).length > 0) {
-        await mergeWhatsAppConnection(admin, user.id, patch)
+        await mergeWhatsAppConnection(admin, user.id, patch, gatewayUrl)
       }
       return json({
         status: status.status,
@@ -204,10 +164,15 @@ Deno.serve(async (req) => {
         const message = err instanceof Error ? err.message : String(err)
         const timedOut = /timed out|TimeoutError|operation was aborted/i.test(message)
         if (timedOut) {
-          await mergeWhatsAppConnection(admin, user.id, {
-            status: 'pairing',
-            last_error: null,
-          })
+          await mergeWhatsAppConnection(
+            admin,
+            user.id,
+            {
+              status: 'pairing',
+              last_error: null,
+            },
+            gatewayUrl,
+          )
           return json({
             status: 'pairing',
             qrDataUrl: null,
@@ -223,16 +188,21 @@ Deno.serve(async (req) => {
         : status.status === 'error' ? 'error'
         : 'pairing'
 
-      await mergeWhatsAppConnection(admin, user.id, {
-        status: connectionStatus,
-        ...(typeof status.phone === 'string' && status.phone.trim()
-          ? { phone: status.phone.trim() }
-          : {}),
-        ...(status.status === 'connected'
-          ? { connected_at: new Date().toISOString() }
-          : {}),
-        last_error: status.error ?? null,
-      })
+      await mergeWhatsAppConnection(
+        admin,
+        user.id,
+        {
+          status: connectionStatus,
+          ...(typeof status.phone === 'string' && status.phone.trim()
+            ? { phone: status.phone.trim() }
+            : {}),
+          ...(status.status === 'connected'
+            ? { connected_at: new Date().toISOString() }
+            : {}),
+          last_error: status.error ?? null,
+        },
+        gatewayUrl,
+      )
 
       return json({
         status: status.status,
@@ -266,7 +236,7 @@ Deno.serve(async (req) => {
     }
 
     return json({
-      error: `Missing or invalid action (received: ${JSON.stringify(body.action ?? null)}). Use start, stop, disconnect, status, save_gateway, or get_settings.`,
+      error: `Missing or invalid action (received: ${JSON.stringify(body.action ?? null)}). Use start, stop, disconnect, status, or get_settings.`,
     }, 400)
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
@@ -295,34 +265,31 @@ async function resolveUserGateway(
   admin: ReturnType<typeof createClient>,
   userId: string,
 ) {
+  const websiteSettings = await loadWebsiteSettings(admin)
+  const defaultApiKey = await fetchUserDefaultApiKey(admin, userId)
   const { data } = await admin
     .from('whatsapp_connections')
-    .select('gateway_url, gateway_api_key')
+    .select(WHATSAPP_INFRA_SELECT)
     .eq('user_id', userId)
     .maybeSingle()
 
-  const gatewayUrl = (data?.gateway_url || Deno.env.get('WHATSAPP_WEB_GATEWAY_URL') || '')
-    .replace(/\/$/, '')
-  const defaultApiKey = await fetchUserDefaultApiKey(admin, userId)
-  const gatewayKey =
-    data?.gateway_api_key ||
-    defaultApiKey ||
-    Deno.env.get('WHATSAPP_WEB_LOGIN_API_KEY') ||
-    Deno.env.get('CLINTY_API_KEY') ||
-    ''
+  const resolved = resolveWhatsAppInfrastructure(data, websiteSettings, { defaultApiKey })
 
-  return { gatewayUrl, gatewayKey }
+  return {
+    gatewayUrl: resolved.gatewayUrl,
+    gatewayKey: resolved.gatewayApiKey,
+  }
 }
 
 function requireGateway(gatewayUrl: string, gatewayKey: string) {
   if (!gatewayUrl) {
     throw new Error(
-      'WhatsApp gateway not configured. Add your gateway URL and API key in Integrations before linking.',
+      'WhatsApp gateway not configured. Ask an admin to set your gateway URL and API key in Admin → WhatsApp Settings.',
     )
   }
   if (!gatewayKey) {
     throw new Error(
-      'WhatsApp gateway API key not configured. Generate a Clinty API key in Account → API Keys, or add a gateway API key in Integrations.',
+      'WhatsApp gateway API key not configured. Ask an admin to set your gateway API key in Admin → WhatsApp Settings, or generate a Clinty API key in Account → API Keys.',
     )
   }
 }
@@ -341,21 +308,43 @@ function normalizeGatewayUrl(raw: string): string {
   }
 }
 
+function trimGatewayUrl(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function resolveStoredGatewayUrl(
+  existingUrl: unknown,
+  claimGatewayUrl?: string,
+): string | null {
+  const stored = normalizeGatewayUrl(trimGatewayUrl(existingUrl))
+  if (stored) return stored
+
+  const claimed = claimGatewayUrl ? normalizeGatewayUrl(claimGatewayUrl) : ''
+  return claimed || null
+}
+
 async function mergeWhatsAppConnection(
   admin: ReturnType<typeof createClient>,
   userId: string,
   patch: Record<string, unknown>,
+  claimGatewayUrl?: string,
 ) {
   const { data: existing } = await admin
     .from('whatsapp_connections')
-    .select('gateway_url, gateway_api_key, phone, status, connected_at, last_error')
+    .select(WHATSAPP_INFRA_SELECT)
     .eq('user_id', userId)
     .maybeSingle()
 
   const { error } = await admin.from('whatsapp_connections').upsert({
     user_id: userId,
-    gateway_url: existing?.gateway_url ?? null,
+    gateway_url: resolveStoredGatewayUrl(existing?.gateway_url, claimGatewayUrl),
     gateway_api_key: existing?.gateway_api_key ?? null,
+    gateway_debug: existing?.gateway_debug ?? null,
+    gateway_auth_backend: existing?.gateway_auth_backend ?? null,
+    gateway_auth_bucket: existing?.gateway_auth_bucket ?? null,
+    gateway_auth_storage_prefix: existing?.gateway_auth_storage_prefix ?? null,
+    gateway_auth_dir: existing?.gateway_auth_dir ?? null,
+    gateway_langgraph_url: existing?.gateway_langgraph_url ?? null,
     phone:
       typeof patch.phone === 'string' && patch.phone.trim()
         ? patch.phone.trim()

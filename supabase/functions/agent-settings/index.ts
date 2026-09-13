@@ -3,9 +3,9 @@ import { resolveUserPrompts } from '../_shared/promptDefaults.ts'
 import {
   buildRuntimeEnv,
   listMissingRuntimeEnvKeys,
-  loadWebsiteSettingsFromEdgeEnv,
   RUNTIME_ENV_KEYS,
 } from '../_shared/runtimeEnv.ts'
+import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -100,9 +100,10 @@ Deno.serve(async (req) => {
     }
 
     const prompts = resolveUserPrompts(userPromptsResult.data)
-    const websiteSettings = loadWebsiteSettingsFromEdgeEnv()
+    const websiteSettings = await loadWebsiteSettings(admin)
     const runtimeEnv = buildRuntimeEnv({
       agentSettings,
+      clintyApiKey,
       gmailToken: integrationRows.gmailToken,
       outlookToken: integrationRows.outlookToken,
       squareToken: integrationRows.squareToken,

@@ -53,6 +53,7 @@ export type WhatsAppEnvSettings = {
   authBucket: string
   authStoragePrefix: string
   authDir: string
+  langgraphUrl: string
 }
 
 export function resolveWhatsAppEnvSettings(
@@ -61,13 +62,18 @@ export function resolveWhatsAppEnvSettings(
   agentSettings?: Pick<AdminAgentSettings, 'postgres_schema'> | null,
 ): WhatsAppEnvSettings {
   const gatewayUrl =
-    whatsappConnection?.gateway_url?.trim() || websiteSettings?.whatsapp_web_gateway_url?.trim() || ''
+    whatsappConnection?.gateway_url?.trim() ||
+    whatsappConnection?.effective_gateway_url?.trim() ||
+    websiteSettings?.whatsapp_web_gateway_url?.trim() ||
+    ''
   const gatewayApiKey =
     whatsappConnection?.effective_gateway_api_key?.trim() ||
     whatsappConnection?.gateway_api_key?.trim() ||
     websiteSettings?.whatsapp_web_login_api_key?.trim() ||
     ''
   const authStoragePrefix =
+    whatsappConnection?.gateway_auth_storage_prefix?.trim() ||
+    whatsappConnection?.effective_auth_storage_prefix?.trim() ||
     agentSettings?.postgres_schema?.trim() ||
     websiteSettings?.whatsapp_web_auth_storage_prefix?.trim() ||
     'default'
@@ -75,11 +81,26 @@ export function resolveWhatsAppEnvSettings(
   return {
     gatewayUrl,
     gatewayApiKey,
-    debug: websiteSettings?.whatsapp_web_debug?.trim() || '1',
-    authBackend: websiteSettings?.whatsapp_web_auth_backend?.trim() || 'supabase',
-    authBucket: websiteSettings?.whatsapp_web_auth_bucket?.trim() || 'whatsapp-web-auth',
+    debug:
+      whatsappConnection?.gateway_debug?.trim() || websiteSettings?.whatsapp_web_debug?.trim() || '1',
+    authBackend:
+      whatsappConnection?.gateway_auth_backend?.trim() ||
+      websiteSettings?.whatsapp_web_auth_backend?.trim() ||
+      'supabase',
+    authBucket:
+      whatsappConnection?.gateway_auth_bucket?.trim() ||
+      websiteSettings?.whatsapp_web_auth_bucket?.trim() ||
+      'whatsapp-web-auth',
     authStoragePrefix,
-    authDir: websiteSettings?.whatsapp_web_auth_dir?.trim() || '/tmp/whatsapp-web-auth',
+    authDir:
+      whatsappConnection?.gateway_auth_dir?.trim() ||
+      websiteSettings?.whatsapp_web_auth_dir?.trim() ||
+      '/tmp/whatsapp-web-auth',
+    langgraphUrl:
+      whatsappConnection?.gateway_langgraph_url?.trim() ||
+      whatsappConnection?.effective_langgraph_url?.trim() ||
+      websiteSettings?.whatsapp_web_langgraph_url?.trim() ||
+      '',
   }
 }
 
@@ -318,6 +339,7 @@ export function agentSettingsToEnvContent(
   add('WHATSAPP_WEB_AUTH_BUCKET', whatsappEnv.authBucket)
   add('WHATSAPP_WEB_AUTH_STORAGE_PREFIX', whatsappEnv.authStoragePrefix)
   add('WHATSAPP_WEB_AUTH_DIR', whatsappEnv.authDir)
+  add('WHATSAPP_WEB_LANGGRAPH_URL', whatsappEnv.langgraphUrl)
 
   return `${lines.join('\n')}\n`
 }

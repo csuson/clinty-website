@@ -40,9 +40,55 @@ export type AdminOutlookToken = OutlookToken & {
 }
 export type AdminWhatsAppConnection = WhatsAppConnection & {
   gateway_api_key: string | null
+  gateway_debug: string | null
+  gateway_auth_backend: string | null
+  gateway_auth_bucket: string | null
+  gateway_auth_storage_prefix: string | null
+  gateway_auth_dir: string | null
+  gateway_langgraph_url: string | null
   user_email: string | null
+  effective_langgraph_url: string | null
   effective_gateway_api_key: string | null
+  effective_gateway_url: string | null
+  effective_auth_storage_prefix: string | null
   uses_clinty_api_key: boolean
+}
+
+export type AdminWhatsAppInfrastructureResolved = {
+  gatewayUrl: string
+  gatewayApiKey: string
+  debug: string
+  authBackend: string
+  authBucket: string
+  authStoragePrefix: string
+  authDir: string
+  langgraphUrl: string
+}
+
+export type AdminWhatsAppInfrastructure = {
+  user_id: string
+  gateway_url: string | null
+  has_gateway_api_key: boolean
+  gateway_debug: string | null
+  gateway_auth_backend: string | null
+  gateway_auth_bucket: string | null
+  gateway_auth_storage_prefix: string | null
+  gateway_auth_dir: string | null
+  gateway_langgraph_url: string | null
+  uses_clinty_api_key: boolean
+  resolved: AdminWhatsAppInfrastructureResolved
+}
+
+export type UpdateAdminWhatsAppInfrastructureInput = {
+  user_id: string
+  gateway_url?: string
+  gateway_api_key?: string
+  gateway_debug?: string
+  gateway_auth_backend?: string
+  gateway_auth_bucket?: string
+  gateway_auth_storage_prefix?: string
+  gateway_auth_dir?: string
+  gateway_langgraph_url?: string
 }
 export type AdminAgentSettings = AgentSettings & {
   user_email: string | null
@@ -69,6 +115,7 @@ export type AdminWebsiteSettings = {
   whatsapp_web_auth_bucket: string
   whatsapp_web_auth_storage_prefix: string
   whatsapp_web_auth_dir: string
+  whatsapp_web_langgraph_url: string
 }
 
 export type AdminData = {
@@ -82,6 +129,68 @@ export type AdminData = {
   agentSettings: AdminAgentSettings[]
   userPrompts: AdminUserPrompts[]
   websiteSettings?: AdminWebsiteSettings
+}
+
+export type UpdateWebsiteInfrastructureInput = {
+  whatsapp_web_gateway_url?: string
+  whatsapp_web_login_api_key?: string
+  whatsapp_web_debug?: string
+  whatsapp_web_auth_backend?: string
+  whatsapp_web_auth_bucket?: string
+  whatsapp_web_auth_storage_prefix?: string
+  whatsapp_web_auth_dir?: string
+}
+
+export async function fetchAdminWhatsAppInfrastructure(userId: string): Promise<AdminWhatsAppInfrastructure> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const result = await supabase.functions.invoke('admin-whatsapp-settings', {
+    body: { action: 'get', user_id: userId },
+  })
+
+  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
+
+  return result.data as AdminWhatsAppInfrastructure
+}
+
+export async function updateAdminWhatsAppInfrastructure(
+  input: UpdateAdminWhatsAppInfrastructureInput,
+): Promise<AdminWhatsAppInfrastructure> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const result = await supabase.functions.invoke('admin-whatsapp-settings', {
+    body: { action: 'update', ...input },
+  })
+
+  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
+
+  return result.data as AdminWhatsAppInfrastructure
+}
+
+export async function updateWebsiteInfrastructure(
+  input: UpdateWebsiteInfrastructureInput,
+): Promise<AdminWebsiteSettings> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const result = await supabase.functions.invoke('admin-website-settings', {
+    body: { action: 'update', ...input },
+  })
+
+  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
+
+  return (result.data as { websiteSettings: AdminWebsiteSettings }).websiteSettings
 }
 
 export async function fetchAdminData(): Promise<AdminData> {

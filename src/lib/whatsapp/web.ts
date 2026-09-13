@@ -60,34 +60,6 @@ export async function fetchWhatsAppGatewaySettings(): Promise<WhatsAppGatewaySet
   }
 }
 
-export async function saveWhatsAppGateway(
-  gatewayUrl: string,
-  gatewayApiKey?: string,
-): Promise<WhatsAppGatewaySettings> {
-  if (!supabase) {
-    throw new Error('Supabase is not configured.')
-  }
-
-  const result = await supabase.functions.invoke('whatsapp-web-login', {
-    body: {
-      action: 'save_gateway',
-      gatewayUrl,
-      ...(gatewayApiKey ? { gatewayApiKey } : {}),
-    },
-    timeout: WHATSAPP_STATUS_TIMEOUT_MS,
-  })
-
-  if (result.error || hasFunctionFailure(result.data)) {
-    throw new Error(await whatsappFunctionError(result.error, result.data))
-  }
-
-  return {
-    gatewayUrl: typeof result.data?.gatewayUrl === 'string' ? result.data.gatewayUrl : gatewayUrl,
-    hasApiKey: true,
-    usesDefaultApiKey: result.data?.usesDefaultApiKey === true,
-  }
-}
-
 export async function fetchWhatsAppConnection(userId: string): Promise<WhatsAppConnection | null> {
   if (!supabase) return null
 

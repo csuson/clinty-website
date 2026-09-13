@@ -222,6 +222,12 @@ export type WhatsAppConnection = {
   status: 'connected' | 'disconnected' | 'pairing' | 'error'
   last_error: string | null
   gateway_url: string | null
+  gateway_debug?: string | null
+  gateway_auth_backend?: string | null
+  gateway_auth_bucket?: string | null
+  gateway_auth_storage_prefix?: string | null
+  gateway_auth_dir?: string | null
+  gateway_langgraph_url?: string | null
 }
 
 export type GoogleAdsConnection = {
@@ -564,6 +570,12 @@ export type Database = {
           last_error?: string | null
           gateway_url?: string | null
           gateway_api_key?: string | null
+          gateway_debug?: string | null
+          gateway_auth_backend?: string | null
+          gateway_auth_bucket?: string | null
+          gateway_auth_storage_prefix?: string | null
+          gateway_auth_dir?: string | null
+          gateway_langgraph_url?: string | null
         }
         Relationships: []
       }
