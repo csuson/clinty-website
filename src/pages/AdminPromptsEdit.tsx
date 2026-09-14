@@ -25,6 +25,7 @@ function promptsToForm(row: AdminUserPrompts | null, userId: string): AdminPromp
     calendar_preference: row.calendar_preference ?? '',
     default_footer: row.default_footer ?? '',
     promotions: row.promotions ?? '',
+    payment_links: row.payment_links ?? '',
     response_tone: row.response_tone ?? '',
     whatsapp_response_tone: row.whatsapp_response_tone,
   }

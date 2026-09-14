@@ -368,6 +368,7 @@ create table if not exists public.user_prompts (
   calendar_preference text,
   default_footer text,
   promotions text,
+  payment_links text,
   response_tone text,
   whatsapp_response_tone text,
   created_at timestamptz not null default now(),

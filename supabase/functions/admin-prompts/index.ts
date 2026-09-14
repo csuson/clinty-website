@@ -74,6 +74,7 @@ function buildPromptPayload(body: Record<string, unknown>) {
       calendar_preference: emptyToNull(body.calendar_preference),
       default_footer: emptyToNull(body.default_footer),
       promotions: emptyToNull(body.promotions),
+      payment_links: emptyToNull(body.payment_links),
       response_tone: emptyToNull(body.response_tone) ?? DEFAULT_RESPONSE_TONE,
       whatsapp_response_tone: emptyToNull(body.whatsapp_response_tone),
     },
@@ -129,6 +130,7 @@ Deno.serve(async (req) => {
           calendar_preference: built.payload.calendar_preference,
           default_footer: built.payload.default_footer,
           promotions: built.payload.promotions,
+          payment_links: built.payload.payment_links,
           response_tone: built.payload.response_tone,
           whatsapp_response_tone: built.payload.whatsapp_response_tone,
         })

@@ -15,6 +15,7 @@ export function emptyAdminPromptsForm(userId = ''): AdminPromptsInput {
     calendar_preference: '',
     default_footer: '',
     promotions: '',
+    payment_links: '',
     response_tone: DEFAULT_RESPONSE_TONE,
     whatsapp_response_tone: null,
   }
@@ -95,6 +96,15 @@ export default function AdminPromptsForm({
         id="admin-prompt-promotions"
         value={form.promotions}
         onChange={(promotions) => setForm((current) => ({ ...current, promotions }))}
+        disabled={saving}
+        rows={5}
+      />
+
+      <PromptField
+        label="Payment links"
+        id="admin-prompt-payment-links"
+        value={form.payment_links}
+        onChange={(payment_links) => setForm((current) => ({ ...current, payment_links }))}
         disabled={saving}
         rows={5}
       />

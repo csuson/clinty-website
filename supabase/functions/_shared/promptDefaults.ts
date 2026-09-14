@@ -52,6 +52,8 @@ To reserve a lesson, please call (650) 686-1179 or book via our website www.thek
 
 export const DEFAULT_PROMPT_PROMOTIONS = ''
 
+export const DEFAULT_PROMPT_PAYMENT_LINKS = ''
+
 export const DEFAULT_RESPONSE_TONE = 'warm_informal'
 
 export type ResolvedUserPrompts = {
@@ -59,6 +61,7 @@ export type ResolvedUserPrompts = {
   calendar_preference: string
   default_footer: string
   promotions: string
+  payment_links: string
   response_tone: string
   whatsapp_response_tone: string | null
 }
@@ -69,18 +72,33 @@ export function resolveUserPrompts(
     calendar_preference?: string | null
     default_footer?: string | null
     promotions?: string | null
+    payment_links?: string | null
     response_tone?: string | null
     whatsapp_response_tone?: string | null
   } | null,
 ): ResolvedUserPrompts {
-  const responseTone = row?.response_tone?.trim() || DEFAULT_RESPONSE_TONE
-  const whatsappTone = row?.whatsapp_response_tone?.trim() || null
+  if (!row) {
+    return {
+      background: DEFAULT_PROMPT_BACKGROUND,
+      calendar_preference: DEFAULT_PROMPT_CALENDAR_PREFERENCE,
+      default_footer: DEFAULT_PROMPT_FOOTER,
+      promotions: DEFAULT_PROMPT_PROMOTIONS,
+      payment_links: DEFAULT_PROMPT_PAYMENT_LINKS,
+      response_tone: DEFAULT_RESPONSE_TONE,
+      whatsapp_response_tone: null,
+    }
+  }
+
+  const responseTone = row.response_tone?.trim() || DEFAULT_RESPONSE_TONE
+  const whatsappTone = row.whatsapp_response_tone?.trim() || null
 
   return {
-    background: row?.background?.trim() || DEFAULT_PROMPT_BACKGROUND,
-    calendar_preference: row?.calendar_preference?.trim() || DEFAULT_PROMPT_CALENDAR_PREFERENCE,
-    default_footer: row?.default_footer?.trim() || DEFAULT_PROMPT_FOOTER,
-    promotions: row?.promotions?.trim() || DEFAULT_PROMPT_PROMOTIONS,
+    background: row.background?.trim() || DEFAULT_PROMPT_BACKGROUND,
+    calendar_preference: row.calendar_preference?.trim() || DEFAULT_PROMPT_CALENDAR_PREFERENCE,
+    // Null/empty in DB means no footer — do not substitute the global template default.
+    default_footer: row.default_footer?.trim() ?? '',
+    promotions: row.promotions?.trim() ?? DEFAULT_PROMPT_PROMOTIONS,
+    payment_links: row.payment_links?.trim() ?? DEFAULT_PROMPT_PAYMENT_LINKS,
     response_tone: responseTone,
     whatsapp_response_tone: whatsappTone,
   }

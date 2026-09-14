@@ -70,12 +70,12 @@ export default function Prompts() {
     setMessage(null)
     setError(null)
 
+    const whatsappTone = serializeWhatsappResponseToneForSave(whatsappToneSelect, whatsappToneCustom)
     const payload: PromptFields = {
       ...prompts,
       responseTone: serializeResponseToneForSave(emailToneSelect, emailToneCustom),
-      whatsappResponseTone:
-        serializeWhatsappResponseToneForSave(whatsappToneSelect, whatsappToneCustom) ??
-        WHATSAPP_SAME_AS_EMAIL,
+      // Empty / same-as-email → null in DB via promptTextToDb in saveUserPrompts.
+      whatsappResponseTone: whatsappTone ?? WHATSAPP_SAME_AS_EMAIL,
     }
 
     try {
@@ -147,8 +147,8 @@ export default function Prompts() {
         <h2 className="text-lg font-semibold text-navy-900 mb-1">Prompts</h2>
         <p className="text-sm text-navy-600 mb-6">
           Customize the context your AI agent uses when replying to customers — business background,
-          promotions, response tone, scheduling preferences, and the footer appended to outbound
-          messages.
+          promotions, payment links, response tone, scheduling preferences, and the footer appended
+          to outbound messages.
         </p>
 
         {error && <Alert type="error" message={error} />}
@@ -241,6 +241,16 @@ export default function Prompts() {
             id="prompt-promotions"
             value={prompts.promotions}
             onChange={(promotions) => setPrompts((current) => ({ ...current, promotions }))}
+            disabled={saving || generating}
+            rows={5}
+          />
+
+          <PromptSection
+            title="Payment links"
+            description="Fixed checkout URLs (Square Payment Links, Wix pay links, etc.) the agent may send when someone asks how to pay. One line per link: short label, then the full URL."
+            id="prompt-payment-links"
+            value={prompts.paymentLinks}
+            onChange={(paymentLinks) => setPrompts((current) => ({ ...current, paymentLinks }))}
             disabled={saving || generating}
             rows={5}
           />

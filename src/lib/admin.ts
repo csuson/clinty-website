@@ -12,8 +12,10 @@ import type {
   UserPrompts,
   WhatsAppConnection,
 } from '../types/database'
+import { promptTextToDb } from './prompts'
 import { supabase } from './supabase'
 import { getFunctionErrorMessage } from './supabaseFunctions'
+import { DEFAULT_RESPONSE_TONE } from '../constants/responseTones'
 
 export type AdminApiKey = ApiKey & { user_email: string | null }
 export type AdminGmailToken = GmailToken & { user_email: string | null }
@@ -98,6 +100,7 @@ export type AdminAgentSettings = AgentSettings & {
   prompt_calendar_preference?: string | null
   prompt_default_footer?: string | null
   prompt_promotions?: string | null
+  prompt_payment_links?: string | null
 }
 
 export type AdminUserPrompts = UserPrompts & {
@@ -264,6 +267,7 @@ export type AdminPromptsInput = {
   calendar_preference: string
   default_footer: string
   promotions: string
+  payment_links: string
   response_tone: string
   whatsapp_response_tone: string | null
 }
@@ -323,7 +327,19 @@ export async function saveAdminUserPrompts(input: AdminPromptsInput): Promise<Us
   }
 
   const result = await supabase.functions.invoke('admin-prompts', {
-    body: input,
+    body: {
+      user_id: input.user_id,
+      background: promptTextToDb(input.background),
+      calendar_preference: promptTextToDb(input.calendar_preference),
+      default_footer: promptTextToDb(input.default_footer),
+      promotions: promptTextToDb(input.promotions),
+      payment_links: promptTextToDb(input.payment_links),
+      response_tone: promptTextToDb(input.response_tone) ?? DEFAULT_RESPONSE_TONE,
+      whatsapp_response_tone:
+        input.whatsapp_response_tone === null
+          ? null
+          : promptTextToDb(input.whatsapp_response_tone),
+    },
   })
 
   if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {

@@ -28,6 +28,7 @@ export type PromptFields = {
   calendarPreference: string
   defaultFooter: string
   promotions: string
+  paymentLinks: string
   responseTone: string
   whatsappResponseTone: string
 }
@@ -38,14 +39,74 @@ export function defaultPromptFields(): PromptFields {
     calendarPreference: DEFAULT_PROMPT_CALENDAR_PREFERENCE,
     defaultFooter: DEFAULT_PROMPT_FOOTER,
     promotions: DEFAULT_PROMPT_PROMOTIONS,
+    paymentLinks: '',
     responseTone: DEFAULT_RESPONSE_TONE,
     whatsappResponseTone: WHATSAPP_SAME_AS_EMAIL,
   }
 }
 
-function emptyToNull(value: string): string | null {
+/** Trimmed non-empty string, or null so Supabase clears the column. */
+export function promptTextToDb(value: string): string | null {
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
+}
+
+const USER_PROMPTS_WRITE_SELECT =
+  'background, calendar_preference, default_footer, promotions, payment_links, response_tone, whatsapp_response_tone'
+
+type UserPromptsWriteRow = {
+  user_id: string
+  background: string | null
+  calendar_preference: string | null
+  default_footer: string | null
+  promotions: string | null
+  payment_links: string | null
+  response_tone: string
+  whatsapp_response_tone: string | null
+}
+
+type SavedUserPromptsRow = Pick<
+  UserPrompts,
+  | 'background'
+  | 'calendar_preference'
+  | 'default_footer'
+  | 'promotions'
+  | 'payment_links'
+  | 'response_tone'
+  | 'whatsapp_response_tone'
+>
+
+function normalizeDbText(value: string | null | undefined): string | null {
+  if (value == null) return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function savedUserPromptsMatch(saved: SavedUserPromptsRow | null, expected: UserPromptsWriteRow): boolean {
+  if (!saved) return false
+
+  return (
+    normalizeDbText(saved.background) === expected.background &&
+    normalizeDbText(saved.calendar_preference) === expected.calendar_preference &&
+    normalizeDbText(saved.default_footer) === expected.default_footer &&
+    normalizeDbText(saved.promotions) === expected.promotions &&
+    normalizeDbText(saved.payment_links) === expected.payment_links &&
+    normalizeDbText(saved.response_tone) === expected.response_tone &&
+    normalizeDbText(saved.whatsapp_response_tone) === expected.whatsapp_response_tone
+  )
+}
+
+export function buildUserPromptsWriteRow(userId: string, prompts: PromptFields): UserPromptsWriteRow {
+  return {
+    user_id: userId,
+    background: promptTextToDb(prompts.background),
+    calendar_preference: promptTextToDb(prompts.calendarPreference),
+    default_footer: promptTextToDb(prompts.defaultFooter),
+    promotions: promptTextToDb(prompts.promotions),
+    payment_links: promptTextToDb(prompts.paymentLinks),
+    response_tone: prompts.responseTone.trim() || DEFAULT_RESPONSE_TONE,
+    whatsapp_response_tone: promptTextToDb(prompts.whatsappResponseTone),
+  }
 }
 
 function toPromptFields(row: UserPrompts | null): PromptFields {
@@ -59,6 +120,7 @@ function toPromptFields(row: UserPrompts | null): PromptFields {
     calendarPreference: row.calendar_preference?.trim() ?? '',
     defaultFooter: row.default_footer?.trim() ?? '',
     promotions: row.promotions?.trim() ?? '',
+    paymentLinks: row.payment_links?.trim() ?? '',
     responseTone,
     whatsappResponseTone: whatsappTone || WHATSAPP_SAME_AS_EMAIL,
   }
@@ -111,7 +173,7 @@ export async function fetchUserPrompts(userId: string): Promise<PromptFields> {
   const { data, error } = await supabase
     .from('user_prompts')
     .select(
-      'user_id, background, calendar_preference, default_footer, promotions, response_tone, whatsapp_response_tone',
+      'user_id, background, calendar_preference, default_footer, promotions, payment_links, response_tone, whatsapp_response_tone',
     )
     .eq('user_id', userId)
     .maybeSingle()
@@ -130,15 +192,7 @@ export async function saveUserPrompts(userId: string, prompts: PromptFields): Pr
     throw new Error('Supabase is not configured.')
   }
 
-  const row = {
-    user_id: userId,
-    background: emptyToNull(prompts.background),
-    calendar_preference: emptyToNull(prompts.calendarPreference),
-    default_footer: emptyToNull(prompts.defaultFooter),
-    promotions: emptyToNull(prompts.promotions),
-    response_tone: prompts.responseTone.trim() || DEFAULT_RESPONSE_TONE,
-    whatsapp_response_tone: emptyToNull(prompts.whatsappResponseTone),
-  }
+  const row = buildUserPromptsWriteRow(userId, prompts)
 
   const { data: updated, error: updateError } = await supabase
     .from('user_prompts')
@@ -147,11 +201,12 @@ export async function saveUserPrompts(userId: string, prompts: PromptFields): Pr
       calendar_preference: row.calendar_preference,
       default_footer: row.default_footer,
       promotions: row.promotions,
+      payment_links: row.payment_links,
       response_tone: row.response_tone,
       whatsapp_response_tone: row.whatsapp_response_tone,
     })
     .eq('user_id', userId)
-    .select('response_tone, promotions')
+    .select(USER_PROMPTS_WRITE_SELECT)
     .maybeSingle()
 
   if (updateError) throw new Error(updateError.message)
@@ -160,26 +215,17 @@ export async function saveUserPrompts(userId: string, prompts: PromptFields): Pr
     const { data: inserted, error: insertError } = await supabase
       .from('user_prompts')
       .insert(row)
-      .select('response_tone, promotions')
+      .select(USER_PROMPTS_WRITE_SELECT)
       .maybeSingle()
 
     if (insertError) throw new Error(insertError.message)
-    if (!inserted) {
-      throw new Error('Prompts were not saved.')
-    }
-    if (
-      inserted.response_tone !== row.response_tone ||
-      (inserted.promotions ?? '') !== (row.promotions ?? '')
-    ) {
+    if (!savedUserPromptsMatch(inserted as SavedUserPromptsRow | null, row)) {
       throw new Error('Prompts were not saved.')
     }
     return reloadEmailAssistantRuntime(userId)
   }
 
-  if (
-    updated.response_tone !== row.response_tone ||
-    (updated.promotions ?? '') !== (row.promotions ?? '')
-  ) {
+  if (!savedUserPromptsMatch(updated as SavedUserPromptsRow | null, row)) {
     throw new Error('Prompts were not saved.')
   }
 

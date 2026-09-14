@@ -167,6 +167,7 @@ export type UserPrompts = {
   calendar_preference: string | null
   default_footer: string | null
   promotions: string | null
+  payment_links: string | null
   response_tone: string | null
   whatsapp_response_tone: string | null
   created_at: string
@@ -536,6 +537,7 @@ export type Database = {
           calendar_preference?: string | null
           default_footer?: string | null
           promotions?: string | null
+          payment_links?: string | null
           response_tone?: string | null
           whatsapp_response_tone?: string | null
           created_at?: string
@@ -546,6 +548,7 @@ export type Database = {
           calendar_preference?: string | null
           default_footer?: string | null
           promotions?: string | null
+          payment_links?: string | null
           response_tone?: string | null
           whatsapp_response_tone?: string | null
           updated_at?: string
