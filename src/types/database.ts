@@ -194,6 +194,9 @@ export type AgentSettings = {
   square_team_member_id: string | null
   square_timezone: string | null
   auto_book_scheduling: boolean | null
+  multiple_booking_enabled: boolean
+  overbook_enabled: boolean
+  max_bookings_per_slot: number
   auto_respond_instruction: boolean | null
   auto_respond_scheduling: boolean | null
   auto_respond_whatsapp: boolean
@@ -625,6 +628,9 @@ export type Database = {
           square_team_member_id?: string | null
           square_timezone?: string | null
           auto_book_scheduling?: boolean | null
+          multiple_booking_enabled?: boolean
+          overbook_enabled?: boolean
+          max_bookings_per_slot?: number
           auto_respond_instruction?: boolean | null
           auto_respond_scheduling?: boolean | null
           auto_respond_whatsapp?: boolean
@@ -664,6 +670,9 @@ export type Database = {
           square_team_member_id?: string | null
           square_timezone?: string | null
           auto_book_scheduling?: boolean | null
+          multiple_booking_enabled?: boolean
+          overbook_enabled?: boolean
+          max_bookings_per_slot?: number
           auto_respond_instruction?: boolean | null
           auto_respond_scheduling?: boolean | null
           auto_respond_whatsapp?: boolean

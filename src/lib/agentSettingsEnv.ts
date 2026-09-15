@@ -218,6 +218,9 @@ export function parsedEnvToAgentSettingsInput(
     square_team_member_id: parsed.SQUARE_TEAM_MEMBER_ID ?? '',
     square_timezone: parsed.SQUARE_TIMEZONE ?? '',
     auto_book_scheduling: parseEnvBoolean(parsed.AUTO_BOOK_SCHEDULING),
+    multiple_booking_enabled: parseEnvBoolean(parsed.MULTIPLE_BOOKING_ENABLED) ?? false,
+    overbook_enabled: parseEnvBoolean(parsed.OVERBOOK_ENABLED) ?? false,
+    max_bookings_per_slot: parseEnvPositiveInt(parsed.MAX_BOOKINGS_PER_SLOT, 2),
     auto_respond_instruction: parseEnvBoolean(parsed.AUTO_RESPOND_INSTRUCTION),
     auto_respond_scheduling: parseEnvBoolean(parsed.AUTO_RESPOND_SCHEDULING),
     auto_respond_whatsapp: parseEnvBoolean(parsed.AUTO_RESPOND_WHATSAPP) ?? true,
@@ -295,6 +298,9 @@ export function agentSettingsToEnvContent(
   )
 
   addBoolean('AUTO_BOOK_SCHEDULING', settings.auto_book_scheduling)
+  addBoolean('MULTIPLE_BOOKING_ENABLED', settings.multiple_booking_enabled ?? false)
+  addBoolean('OVERBOOK_ENABLED', settings.overbook_enabled ?? false)
+  add('MAX_BOOKINGS_PER_SLOT', settings.max_bookings_per_slot ?? 2)
   addBoolean('AUTO_RESPOND_INSTRUCTION', settings.auto_respond_instruction)
   addBoolean('AUTO_RESPOND_SCHEDULING', settings.auto_respond_scheduling)
   addBoolean('AUTO_RESPOND_WHATSAPP', settings.auto_respond_whatsapp ?? true)

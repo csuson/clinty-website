@@ -43,9 +43,9 @@ The Kite School offers private kiteboarding instruction with jet-ski support and
 
 To schedule, call (650) 686-1179 or visit https://thekiteschool.com. We're located at Baywinds Park in Foster City, CA.`
 
-export const DEFAULT_PROMPT_CALENDAR_PREFERENCE = `60 minute lessons are preferred.
+export const DEFAULT_PROMPT_CALENDAR_PREFERENCE = `30 minutes preferred booking duration.
 Availability: 7 days a week from 12:00 pm to 6:00 PM PST.
-When proposing lesson times, only offer slots within these days and hours.`
+When proposing appointment times, only offer slots within these days and hours.`
 
 export const DEFAULT_PROMPT_FOOTER = `
 To reserve a lesson, please call (650) 686-1179 or book via our website www.thekiteschool.com`

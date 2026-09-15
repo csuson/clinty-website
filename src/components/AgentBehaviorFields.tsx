@@ -5,6 +5,9 @@ export const DEFAULT_DAILY_INCOMING_WHATSAPP_LIMIT = 50
 
 export type AgentBehaviorSettings = {
   auto_book_scheduling: boolean | null
+  multiple_booking_enabled: boolean
+  overbook_enabled: boolean
+  max_bookings_per_slot: number
   auto_respond_instruction: boolean | null
   auto_respond_scheduling: boolean | null
   auto_respond_whatsapp: boolean
@@ -24,6 +27,9 @@ export type AgentBehaviorSettings = {
 export function defaultAgentBehaviorSettings(): AgentBehaviorSettings {
   return {
     auto_book_scheduling: null,
+    multiple_booking_enabled: false,
+    overbook_enabled: false,
+    max_bookings_per_slot: 2,
     auto_respond_instruction: null,
     auto_respond_scheduling: null,
     auto_respond_whatsapp: true,
@@ -156,6 +162,67 @@ export default function AgentBehaviorFields({
             <option value="true">True</option>
             <option value="false">False</option>
           </select>
+        </FormField>
+        <FormField
+          label="Multiple booking"
+          id={`${idPrefix}-multiple-booking-enabled`}
+          copyValue={copy(booleanSelectValue(settings.multiple_booking_enabled))}
+        >
+          <select
+            id={`${idPrefix}-multiple-booking-enabled`}
+            value={booleanSelectValue(settings.multiple_booking_enabled)}
+            onChange={(e) =>
+              onChange(
+                'multiple_booking_enabled',
+                parseRequiredBooleanSelect(e.target.value, false),
+              )
+            }
+            className={inputClass}
+            disabled={disabled}
+          >
+            <option value="true">True</option>
+            <option value="false">False</option>
+          </select>
+        </FormField>
+        <FormField
+          label="Overbook time slots"
+          id={`${idPrefix}-overbook-enabled`}
+          copyValue={copy(booleanSelectValue(settings.overbook_enabled))}
+        >
+          <select
+            id={`${idPrefix}-overbook-enabled`}
+            value={booleanSelectValue(settings.overbook_enabled)}
+            onChange={(e) =>
+              onChange('overbook_enabled', parseRequiredBooleanSelect(e.target.value, false))
+            }
+            className={inputClass}
+            disabled={disabled}
+          >
+            <option value="true">True</option>
+            <option value="false">False</option>
+          </select>
+        </FormField>
+        <FormField
+          label="Max bookings per slot"
+          id={`${idPrefix}-max-bookings-per-slot`}
+          copyValue={copy(String(settings.max_bookings_per_slot))}
+        >
+          <input
+            id={`${idPrefix}-max-bookings-per-slot`}
+            type="number"
+            min={2}
+            max={20}
+            value={settings.max_bookings_per_slot}
+            onChange={(e) => {
+              const parsed = Number.parseInt(e.target.value, 10)
+              onChange(
+                'max_bookings_per_slot',
+                Number.isFinite(parsed) ? Math.max(2, parsed) : 2,
+              )
+            }}
+            className={inputClass}
+            disabled={disabled}
+          />
         </FormField>
         <FormField
           label="Auto Respond Catalog"
@@ -387,6 +454,9 @@ export default function AgentBehaviorFields({
 
 export type AgentBehaviorRowInput = {
   auto_book_scheduling?: boolean | null
+  multiple_booking_enabled?: boolean | null
+  overbook_enabled?: boolean | null
+  max_bookings_per_slot?: number | null
   auto_respond_instruction?: boolean | null
   auto_respond_scheduling?: boolean | null
   auto_respond_whatsapp?: boolean | null
@@ -411,6 +481,10 @@ export function agentBehaviorFromRow(
 
   return {
     auto_book_scheduling: row.auto_book_scheduling ?? defaults.auto_book_scheduling,
+    multiple_booking_enabled:
+      row.multiple_booking_enabled ?? defaults.multiple_booking_enabled,
+    overbook_enabled: row.overbook_enabled ?? defaults.overbook_enabled,
+    max_bookings_per_slot: row.max_bookings_per_slot ?? defaults.max_bookings_per_slot,
     auto_respond_instruction: row.auto_respond_instruction ?? defaults.auto_respond_instruction,
     auto_respond_scheduling: row.auto_respond_scheduling ?? defaults.auto_respond_scheduling,
     auto_respond_whatsapp: row.auto_respond_whatsapp ?? defaults.auto_respond_whatsapp,
@@ -435,6 +509,9 @@ export function agentBehaviorFromRow(
 export function agentBehaviorToDbPayload(settings: AgentBehaviorSettings) {
   return {
     auto_book_scheduling: settings.auto_book_scheduling,
+    multiple_booking_enabled: settings.multiple_booking_enabled,
+    overbook_enabled: settings.overbook_enabled,
+    max_bookings_per_slot: settings.max_bookings_per_slot,
     auto_respond_instruction: settings.auto_respond_instruction,
     auto_respond_scheduling: settings.auto_respond_scheduling,
     auto_respond_whatsapp: settings.auto_respond_whatsapp,
@@ -456,6 +533,9 @@ export function agentBehaviorToDbPayload(settings: AgentBehaviorSettings) {
 export function agentBehaviorToUserDbPayload(settings: AgentBehaviorSettings) {
   return {
     auto_book_scheduling: settings.auto_book_scheduling,
+    multiple_booking_enabled: settings.multiple_booking_enabled,
+    overbook_enabled: settings.overbook_enabled,
+    max_bookings_per_slot: settings.max_bookings_per_slot,
     auto_respond_instruction: settings.auto_respond_instruction,
     auto_respond_scheduling: settings.auto_respond_scheduling,
     auto_respond_whatsapp: settings.auto_respond_whatsapp,

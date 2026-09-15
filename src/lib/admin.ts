@@ -230,6 +230,9 @@ export type CreateAgentSettingsInput = {
   square_team_member_id?: string | null
   square_timezone?: string | null
   auto_book_scheduling?: boolean | null
+  multiple_booking_enabled?: boolean | null
+  overbook_enabled?: boolean | null
+  max_bookings_per_slot?: number | null
   auto_respond_instruction?: boolean | null
   auto_respond_scheduling?: boolean | null
   auto_respond_whatsapp?: boolean | null

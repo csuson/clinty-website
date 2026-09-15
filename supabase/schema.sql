@@ -239,6 +239,9 @@ create table if not exists public.agent_settings (
   square_team_member_id text,
   square_timezone text,
   auto_book_scheduling boolean,
+  multiple_booking_enabled boolean not null default false,
+  overbook_enabled boolean not null default false,
+  max_bookings_per_slot integer not null default 2,
   auto_respond_instruction boolean,
   auto_respond_scheduling boolean,
   auto_respond_whatsapp boolean not null default true,
@@ -321,6 +324,9 @@ create index if not exists agent_settings_clinty_api_key_id_idx
 alter table public.agent_settings drop column if exists clinty_api_key;
 alter table public.agent_settings add column if not exists clinty_api_key_id uuid references public.api_keys (id) on delete set null;
 alter table public.agent_settings add column if not exists auto_book_scheduling boolean;
+alter table public.agent_settings add column if not exists multiple_booking_enabled boolean not null default false;
+alter table public.agent_settings add column if not exists overbook_enabled boolean not null default false;
+alter table public.agent_settings add column if not exists max_bookings_per_slot integer not null default 2;
 alter table public.agent_settings add column if not exists auto_respond_instruction boolean;
 alter table public.agent_settings add column if not exists auto_respond_scheduling boolean;
 alter table public.agent_settings add column if not exists auto_respond_whatsapp boolean not null default true;

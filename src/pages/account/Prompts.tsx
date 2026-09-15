@@ -280,7 +280,7 @@ export default function Prompts() {
 
           <PromptSection
             title="Calendar preference"
-            description="Lesson length, availability windows, and rules for proposing appointment times."
+            description="Booking duration, availability windows, and rules for proposing appointment times."
             id="prompt-calendar-preference"
             value={prompts.calendarPreference}
             onChange={(calendarPreference) =>

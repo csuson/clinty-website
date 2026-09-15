@@ -10,6 +10,9 @@ export { loadWebsiteSettingsFromEdgeEnv, type WebsiteSettings }
 
 export const RUNTIME_ENV_KEYS = [
   'AUTO_BOOK_SCHEDULING',
+  'MULTIPLE_BOOKING_ENABLED',
+  'OVERBOOK_ENABLED',
+  'MAX_BOOKINGS_PER_SLOT',
   'AUTO_RESPOND_CATALOG',
   'AUTO_RESPOND_INSTRUCTION',
   'AUTO_RESPOND_PERSONAL',
@@ -328,6 +331,9 @@ export function agentSettingsToRuntimeEnv(row: AgentSettingsRow | null | undefin
 
   const env: RuntimeEnv = {}
   setBooleanIfPresent(env, 'AUTO_BOOK_SCHEDULING', row.auto_book_scheduling)
+  setBooleanWithDefault(env, 'MULTIPLE_BOOKING_ENABLED', row.multiple_booking_enabled, false)
+  setBooleanWithDefault(env, 'OVERBOOK_ENABLED', row.overbook_enabled, false)
+  setPositiveIntWithDefault(env, 'MAX_BOOKINGS_PER_SLOT', row.max_bookings_per_slot, 2)
   setBooleanIfPresent(env, 'AUTO_RESPOND_INSTRUCTION', row.auto_respond_instruction)
   setBooleanIfPresent(env, 'AUTO_RESPOND_SCHEDULING', row.auto_respond_scheduling)
   setBooleanWithDefault(env, 'AUTO_RESPOND_WHATSAPP', row.auto_respond_whatsapp, true)
