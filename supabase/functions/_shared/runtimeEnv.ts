@@ -9,6 +9,9 @@ import {
 export { loadWebsiteSettingsFromEdgeEnv, type WebsiteSettings }
 
 export const RUNTIME_ENV_KEYS = [
+  'APPOINTMENT_REMINDERS_ENABLED',
+  'APPOINTMENT_REMINDER_EMAIL_HOURS',
+  'APPOINTMENT_REMINDER_WHATSAPP_HOURS',
   'AUTO_BOOK_SCHEDULING',
   'MULTIPLE_BOOKING_ENABLED',
   'OVERBOOK_ENABLED',
@@ -330,6 +333,9 @@ export function agentSettingsToRuntimeEnv(row: AgentSettingsRow | null | undefin
   if (!row) return {}
 
   const env: RuntimeEnv = {}
+  setBooleanWithDefault(env, 'APPOINTMENT_REMINDERS_ENABLED', row.appointment_reminders_enabled, true)
+  setIfPresent(env, 'APPOINTMENT_REMINDER_EMAIL_HOURS', row.appointment_reminder_email_hours)
+  setIfPresent(env, 'APPOINTMENT_REMINDER_WHATSAPP_HOURS', row.appointment_reminder_whatsapp_hours)
   setBooleanIfPresent(env, 'AUTO_BOOK_SCHEDULING', row.auto_book_scheduling)
   setBooleanWithDefault(env, 'MULTIPLE_BOOKING_ENABLED', row.multiple_booking_enabled, false)
   setBooleanWithDefault(env, 'OVERBOOK_ENABLED', row.overbook_enabled, false)

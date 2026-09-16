@@ -197,6 +197,9 @@ export type AgentSettings = {
   multiple_booking_enabled: boolean
   overbook_enabled: boolean
   max_bookings_per_slot: number
+  appointment_reminders_enabled: boolean
+  appointment_reminder_email_hours: string
+  appointment_reminder_whatsapp_hours: string
   auto_respond_instruction: boolean | null
   auto_respond_scheduling: boolean | null
   auto_respond_whatsapp: boolean

@@ -165,6 +165,11 @@ async function buildPayload(body: Record<string, unknown>) {
       multiple_booking_enabled: parseBoolean(body.multiple_booking_enabled) ?? false,
       overbook_enabled: parseBoolean(body.overbook_enabled) ?? false,
       max_bookings_per_slot: parsePositiveInt(body.max_bookings_per_slot, 2),
+      appointment_reminders_enabled: parseBoolean(body.appointment_reminders_enabled) ?? true,
+      appointment_reminder_email_hours:
+        emptyToNull(body.appointment_reminder_email_hours) ?? '24',
+      appointment_reminder_whatsapp_hours:
+        emptyToNull(body.appointment_reminder_whatsapp_hours) ?? '2',
       auto_respond_instruction: parseBoolean(body.auto_respond_instruction),
       auto_respond_scheduling: parseBoolean(body.auto_respond_scheduling),
       auto_respond_whatsapp: parseBoolean(body.auto_respond_whatsapp) ?? true,

@@ -22,6 +22,9 @@ export type AgentBehaviorSettings = {
   daily_incoming_email_limit: number
   daily_incoming_email_timezone: string | null
   daily_incoming_whatsapp_limit: number
+  appointment_reminders_enabled: boolean
+  appointment_reminder_email_hours: string
+  appointment_reminder_whatsapp_hours: string
 }
 
 export function defaultAgentBehaviorSettings(): AgentBehaviorSettings {
@@ -44,6 +47,9 @@ export function defaultAgentBehaviorSettings(): AgentBehaviorSettings {
     daily_incoming_email_limit: 50,
     daily_incoming_email_timezone: '',
     daily_incoming_whatsapp_limit: DEFAULT_DAILY_INCOMING_WHATSAPP_LIMIT,
+    appointment_reminders_enabled: true,
+    appointment_reminder_email_hours: '24',
+    appointment_reminder_whatsapp_hours: '2',
   }
 }
 
@@ -201,6 +207,57 @@ export default function AgentBehaviorFields({
             <option value="true">True</option>
             <option value="false">False</option>
           </select>
+        </FormField>
+        <FormField
+          label="Appointment reminders"
+          id={`${idPrefix}-appointment-reminders-enabled`}
+          copyValue={copy(booleanSelectValue(settings.appointment_reminders_enabled))}
+        >
+          <select
+            id={`${idPrefix}-appointment-reminders-enabled`}
+            value={booleanSelectValue(settings.appointment_reminders_enabled)}
+            onChange={(e) =>
+              onChange(
+                'appointment_reminders_enabled',
+                parseRequiredBooleanSelect(e.target.value, true),
+              )
+            }
+            className={inputClass}
+            disabled={disabled}
+          >
+            <option value="true">True</option>
+            <option value="false">False</option>
+          </select>
+        </FormField>
+        <FormField
+          label="Reminder email (hours before)"
+          id={`${idPrefix}-appointment-reminder-email-hours`}
+          copyValue={copy(settings.appointment_reminder_email_hours)}
+        >
+          <input
+            id={`${idPrefix}-appointment-reminder-email-hours`}
+            type="text"
+            value={settings.appointment_reminder_email_hours}
+            onChange={(e) => onChange('appointment_reminder_email_hours', e.target.value)}
+            className={inputClass}
+            disabled={disabled}
+            placeholder="24,2"
+          />
+        </FormField>
+        <FormField
+          label="Reminder WhatsApp (hours before)"
+          id={`${idPrefix}-appointment-reminder-whatsapp-hours`}
+          copyValue={copy(settings.appointment_reminder_whatsapp_hours)}
+        >
+          <input
+            id={`${idPrefix}-appointment-reminder-whatsapp-hours`}
+            type="text"
+            value={settings.appointment_reminder_whatsapp_hours}
+            onChange={(e) => onChange('appointment_reminder_whatsapp_hours', e.target.value)}
+            className={inputClass}
+            disabled={disabled}
+            placeholder="2"
+          />
         </FormField>
         <FormField
           label="Max bookings per slot"
@@ -471,6 +528,9 @@ export type AgentBehaviorRowInput = {
   daily_incoming_email_limit?: number | null
   daily_incoming_email_timezone?: string | null
   daily_incoming_whatsapp_limit?: number | null
+  appointment_reminders_enabled?: boolean | null
+  appointment_reminder_email_hours?: string | null
+  appointment_reminder_whatsapp_hours?: string | null
 }
 
 export function agentBehaviorFromRow(
@@ -503,6 +563,13 @@ export function agentBehaviorFromRow(
     daily_incoming_email_timezone: row.daily_incoming_email_timezone?.trim() ?? '',
     daily_incoming_whatsapp_limit:
       row.daily_incoming_whatsapp_limit ?? defaults.daily_incoming_whatsapp_limit,
+    appointment_reminders_enabled:
+      row.appointment_reminders_enabled ?? defaults.appointment_reminders_enabled,
+    appointment_reminder_email_hours:
+      row.appointment_reminder_email_hours?.trim() || defaults.appointment_reminder_email_hours,
+    appointment_reminder_whatsapp_hours:
+      row.appointment_reminder_whatsapp_hours?.trim()
+      || defaults.appointment_reminder_whatsapp_hours,
   }
 }
 
@@ -526,6 +593,10 @@ export function agentBehaviorToDbPayload(settings: AgentBehaviorSettings) {
     daily_incoming_email_limit: settings.daily_incoming_email_limit,
     daily_incoming_email_timezone: settings.daily_incoming_email_timezone?.trim() || null,
     daily_incoming_whatsapp_limit: settings.daily_incoming_whatsapp_limit,
+    appointment_reminders_enabled: settings.appointment_reminders_enabled,
+    appointment_reminder_email_hours: settings.appointment_reminder_email_hours?.trim() || '24',
+    appointment_reminder_whatsapp_hours:
+      settings.appointment_reminder_whatsapp_hours?.trim() || '2',
   }
 }
 
@@ -544,5 +615,9 @@ export function agentBehaviorToUserDbPayload(settings: AgentBehaviorSettings) {
     email_ignore_personal: settings.email_ignore_personal,
     whatsapp_ignore_personal: settings.whatsapp_ignore_personal,
     daily_incoming_email_timezone: settings.daily_incoming_email_timezone?.trim() || null,
+    appointment_reminders_enabled: settings.appointment_reminders_enabled,
+    appointment_reminder_email_hours: settings.appointment_reminder_email_hours?.trim() || '24',
+    appointment_reminder_whatsapp_hours:
+      settings.appointment_reminder_whatsapp_hours?.trim() || '2',
   }
 }

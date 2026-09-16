@@ -221,6 +221,10 @@ export function parsedEnvToAgentSettingsInput(
     multiple_booking_enabled: parseEnvBoolean(parsed.MULTIPLE_BOOKING_ENABLED) ?? false,
     overbook_enabled: parseEnvBoolean(parsed.OVERBOOK_ENABLED) ?? false,
     max_bookings_per_slot: parseEnvPositiveInt(parsed.MAX_BOOKINGS_PER_SLOT, 2),
+    appointment_reminders_enabled:
+      parseEnvBoolean(parsed.APPOINTMENT_REMINDERS_ENABLED) ?? true,
+    appointment_reminder_email_hours: parsed.APPOINTMENT_REMINDER_EMAIL_HOURS ?? '24',
+    appointment_reminder_whatsapp_hours: parsed.APPOINTMENT_REMINDER_WHATSAPP_HOURS ?? '2',
     auto_respond_instruction: parseEnvBoolean(parsed.AUTO_RESPOND_INSTRUCTION),
     auto_respond_scheduling: parseEnvBoolean(parsed.AUTO_RESPOND_SCHEDULING),
     auto_respond_whatsapp: parseEnvBoolean(parsed.AUTO_RESPOND_WHATSAPP) ?? true,
@@ -297,6 +301,9 @@ export function agentSettingsToEnvContent(
     settings,
   )
 
+  addBoolean('APPOINTMENT_REMINDERS_ENABLED', settings.appointment_reminders_enabled ?? true)
+  add('APPOINTMENT_REMINDER_EMAIL_HOURS', settings.appointment_reminder_email_hours ?? '24')
+  add('APPOINTMENT_REMINDER_WHATSAPP_HOURS', settings.appointment_reminder_whatsapp_hours ?? '2')
   addBoolean('AUTO_BOOK_SCHEDULING', settings.auto_book_scheduling)
   addBoolean('MULTIPLE_BOOKING_ENABLED', settings.multiple_booking_enabled ?? false)
   addBoolean('OVERBOOK_ENABLED', settings.overbook_enabled ?? false)
