@@ -170,6 +170,8 @@ export type UserPrompts = {
   payment_links: string | null
   response_tone: string | null
   whatsapp_response_tone: string | null
+  response_preferences: string | null
+  whatsapp_response_preferences: string | null
   created_at: string
   updated_at: string
 }
@@ -546,6 +548,8 @@ export type Database = {
           payment_links?: string | null
           response_tone?: string | null
           whatsapp_response_tone?: string | null
+          response_preferences?: string | null
+          whatsapp_response_preferences?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -557,6 +561,8 @@ export type Database = {
           payment_links?: string | null
           response_tone?: string | null
           whatsapp_response_tone?: string | null
+          response_preferences?: string | null
+          whatsapp_response_preferences?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -634,6 +640,9 @@ export type Database = {
           multiple_booking_enabled?: boolean
           overbook_enabled?: boolean
           max_bookings_per_slot?: number
+          appointment_reminders_enabled?: boolean
+          appointment_reminder_email_hours?: string
+          appointment_reminder_whatsapp_hours?: string
           auto_respond_instruction?: boolean | null
           auto_respond_scheduling?: boolean | null
           auto_respond_whatsapp?: boolean
@@ -676,6 +685,9 @@ export type Database = {
           multiple_booking_enabled?: boolean
           overbook_enabled?: boolean
           max_bookings_per_slot?: number
+          appointment_reminders_enabled?: boolean
+          appointment_reminder_email_hours?: string
+          appointment_reminder_whatsapp_hours?: string
           auto_respond_instruction?: boolean | null
           auto_respond_scheduling?: boolean | null
           auto_respond_whatsapp?: boolean

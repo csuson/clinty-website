@@ -245,21 +245,6 @@ export default function AgentBehaviorFields({
           />
         </FormField>
         <FormField
-          label="Reminder WhatsApp (hours before)"
-          id={`${idPrefix}-appointment-reminder-whatsapp-hours`}
-          copyValue={copy(settings.appointment_reminder_whatsapp_hours)}
-        >
-          <input
-            id={`${idPrefix}-appointment-reminder-whatsapp-hours`}
-            type="text"
-            value={settings.appointment_reminder_whatsapp_hours}
-            onChange={(e) => onChange('appointment_reminder_whatsapp_hours', e.target.value)}
-            className={inputClass}
-            disabled={disabled}
-            placeholder="2"
-          />
-        </FormField>
-        <FormField
           label="Max bookings per slot"
           id={`${idPrefix}-max-bookings-per-slot`}
           copyValue={copy(String(settings.max_bookings_per_slot))}
@@ -427,7 +412,7 @@ export default function AgentBehaviorFields({
 
       <BehaviorSubsection
         title="WhatsApp"
-        description="Auto-reply and thread limits for WhatsApp Web."
+        description="Auto-reply, appointment reminders, and thread limits for WhatsApp Web."
       >
         <FormField
           label="Auto Respond WhatsApp"
@@ -464,6 +449,21 @@ export default function AgentBehaviorFields({
             <option value="true">True</option>
             <option value="false">False</option>
           </select>
+        </FormField>
+        <FormField
+          label="Reminder WhatsApp (hours before)"
+          id={`${idPrefix}-appointment-reminder-whatsapp-hours`}
+          copyValue={copy(settings.appointment_reminder_whatsapp_hours)}
+        >
+          <input
+            id={`${idPrefix}-appointment-reminder-whatsapp-hours`}
+            type="text"
+            value={settings.appointment_reminder_whatsapp_hours}
+            onChange={(e) => onChange('appointment_reminder_whatsapp_hours', e.target.value)}
+            className={inputClass}
+            disabled={disabled}
+            placeholder="2"
+          />
         </FormField>
         <FormField
           label="WhatsApp Thread Message Cap"

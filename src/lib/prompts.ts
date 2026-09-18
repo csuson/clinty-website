@@ -29,6 +29,8 @@ export type PromptFields = {
   defaultFooter: string
   promotions: string
   paymentLinks: string
+  responsePreferences: string
+  whatsappResponsePreferences: string
   responseTone: string
   whatsappResponseTone: string
 }
@@ -40,6 +42,8 @@ export function defaultPromptFields(): PromptFields {
     defaultFooter: DEFAULT_PROMPT_FOOTER,
     promotions: DEFAULT_PROMPT_PROMOTIONS,
     paymentLinks: '',
+    responsePreferences: '',
+    whatsappResponsePreferences: '',
     responseTone: DEFAULT_RESPONSE_TONE,
     whatsappResponseTone: WHATSAPP_SAME_AS_EMAIL,
   }
@@ -52,7 +56,7 @@ export function promptTextToDb(value: string): string | null {
 }
 
 const USER_PROMPTS_WRITE_SELECT =
-  'background, calendar_preference, default_footer, promotions, payment_links, response_tone, whatsapp_response_tone'
+  'background, calendar_preference, default_footer, promotions, payment_links, response_preferences, whatsapp_response_preferences, response_tone, whatsapp_response_tone'
 
 type UserPromptsWriteRow = {
   user_id: string
@@ -61,6 +65,8 @@ type UserPromptsWriteRow = {
   default_footer: string | null
   promotions: string | null
   payment_links: string | null
+  response_preferences: string | null
+  whatsapp_response_preferences: string | null
   response_tone: string
   whatsapp_response_tone: string | null
 }
@@ -72,6 +78,8 @@ type SavedUserPromptsRow = Pick<
   | 'default_footer'
   | 'promotions'
   | 'payment_links'
+  | 'response_preferences'
+  | 'whatsapp_response_preferences'
   | 'response_tone'
   | 'whatsapp_response_tone'
 >
@@ -91,6 +99,8 @@ function savedUserPromptsMatch(saved: SavedUserPromptsRow | null, expected: User
     normalizeDbText(saved.default_footer) === expected.default_footer &&
     normalizeDbText(saved.promotions) === expected.promotions &&
     normalizeDbText(saved.payment_links) === expected.payment_links &&
+    normalizeDbText(saved.response_preferences) === expected.response_preferences &&
+    normalizeDbText(saved.whatsapp_response_preferences) === expected.whatsapp_response_preferences &&
     normalizeDbText(saved.response_tone) === expected.response_tone &&
     normalizeDbText(saved.whatsapp_response_tone) === expected.whatsapp_response_tone
   )
@@ -104,6 +114,8 @@ export function buildUserPromptsWriteRow(userId: string, prompts: PromptFields):
     default_footer: promptTextToDb(prompts.defaultFooter),
     promotions: promptTextToDb(prompts.promotions),
     payment_links: promptTextToDb(prompts.paymentLinks),
+    response_preferences: promptTextToDb(prompts.responsePreferences),
+    whatsapp_response_preferences: promptTextToDb(prompts.whatsappResponsePreferences),
     response_tone: prompts.responseTone.trim() || DEFAULT_RESPONSE_TONE,
     whatsapp_response_tone: promptTextToDb(prompts.whatsappResponseTone),
   }
@@ -121,6 +133,8 @@ function toPromptFields(row: UserPrompts | null): PromptFields {
     defaultFooter: row.default_footer?.trim() ?? '',
     promotions: row.promotions?.trim() ?? '',
     paymentLinks: row.payment_links?.trim() ?? '',
+    responsePreferences: row.response_preferences?.trim() ?? '',
+    whatsappResponsePreferences: row.whatsapp_response_preferences?.trim() ?? '',
     responseTone,
     whatsappResponseTone: whatsappTone || WHATSAPP_SAME_AS_EMAIL,
   }
@@ -173,7 +187,7 @@ export async function fetchUserPrompts(userId: string): Promise<PromptFields> {
   const { data, error } = await supabase
     .from('user_prompts')
     .select(
-      'user_id, background, calendar_preference, default_footer, promotions, payment_links, response_tone, whatsapp_response_tone',
+      'user_id, background, calendar_preference, default_footer, promotions, payment_links, response_preferences, whatsapp_response_preferences, response_tone, whatsapp_response_tone',
     )
     .eq('user_id', userId)
     .maybeSingle()
@@ -202,6 +216,8 @@ export async function saveUserPrompts(userId: string, prompts: PromptFields): Pr
       default_footer: row.default_footer,
       promotions: row.promotions,
       payment_links: row.payment_links,
+      response_preferences: row.response_preferences,
+      whatsapp_response_preferences: row.whatsapp_response_preferences,
       response_tone: row.response_tone,
       whatsapp_response_tone: row.whatsapp_response_tone,
     })

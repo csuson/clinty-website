@@ -255,6 +255,30 @@ export default function Prompts() {
             rows={5}
           />
 
+          <PromptSection
+            title="Custom response preferences"
+            description="Optional extra rules for the response agent. These are appended to Clinty’s built-in response preferences (scheduling, catalog, language, and branding rules). Use bullet lines for clarity."
+            id="prompt-response-preferences"
+            value={prompts.responsePreferences}
+            onChange={(responsePreferences) =>
+              setPrompts((current) => ({ ...current, responsePreferences }))
+            }
+            disabled={saving || generating}
+            rows={6}
+          />
+
+          <PromptSection
+            title="WhatsApp custom response preferences"
+            description="Optional override for WhatsApp only. Leave blank to reuse the custom response preferences above for WhatsApp as well."
+            id="prompt-whatsapp-response-preferences"
+            value={prompts.whatsappResponsePreferences}
+            onChange={(whatsappResponsePreferences) =>
+              setPrompts((current) => ({ ...current, whatsappResponsePreferences }))
+            }
+            disabled={saving || generating}
+            rows={5}
+          />
+
           <ToneSection
             title="Email response tone"
             description="How the assistant writes email replies — language and content rules still apply."

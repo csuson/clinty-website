@@ -64,6 +64,8 @@ export type ResolvedUserPrompts = {
   payment_links: string
   response_tone: string
   whatsapp_response_tone: string | null
+  response_preferences: string
+  whatsapp_response_preferences: string
 }
 
 export function resolveUserPrompts(
@@ -75,6 +77,8 @@ export function resolveUserPrompts(
     payment_links?: string | null
     response_tone?: string | null
     whatsapp_response_tone?: string | null
+    response_preferences?: string | null
+    whatsapp_response_preferences?: string | null
   } | null,
 ): ResolvedUserPrompts {
   if (!row) {
@@ -86,6 +90,8 @@ export function resolveUserPrompts(
       payment_links: DEFAULT_PROMPT_PAYMENT_LINKS,
       response_tone: DEFAULT_RESPONSE_TONE,
       whatsapp_response_tone: null,
+      response_preferences: '',
+      whatsapp_response_preferences: '',
     }
   }
 
@@ -101,5 +107,7 @@ export function resolveUserPrompts(
     payment_links: row.payment_links?.trim() ?? DEFAULT_PROMPT_PAYMENT_LINKS,
     response_tone: responseTone,
     whatsapp_response_tone: whatsappTone,
+    response_preferences: row.response_preferences?.trim() ?? '',
+    whatsapp_response_preferences: row.whatsapp_response_preferences?.trim() ?? '',
   }
 }

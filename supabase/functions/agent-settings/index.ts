@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
     ] = await Promise.all([
       admin
         .from('user_prompts')
-        .select('background, calendar_preference, default_footer, promotions, payment_links, response_tone, whatsapp_response_tone')
+        .select('background, calendar_preference, default_footer, promotions, payment_links, response_tone, whatsapp_response_tone, response_preferences, whatsapp_response_preferences')
         .eq('user_id', userId)
         .maybeSingle(),
       loadIntegrationRows(admin, userId),
@@ -125,6 +125,8 @@ Deno.serve(async (req) => {
       prompt_payment_links: prompts.payment_links,
       prompt_response_tone: prompts.response_tone,
       prompt_whatsapp_response_tone: prompts.whatsapp_response_tone,
+      prompt_response_preferences: prompts.response_preferences,
+      prompt_whatsapp_response_preferences: prompts.whatsapp_response_preferences,
       runtime_env: runtimeEnv,
       runtime_env_keys: [...RUNTIME_ENV_KEYS],
       runtime_env_missing: runtimeEnvMissing,
