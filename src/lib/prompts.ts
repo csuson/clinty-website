@@ -17,7 +17,7 @@ import { supabase } from './supabase'
 import {
   buildWebsiteTextFromHtml,
   collectWebsiteTextFromBrowser,
-  formatWebsiteTextPages,
+  formatWebsiteTextForGeneration,
   isLocalOrPrivateWebsiteUrl,
   normalizeWebsiteUrl,
   readWebsiteHtmlFile,
@@ -305,22 +305,22 @@ async function resolveWebsiteTextForGeneration(
 ): Promise<string | null> {
   if (options.htmlFile) {
     const html = await readWebsiteHtmlFile(options.htmlFile)
-    return buildWebsiteTextFromHtml(html, siteUrl.href)
+    return await buildWebsiteTextFromHtml(html, siteUrl.href)
   }
 
   if (!isLocalOrPrivateWebsiteUrl(siteUrl)) {
     return null
   }
 
-  const pages = await collectWebsiteTextFromBrowser(siteUrl)
-  if (pages.length) {
-    return formatWebsiteTextPages(pages)
+  const crawl = await collectWebsiteTextFromBrowser(siteUrl)
+  if (crawl.pages.length) {
+    return formatWebsiteTextForGeneration(crawl.pages, crawl.faqs)
   }
 
   if (options.userId) {
     const assistantFetch = await fetchWebsiteTextViaAssistant(options.userId, siteUrl.href)
     if (assistantFetch.ok && assistantFetch.websiteText) {
-      return assistantFetch.websiteText.slice(0, 28_000)
+      return assistantFetch.websiteText.slice(0, 40_000)
     }
   }
 

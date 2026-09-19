@@ -7,7 +7,6 @@ import {
   disconnectWhatsApp,
   fetchWhatsAppConnection,
   fetchWhatsAppGatewaySettings,
-  formatPhone,
   isWhatsAppGatewayConfigured,
   type WhatsAppConnection,
   type WhatsAppGatewaySettings,
@@ -140,12 +139,6 @@ export default function WhatsAppIntegration({ expanded, onToggle }: WhatsAppInte
               <span className="text-sm font-semibold text-navy-900">Connected</span>
             </div>
             <dl className="grid sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <dt className="text-navy-600 mb-1">Phone number</dt>
-                <dd className="font-medium text-navy-900">
-                  {connection.phone ? formatPhone(connection.phone) : '—'}
-                </dd>
-              </div>
               <div>
                 <dt className="text-navy-600 mb-1">Linked</dt>
                 <dd className="font-medium text-navy-900">

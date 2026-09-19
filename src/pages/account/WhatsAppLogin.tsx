@@ -4,7 +4,6 @@ import { WHATSAPP_POLL_MS } from '../../constants/whatsapp'
 import { useAuth } from '../../context/AuthContext'
 import {
   fetchWhatsAppLoginStatus,
-  formatPhone,
   formatWhatsAppLinkError,
   restartWhatsAppLogin,
   startWhatsAppLogin,
@@ -18,7 +17,6 @@ export default function WhatsAppLogin() {
   const navigate = useNavigate()
   const [phase, setPhase] = useState<Phase>('starting')
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
-  const [phone, setPhone] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [retrying, setRetrying] = useState(false)
   const startedRef = useRef(false)
@@ -31,8 +29,7 @@ export default function WhatsAppLogin() {
         setPhase('error')
         return
       }
-      if (status.status === 'connected' && status.phone) {
-        setPhone(status.phone)
+      if (status.status === 'connected') {
         setPhase('connected')
         setQrDataUrl(null)
         return
@@ -58,8 +55,7 @@ export default function WhatsAppLogin() {
     async function begin() {
       try {
         const status = await startWhatsAppLogin()
-        if (status.status === 'connected' && status.phone) {
-          setPhone(status.phone)
+        if (status.status === 'connected') {
           setPhase('connected')
           return
         }
@@ -116,12 +112,10 @@ export default function WhatsAppLogin() {
     setRetrying(true)
     setError(null)
     setQrDataUrl(null)
-    setPhone(null)
     setPhase('starting')
     try {
       const status = await restartWhatsAppLogin()
-      if (status.status === 'connected' && status.phone) {
-        setPhone(status.phone)
+      if (status.status === 'connected') {
         setPhase('connected')
         return
       }
@@ -216,7 +210,7 @@ export default function WhatsAppLogin() {
           </div>
         )}
 
-        {phase === 'connected' && phone && (
+        {phase === 'connected' && (
           <div className="flex flex-col items-center py-10 gap-4">
             <div className="w-14 h-14 rounded-full bg-teal-400/15 flex items-center justify-center">
               <svg className="w-7 h-7 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -224,7 +218,6 @@ export default function WhatsAppLogin() {
               </svg>
             </div>
             <p className="text-lg font-semibold text-navy-900">WhatsApp linked</p>
-            <p className="text-sm text-navy-600">{formatPhone(phone)}</p>
             <p className="text-xs text-navy-500">Redirecting to integrations...</p>
           </div>
         )}

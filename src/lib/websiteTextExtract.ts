@@ -1,7 +1,8 @@
 const MAX_PAGE_BYTES = 2_500_000
 const MAX_HTML_PROCESS_CHARS = 900_000
-const MAX_PAGES = 8
-const MAX_TEXT_CHARS = 28_000
+const MAX_PAGES = 12
+const MAX_TEXT_CHARS = 40_000
+const MAX_PAGE_TEXT_CHARS = 14_000
 const MIN_USEFUL_TEXT_CHARS = 40
 
 const EXTRA_PATH_PATTERNS = [
@@ -16,11 +17,21 @@ const EXTRA_PATH_PATTERNS = [
   /event/i,
   /blog/i,
   /gear/i,
+  /faq/i,
+  /help/i,
+  /support/i,
+  /questions/i,
+]
+
+/** Always try these paths when crawling for FAQ and business background text. */
+const FAQ_SEARCH_PATHS = [
+  '/about',
+  '/about-us',
+  '/faq',
+  '/frequently-asked-questions',
 ]
 
 const WIX_FALLBACK_PATHS = [
-  '/about-us',
-  '/about',
   '/lessons-rentals',
   '/lessons',
   '/contact-us',
@@ -66,14 +77,23 @@ export function isLocalOrPrivateWebsiteUrl(url: URL): boolean {
   return false
 }
 
-export async function collectWebsiteTextFromBrowser(startUrl: URL): Promise<Array<{ url: string; text: string }>> {
+export type WebsiteCrawlResult = {
+  pages: Array<{ url: string; text: string }>
+  faqs: FaqPair[]
+}
+
+export async function collectWebsiteTextFromBrowser(startUrl: URL): Promise<WebsiteCrawlResult> {
   const origin = startUrl.origin
   const visited = new Set<string>()
   const queue: string[] = [startUrl.href]
+  for (const path of FAQ_SEARCH_PATHS) {
+    queue.push(new URL(path, origin).href)
+  }
   for (const path of WIX_FALLBACK_PATHS) {
     queue.push(new URL(path, origin).href)
   }
   const pages: Array<{ url: string; text: string }> = []
+  const allFaqs: FaqPair[] = []
 
   while (queue.length > 0 && pages.length < MAX_PAGES) {
     const next = queue.shift()
@@ -83,29 +103,70 @@ export async function collectWebsiteTextFromBrowser(startUrl: URL): Promise<Arra
     const html = await fetchHtml(next)
     if (!html) continue
 
-    const text = extractPageText(html)
+    mergeFaqPairs(allFaqs, await extractFaqsFromFramerModules(html))
+    mergeFaqPairs(allFaqs, extractFaqsFromHtml(html, next))
+
+    const text = extractPageText(html, next)
     if (text.length < MIN_USEFUL_TEXT_CHARS) continue
 
-    pages.push({ url: next, text: text.slice(0, 10_000) })
+    pages.push({ url: next, text: text.slice(0, MAX_PAGE_TEXT_CHARS) })
 
-    if (pages.length <= 2) {
-      for (const link of extractSameOriginLinks(html, origin)) {
-        if (visited.has(link) || queue.includes(link)) continue
-        if (EXTRA_PATH_PATTERNS.some((pattern) => pattern.test(link))) {
-          queue.push(link)
-        }
+    for (const link of extractSameOriginLinks(html, origin)) {
+      if (visited.has(link) || queue.includes(link)) continue
+      if (EXTRA_PATH_PATTERNS.some((pattern) => pattern.test(link))) {
+        queue.push(link)
       }
     }
   }
 
-  return pages
+  return { pages, faqs: allFaqs }
 }
 
 export function formatWebsiteTextPages(pages: Array<{ url: string; text: string }>): string {
-  return pages
+  return formatWebsiteTextForGeneration(pages, [])
+}
+
+export function formatWebsiteTextForGeneration(
+  pages: Array<{ url: string; text: string }>,
+  faqs: FaqPair[],
+): string {
+  const faqBlock = faqs.length
+    ? formatFaqSection(
+        faqs,
+        'All parsed FAQs (include every question and answer in the business background)',
+      )
+    : ''
+  const maxPageChars = faqBlock
+    ? Math.max(8_000, MAX_TEXT_CHARS - faqBlock.length - 80)
+    : MAX_TEXT_CHARS
+  const pageBlock = pages
     .map((page) => `=== ${page.url} ===\n${page.text}`)
     .join('\n\n')
-    .slice(0, MAX_TEXT_CHARS)
+    .slice(0, maxPageChars)
+  return [pageBlock, faqBlock].filter(Boolean).join('\n\n')
+}
+
+export function parseFormattedFaqsFromCombinedText(text: string): FaqPair[] {
+  const faqs: FaqPair[] = []
+  const pattern = /Q:\s*(.+?)\nA:\s*(.+?)(?=\n\nQ:|\n\n===|$)/gs
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(text)) !== null) {
+    const question = match[1].replace(/\s+/g, ' ').trim()
+    const answer = match[2].replace(/\s+/g, ' ').trim()
+    if (question.length >= 3 && answer.length >= 3) {
+      faqs.push({ question, answer })
+    }
+  }
+  return faqs
+}
+
+export function appendFaqsToBusinessBackground(background: string, faqs: FaqPair[]): string {
+  if (!faqs.length) return background.trim()
+  const faqBlock = formatFaqSection(faqs, 'FAQ')
+  const trimmed = background.trim()
+  const faqStart = trimmed.search(/\n\nFAQ(\s|\(|\/)/i)
+  const base = faqStart >= 0 ? trimmed.slice(0, faqStart).trim() : trimmed
+  return `${base}\n\n${faqBlock}`.trim()
 }
 
 export async function readWebsiteHtmlFile(file: File): Promise<string> {
@@ -115,12 +176,18 @@ export async function readWebsiteHtmlFile(file: File): Promise<string> {
   return file.text()
 }
 
-export function buildWebsiteTextFromHtml(html: string, pageUrl: string): string {
-  const text = extractPageText(html)
+export async function buildWebsiteTextFromHtml(html: string, pageUrl: string): Promise<string> {
+  const faqs: FaqPair[] = []
+  mergeFaqPairs(faqs, await extractFaqsFromFramerModules(html))
+  mergeFaqPairs(faqs, extractFaqsFromHtml(html, pageUrl))
+  const text = extractPageText(html, pageUrl)
   if (text.length < MIN_USEFUL_TEXT_CHARS) {
     throw new Error('Could not extract enough text from that HTML file.')
   }
-  return formatWebsiteTextPages([{ url: pageUrl, text: text.slice(0, 10_000) }])
+  return formatWebsiteTextForGeneration(
+    [{ url: pageUrl, text: text.slice(0, MAX_PAGE_TEXT_CHARS) }],
+    faqs,
+  )
 }
 
 async function fetchHtml(url: string): Promise<string | null> {
@@ -171,7 +238,7 @@ async function fetchHtml(url: string): Promise<string | null> {
   }
 }
 
-function extractPageText(html: string): string {
+function extractPageText(html: string, pageUrl = ''): string {
   const parts: string[] = []
 
   const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]
@@ -199,10 +266,284 @@ function extractPageText(html: string): string {
     parts.push(`Structured data: ${block}`)
   }
 
+  const faqSection = formatFaqSection(extractFaqsFromHtml(html, pageUrl))
+  if (faqSection) parts.push(faqSection)
+
   const bodyText = htmlToText(html)
   if (bodyText) parts.push(bodyText)
 
   return parts.join('\n\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+const MAX_FAQ_ITEMS_TOTAL = 200
+const MAX_FAQ_ANSWER_CHARS = 1_200
+const MAX_FRAMER_MODULES = 24
+const MAX_FRAMER_MODULE_BYTES = 600_000
+
+const SKIP_FRAMER_MODULE_PATTERN =
+  /\/(framer|react|motion|rolldown-runtime|SmoothScroll_Prod|script_main|shared-lib|Animator)\./i
+
+export type FaqPair = { question: string; answer: string }
+
+async function extractFaqsFromFramerModules(html: string): Promise<FaqPair[]> {
+  const urls = extractFramerModuleUrls(html)
+  const pairs: FaqPair[] = []
+
+  for (const url of urls.slice(0, MAX_FRAMER_MODULES)) {
+    const js = await fetchFramerModuleText(url)
+    if (!js) continue
+    mergeFaqPairs(pairs, extractFaqsFromFramerJs(js))
+  }
+
+  return pairs
+}
+
+function extractFramerModuleUrls(html: string): string[] {
+  const urls = new Set<string>()
+  const pattern = /https:\/\/framerusercontent\.com\/sites\/[^"'\\s<>]+\.mjs/g
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(html)) !== null) {
+    const url = match[0]
+    if (SKIP_FRAMER_MODULE_PATTERN.test(url)) continue
+    urls.add(url)
+  }
+
+  return [...urls]
+}
+
+async function fetchFramerModuleText(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: '*/*' },
+    })
+    if (!response.ok) return null
+
+    const buffer = await response.arrayBuffer()
+    if (buffer.byteLength > MAX_FRAMER_MODULE_BYTES) return null
+
+    return new TextDecoder('utf-8', { fatal: false }).decode(buffer)
+  } catch {
+    return null
+  }
+}
+
+function extractFaqsFromFramerJs(js: string): FaqPair[] {
+  const pairs: FaqPair[] = []
+  const seen = new Set<string>()
+
+  function add(question: string, answer: string) {
+    const q = normalizeFramerFaqText(question)
+    const a = normalizeFramerFaqText(answer).slice(0, MAX_FAQ_ANSWER_CHARS)
+    if (q.length < 3 || a.length < 3) return
+    const key = q.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    pairs.push({ question: q, answer: a })
+  }
+
+  const framerAccordionPattern = /Cem09IVM0:`([^`]+)`[\s\S]*?NV3c2dGIv:`([\s\S]*?)`/g
+  let match: RegExpExecArray | null
+  while ((match = framerAccordionPattern.exec(js)) !== null) {
+    add(match[1], match[2])
+  }
+
+  const genericPattern =
+    /:`([^`\n]{8,320}\?)`,(?:height|width|id|layoutId|style)[\s\S]{0,500}?NV3c2dGIv:`([\s\S]*?)`/g
+  while ((match = genericPattern.exec(js)) !== null) {
+    add(match[1], match[2])
+  }
+
+  return pairs
+}
+
+function normalizeFramerFaqText(value: string): string {
+  return decodeHtmlEntities(value)
+    .replace(/\\n/g, '\n')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function mergeFaqPairs(into: FaqPair[], from: FaqPair[]): void {
+  const indexByQuestion = new Map(into.map((pair, idx) => [pair.question.toLowerCase(), idx]))
+  for (const pair of from) {
+    if (into.length >= MAX_FAQ_ITEMS_TOTAL && !indexByQuestion.has(pair.question.toLowerCase())) {
+      return
+    }
+    const key = pair.question.toLowerCase()
+    const existingIndex = indexByQuestion.get(key)
+    if (existingIndex !== undefined) {
+      const existing = into[existingIndex]
+      if (pair.answer.length > existing.answer.length) {
+        into[existingIndex] = pair
+      }
+      continue
+    }
+    indexByQuestion.set(key, into.length)
+    into.push(pair)
+  }
+}
+
+function extractFaqsFromHtml(html: string, pageUrl = ''): FaqPair[] {
+  const seen = new Set<string>()
+  const pairs: FaqPair[] = []
+
+  function add(question: string, answer: string) {
+    const q = decodeHtmlEntities(stripTags(question)).replace(/\s+/g, ' ').trim()
+    const a = decodeHtmlEntities(stripTags(answer)).replace(/\s+/g, ' ').trim().slice(0, MAX_FAQ_ANSWER_CHARS)
+    if (q.length < 3 || a.length < 3) return
+    const key = q.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    pairs.push({ question: q, answer: a })
+  }
+
+  const jsonLdPattern = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  let jsonMatch: RegExpExecArray | null
+  while ((jsonMatch = jsonLdPattern.exec(html)) !== null) {
+    const raw = jsonMatch[1].trim()
+    if (!raw) continue
+    try {
+      collectFaqFromJsonLd(JSON.parse(raw), add)
+    } catch {
+      // ignore invalid JSON-LD
+    }
+  }
+
+  const detailsPattern = /<details[^>]*>([\s\S]*?)<\/details>/gi
+  let detailsMatch: RegExpExecArray | null
+  while ((detailsMatch = detailsPattern.exec(html)) !== null) {
+    const inner = detailsMatch[1]
+    const summary = inner.match(/<summary[^>]*>([\s\S]*?)<\/summary>/i)?.[1]
+    if (!summary) continue
+    const answerHtml = inner.replace(/<summary[\s\S]*?<\/summary>/i, '')
+    add(summary, answerHtml)
+  }
+
+  for (const region of extractFaqRegions(html)) {
+    extractHeadingAnswerPairs(region, add)
+    extractDtDdPairs(region, add)
+    extractStrongQuestionParagraphs(region, add)
+  }
+
+  const faqBlockPattern =
+    /<(?:div|section|article)[^>]*(?:class|id|data-hook)=["'][^"']*faq[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|section|article)>/gi
+  let blockMatch: RegExpExecArray | null
+  while ((blockMatch = faqBlockPattern.exec(html)) !== null) {
+    extractHeadingAnswerPairs(blockMatch[1], add)
+    extractDtDdPairs(blockMatch[1], add)
+    extractStrongQuestionParagraphs(blockMatch[1], add)
+  }
+
+  if (isFaqListingPage(pageUrl)) {
+    const bodyHtml = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1] ?? html
+    extractHeadingAnswerPairs(bodyHtml, add)
+    extractDtDdPairs(bodyHtml, add)
+    extractStrongQuestionParagraphs(bodyHtml, add)
+  }
+
+  return pairs
+}
+
+function isFaqListingPage(pageUrl: string): boolean {
+  return /\/faq|frequently-asked|\/help|\/support|\/questions/i.test(pageUrl)
+}
+
+function extractFaqRegions(html: string): string[] {
+  const regions: string[] = []
+  const regionPattern =
+    /<(?:section|div|main|article)[^>]*(?:id|class|data-hook|data-framer-name|aria-label)=["'][^"']*faq[^"']*["'][^>]*>([\s\S]*?)<\/(?:section|div|main|article)>/gi
+  let match: RegExpExecArray | null
+  while ((match = regionPattern.exec(html)) !== null) {
+    if (match[1].trim()) regions.push(match[1])
+  }
+  return regions
+}
+
+function extractDtDdPairs(
+  htmlFragment: string,
+  add: (question: string, answer: string) => void,
+): void {
+  const pairPattern = /<dt[^>]*>([\s\S]*?)<\/dt>\s*<dd[^>]*>([\s\S]*?)<\/dd>/gi
+  let match: RegExpExecArray | null
+  while ((match = pairPattern.exec(htmlFragment)) !== null) {
+    add(match[1], match[2])
+  }
+}
+
+function extractStrongQuestionParagraphs(
+  htmlFragment: string,
+  add: (question: string, answer: string) => void,
+): void {
+  const pattern =
+    /<p[^>]*>\s*<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>[^<]*<\/p>\s*<p[^>]*>([\s\S]*?)<\/p>/gi
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(htmlFragment)) !== null) {
+    add(match[1], match[2])
+  }
+}
+
+function collectFaqFromJsonLd(
+  value: unknown,
+  add: (question: string, answer: string) => void,
+): void {
+  if (!value || typeof value !== 'object') return
+
+  if (Array.isArray(value)) {
+    for (const item of value) collectFaqFromJsonLd(item, add)
+    return
+  }
+
+  const obj = value as Record<string, unknown>
+  const typeValue = obj['@type']
+  const types = (Array.isArray(typeValue) ? typeValue : typeValue ? [typeValue] : [])
+    .map((entry) => (typeof entry === 'string' ? entry : ''))
+    .filter(Boolean)
+
+  if (types.includes('Question')) {
+    const question =
+      typeof obj.name === 'string'
+        ? obj.name
+        : typeof obj.headline === 'string'
+          ? obj.headline
+          : ''
+    const accepted = obj.acceptedAnswer
+    let answer = ''
+    if (accepted && typeof accepted === 'object') {
+      const answerObj = accepted as Record<string, unknown>
+      if (typeof answerObj.text === 'string') answer = answerObj.text
+      else if (typeof answerObj.description === 'string') answer = answerObj.description
+    } else if (typeof obj.text === 'string') {
+      answer = obj.text
+    }
+    if (question && answer) add(question, answer)
+  }
+
+  for (const key of ['@graph', 'mainEntity', 'hasPart', 'subjectOf']) {
+    if (obj[key] !== undefined) collectFaqFromJsonLd(obj[key], add)
+  }
+}
+
+function extractHeadingAnswerPairs(
+  htmlFragment: string,
+  add: (question: string, answer: string) => void,
+): void {
+  const headingPattern = /<h[2-4][^>]*>([\s\S]*?)<\/h[2-4]>\s*([\s\S]*?)(?=<h[2-4][^>]*>|$)/gi
+  let match: RegExpExecArray | null
+  while ((match = headingPattern.exec(htmlFragment)) !== null) {
+    const question = match[1]
+    const answerBlock = match[2].replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    const answer = stripTags(answerBlock)
+    if (answer.length >= 10) add(question, answer)
+  }
+}
+
+function formatFaqSection(pairs: FaqPair[], title = 'FAQ (parsed from page)'): string {
+  if (!pairs.length) return ''
+  return [
+    title,
+    ...pairs.map((pair) => `Q: ${pair.question}\nA: ${pair.answer}`),
+  ].join('\n\n')
 }
 
 function extractJsonLdBlocks(html: string): string[] {

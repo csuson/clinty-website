@@ -21,6 +21,7 @@ import {
   whatsappToneSelectValue,
   type PromptFields,
 } from '../../lib/prompts'
+import { GENERAL_SMALL_BUSINESS_RESPONSE_PREFERENCES_EXAMPLE } from '../../constants/customResponsePreferencesExample'
 import { isLocalOrPrivateWebsiteUrl, normalizeWebsiteUrl } from '../../lib/websiteTextExtract'
 
 export default function Prompts() {
@@ -265,6 +266,10 @@ export default function Prompts() {
             }
             disabled={saving || generating}
             rows={6}
+            example={{
+              summary: 'Example for a general small business',
+              text: GENERAL_SMALL_BUSINESS_RESPONSE_PREFERENCES_EXAMPLE,
+            }}
           />
 
           <PromptSection
@@ -430,6 +435,7 @@ function PromptSection({
   onChange,
   disabled,
   rows = 12,
+  example,
 }: {
   title: string
   description: string
@@ -438,11 +444,32 @@ function PromptSection({
   onChange: (value: string) => void
   disabled: boolean
   rows?: number
+  example?: { summary: string; text: string }
 }) {
   return (
     <div className="border-t border-navy-900/5 pt-8 first:border-t-0 first:pt-0">
       <h3 className="text-base font-semibold text-navy-900 mb-1">{title}</h3>
       <p className="text-sm text-navy-600 mb-4">{description}</p>
+      {example && (
+        <details className="mb-4 rounded-xl border border-navy-900/10 bg-navy-900/[0.02] text-sm text-navy-700">
+          <summary className="cursor-pointer select-none px-4 py-3 font-medium text-navy-900">
+            {example.summary}
+          </summary>
+          <div className="border-t border-navy-900/10 px-4 py-3 space-y-3">
+            <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-navy-800">
+              {example.text}
+            </pre>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(example.text)}
+              className="text-sm font-medium text-teal-700 hover:text-teal-800 disabled:opacity-50"
+            >
+              Use this example
+            </button>
+          </div>
+        </details>
+      )}
       <FormField label={title} id={id}>
         <textarea
           id={id}
