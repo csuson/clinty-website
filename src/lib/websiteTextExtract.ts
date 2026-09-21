@@ -27,6 +27,8 @@ const EXTRA_PATH_PATTERNS = [
 const FAQ_SEARCH_PATHS = [
   '/about',
   '/about-us',
+  '/contact',
+  '/contact-us',
   '/faq',
   '/frequently-asked-questions',
 ]
@@ -424,15 +426,19 @@ function extractFaqsFromHtml(html: string, pageUrl = ''): FaqPair[] {
     extractHeadingAnswerPairs(region, add)
     extractDtDdPairs(region, add)
     extractStrongQuestionParagraphs(region, add)
+    extractArticleFaqPairs(region, add)
   }
 
+  extractArticleFaqPairs(html, add)
+
   const faqBlockPattern =
-    /<(?:div|section|article)[^>]*(?:class|id|data-hook)=["'][^"']*faq[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|section|article)>/gi
+    /<(?:div|section|main)[^>]*(?:class|id|data-hook)=["'][^"']*faq[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|section|main)>/gi
   let blockMatch: RegExpExecArray | null
   while ((blockMatch = faqBlockPattern.exec(html)) !== null) {
     extractHeadingAnswerPairs(blockMatch[1], add)
     extractDtDdPairs(blockMatch[1], add)
     extractStrongQuestionParagraphs(blockMatch[1], add)
+    extractArticleFaqPairs(blockMatch[1], add)
   }
 
   if (isFaqListingPage(pageUrl)) {
@@ -452,7 +458,7 @@ function isFaqListingPage(pageUrl: string): boolean {
 function extractFaqRegions(html: string): string[] {
   const regions: string[] = []
   const regionPattern =
-    /<(?:section|div|main|article)[^>]*(?:id|class|data-hook|data-framer-name|aria-label)=["'][^"']*faq[^"']*["'][^>]*>([\s\S]*?)<\/(?:section|div|main|article)>/gi
+    /<(?:section|div|main)[^>]*(?:id|class|data-hook|data-framer-name|aria-label)=["'][^"']*faq[^"']*["'][^>]*>([\s\S]*?)<\/(?:section|div|main)>/gi
   let match: RegExpExecArray | null
   while ((match = regionPattern.exec(html)) !== null) {
     if (match[1].trim()) regions.push(match[1])
@@ -477,6 +483,18 @@ function extractStrongQuestionParagraphs(
 ): void {
   const pattern =
     /<p[^>]*>\s*<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>[^<]*<\/p>\s*<p[^>]*>([\s\S]*?)<\/p>/gi
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(htmlFragment)) !== null) {
+    add(match[1], match[2])
+  }
+}
+
+function extractArticleFaqPairs(
+  htmlFragment: string,
+  add: (question: string, answer: string) => void,
+): void {
+  const pattern =
+    /<article[^>]*>[\s\S]*?<h[2-4][^>]*>([\s\S]*?)<\/h[2-4]>\s*<p[^>]*>([\s\S]*?)<\/p>/gi
   let match: RegExpExecArray | null
   while ((match = pattern.exec(htmlFragment)) !== null) {
     add(match[1], match[2])

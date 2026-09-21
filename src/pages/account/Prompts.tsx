@@ -22,6 +22,11 @@ import {
   type PromptFields,
 } from '../../lib/prompts'
 import { GENERAL_SMALL_BUSINESS_RESPONSE_PREFERENCES_EXAMPLE } from '../../constants/customResponsePreferencesExample'
+import {
+  EXAMPLE_PROMPT_BACKGROUND,
+  EXAMPLE_PROMPT_CALENDAR_PREFERENCE,
+  EXAMPLE_PROMPT_FOOTER,
+} from '../../constants/promptExamples'
 import { isLocalOrPrivateWebsiteUrl, normalizeWebsiteUrl } from '../../lib/websiteTextExtract'
 
 export default function Prompts() {
@@ -234,6 +239,10 @@ export default function Prompts() {
             value={prompts.background}
             onChange={(background) => setPrompts((current) => ({ ...current, background }))}
             disabled={saving || generating}
+            example={{
+              summary: 'Example for a kite school (The Kite School)',
+              text: EXAMPLE_PROMPT_BACKGROUND,
+            }}
           />
 
           <PromptSection
@@ -317,6 +326,10 @@ export default function Prompts() {
             }
             disabled={saving || generating}
             rows={5}
+            example={{
+              summary: 'Example availability rules',
+              text: EXAMPLE_PROMPT_CALENDAR_PREFERENCE,
+            }}
           />
 
           <PromptSection
@@ -327,6 +340,10 @@ export default function Prompts() {
             onChange={(defaultFooter) => setPrompts((current) => ({ ...current, defaultFooter }))}
             disabled={saving || generating}
             rows={5}
+            example={{
+              summary: 'Example booking footer',
+              text: EXAMPLE_PROMPT_FOOTER,
+            }}
           />
         </div>
 
@@ -344,7 +361,7 @@ export default function Prompts() {
             disabled={saving || generating}
             className="border border-navy-900/15 text-navy-900 font-medium px-6 py-3 rounded-xl hover:bg-navy-900/5 transition-colors disabled:opacity-60"
           >
-            Reset to defaults
+            Clear fields
           </button>
         </div>
       </section>

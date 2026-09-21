@@ -1,10 +1,4 @@
 import {
-  DEFAULT_PROMPT_BACKGROUND,
-  DEFAULT_PROMPT_CALENDAR_PREFERENCE,
-  DEFAULT_PROMPT_FOOTER,
-  DEFAULT_PROMPT_PROMOTIONS,
-} from '../constants/promptDefaults'
-import {
   DEFAULT_RESPONSE_TONE,
   isResponseTonePreset,
   WHATSAPP_SAME_AS_EMAIL,
@@ -37,10 +31,10 @@ export type PromptFields = {
 
 export function defaultPromptFields(): PromptFields {
   return {
-    background: DEFAULT_PROMPT_BACKGROUND,
-    calendarPreference: DEFAULT_PROMPT_CALENDAR_PREFERENCE,
-    defaultFooter: DEFAULT_PROMPT_FOOTER,
-    promotions: DEFAULT_PROMPT_PROMOTIONS,
+    background: '',
+    calendarPreference: '',
+    defaultFooter: '',
+    promotions: '',
     paymentLinks: '',
     responsePreferences: '',
     whatsappResponsePreferences: '',

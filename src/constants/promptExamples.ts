@@ -1,6 +1,6 @@
-/** Default prompt text seeded for new users (from thekiteschool.com). */
+/** Optional “Use this example” helpers on Account → Prompts (sample from thekiteschool.com). */
 
-export const DEFAULT_PROMPT_BACKGROUND = `I'm Tony Parsons, head instructor at The Kite School — a kiteboarding center in the San Francisco Bay Area. I have over 20 years of kiting experience and have been teaching for more than 10 years worldwide. Our instructors are trained with the International Kiteboarding Organization (IKO).
+export const EXAMPLE_PROMPT_BACKGROUND = `I'm Tony Parsons, head instructor at The Kite School — a kiteboarding center in the San Francisco Bay Area. I have over 20 years of kiting experience and have been teaching for more than 10 years worldwide. Our instructors are trained with the International Kiteboarding Organization (IKO).
 
 Business name: The Kite School – Tony Parsons
 Website: https://thekiteschool.com
@@ -43,13 +43,8 @@ The Kite School offers private kiteboarding instruction with jet-ski support and
 
 To schedule, call (650) 686-1179 or visit https://thekiteschool.com. We're located at Baywinds Park in Foster City, CA.`
 
-export const DEFAULT_PROMPT_CALENDAR_PREFERENCE = `30 minutes preferred booking duration.
+export const EXAMPLE_PROMPT_CALENDAR_PREFERENCE = `30 minutes preferred booking duration.
 Availability: 7 days a week from 12:00 pm to 6:00 PM PST.
 When proposing appointment times, only offer slots within these days and hours.`
 
-export const DEFAULT_PROMPT_FOOTER = `
-To reserve a lesson, please call (650) 686-1179 or book via our website www.thekiteschool.com`
-
-export const DEFAULT_PROMPT_PROMOTIONS = ''
-
-export const DEFAULT_PROMPT_PAYMENT_LINKS = ''
+export const EXAMPLE_PROMPT_FOOTER = `To reserve a lesson, please call (650) 686-1179 or book via our website www.thekiteschool.com`
