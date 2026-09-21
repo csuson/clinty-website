@@ -14,6 +14,7 @@ import AdminWhatsAppInfrastructurePanel from '../components/admin/AdminWhatsAppI
 import AdminWhatsAppTokensTable from '../components/admin/AdminWhatsAppTokensTable'
 import AdminSquareTokensTable from '../components/admin/AdminSquareTokensTable'
 import AdminUsersTable from '../components/admin/AdminUsersTable'
+import AdminGmailOAuthInfrastructurePanel from '../components/admin/AdminGmailOAuthInfrastructurePanel'
 import AdminWebsiteSettingsPanel, {
   countConfiguredWebsiteSettings,
 } from '../components/admin/AdminWebsiteSettingsPanel'
@@ -142,6 +143,7 @@ export default function Admin() {
 
             <Section title="Infrastructure" count={countConfiguredWebsiteSettings(data.websiteSettings)}>
               <AdminWebsiteSettingsPanel settings={data.websiteSettings} />
+              <AdminGmailOAuthInfrastructurePanel settings={data.websiteSettings} onSaved={loadData} />
             </Section>
 
             <Section title="AI token limits" count={data.users.length}>

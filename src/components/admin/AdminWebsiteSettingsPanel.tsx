@@ -75,8 +75,52 @@ function buildSupabaseRows(settings?: AdminWebsiteSettings | null): SettingRow[]
   ]
 }
 
+function buildAssistantRuntimeRows(settings?: AdminWebsiteSettings | null): SettingRow[] {
+  return [
+    {
+      label: 'OpenAPI Key',
+      envKey: 'OPENAI_API_KEY',
+      value: settings?.openai_api_key ?? '',
+      secret: true,
+    },
+    {
+      label: 'LangSmith API Key',
+      envKey: 'LANGSMITH_API_KEY',
+      value: settings?.langsmith_api_key ?? '',
+      secret: true,
+    },
+    {
+      label: 'Redis URI',
+      envKey: 'REDIS_URI',
+      value: settings?.redis_uri ?? '',
+      secret: true,
+    },
+  ]
+}
+
+function buildGmailOAuthRows(settings?: AdminWebsiteSettings | null): SettingRow[] {
+  return [
+    {
+      label: 'Google client ID',
+      envKey: 'GOOGLE_CLIENT_ID / GMAIL OAuth',
+      value: settings?.google_client_id ?? '',
+    },
+    {
+      label: 'Google client secret',
+      envKey: 'GOOGLE_CLIENT_SECRET → GMAIL_SECRET',
+      value: settings?.google_client_secret ?? '',
+      secret: true,
+    },
+  ]
+}
+
 export function countConfiguredWebsiteSettings(settings?: AdminWebsiteSettings | null): number {
-  return buildSupabaseRows(settings).filter((row) => row.value.trim()).length
+  const rows = [
+    ...buildSupabaseRows(settings),
+    ...buildAssistantRuntimeRows(settings),
+    ...buildGmailOAuthRows(settings),
+  ]
+  return rows.filter((row) => row.value.trim()).length
 }
 
 type AdminWebsiteSettingsPanelProps = {
@@ -95,8 +139,8 @@ export default function AdminWebsiteSettingsPanel({ settings }: AdminWebsiteSett
     <div className="px-6 py-5 space-y-6">
       <p className="text-sm text-navy-600">
         Supabase URL and anon key use this website&apos;s <code className="text-xs">VITE_SUPABASE_*</code> build values.
-        Service role uses Edge Function secrets. WhatsApp gateway settings are configured per user in WhatsApp
-        Settings.
+        Service role, OpenAI, LangSmith, and Redis use Edge Function secrets. WhatsApp gateway settings are configured
+        per user in WhatsApp Settings.
       </p>
 
       {edgeSupabaseMismatch ? (
@@ -124,6 +168,18 @@ export default function AdminWebsiteSettingsPanel({ settings }: AdminWebsiteSett
         title="Supabase"
         description="Read-only — from build env and Edge Function secrets."
         rows={supabaseRows}
+      />
+
+      <SettingsGroup
+        title="Assistant runtime"
+        description="Read-only — set in Supabase Edge Function secrets. Per-user overrides live in Agent Settings."
+        rows={buildAssistantRuntimeRows(settings)}
+      />
+
+      <SettingsGroup
+        title="Gmail OAuth (database)"
+        description="Editable below — stored in website_infrastructure. Shown here after save (admin only)."
+        rows={buildGmailOAuthRows(settings)}
       />
     </div>
   )

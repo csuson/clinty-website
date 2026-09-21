@@ -9,12 +9,17 @@ export type WebsiteInfrastructure = {
   whatsapp_web_auth_storage_prefix: string
   whatsapp_web_auth_dir: string
   whatsapp_web_langgraph_url: string
+  google_client_id: string
+  google_client_secret: string
 }
 
 export type WebsiteSettings = WebsiteInfrastructure & {
   supabase_url: string
   supabase_anon_key: string
   supabase_service_role: string
+  openai_api_key: string
+  langsmith_api_key: string
+  redis_uri: string
 }
 
 type WebsiteInfrastructureRow = {
@@ -26,6 +31,8 @@ type WebsiteInfrastructureRow = {
   whatsapp_web_auth_storage_prefix?: string | null
   whatsapp_web_auth_dir?: string | null
   whatsapp_web_langgraph_url?: string | null
+  google_client_id?: string | null
+  google_client_secret?: string | null
 }
 
 function trim(value: unknown): string {
@@ -37,6 +44,9 @@ export function loadWebsiteSettingsFromEdgeEnv(): WebsiteSettings {
     supabase_url: Deno.env.get('SUPABASE_URL') ?? '',
     supabase_anon_key: Deno.env.get('SUPABASE_ANON_KEY') ?? '',
     supabase_service_role: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    openai_api_key: Deno.env.get('OPENAI_API_KEY') ?? '',
+    langsmith_api_key: Deno.env.get('LANGSMITH_API_KEY') ?? '',
+    redis_uri: Deno.env.get('REDIS_URI') ?? '',
     whatsapp_web_gateway_url: (Deno.env.get('WHATSAPP_WEB_GATEWAY_URL') ?? '').replace(/\/$/, ''),
     whatsapp_web_login_api_key:
       Deno.env.get('WHATSAPP_WEB_LOGIN_API_KEY') ??
@@ -48,6 +58,8 @@ export function loadWebsiteSettingsFromEdgeEnv(): WebsiteSettings {
     whatsapp_web_auth_storage_prefix: Deno.env.get('WHATSAPP_WEB_AUTH_STORAGE_PREFIX') ?? 'default',
     whatsapp_web_auth_dir: Deno.env.get('WHATSAPP_WEB_AUTH_DIR') ?? '/tmp/whatsapp-web-auth',
     whatsapp_web_langgraph_url: (Deno.env.get('WHATSAPP_WEB_LANGGRAPH_URL') ?? '').replace(/\/$/, ''),
+    google_client_id: Deno.env.get('GOOGLE_CLIENT_ID') ?? '',
+    google_client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '',
   }
 }
 
@@ -70,6 +82,8 @@ function mergeInfrastructure(
     whatsapp_web_auth_dir: trim(row.whatsapp_web_auth_dir) || fromEnv.whatsapp_web_auth_dir,
     whatsapp_web_langgraph_url:
       trim(row.whatsapp_web_langgraph_url).replace(/\/$/, '') || fromEnv.whatsapp_web_langgraph_url,
+    google_client_id: trim(row.google_client_id) || fromEnv.google_client_id,
+    google_client_secret: trim(row.google_client_secret) || fromEnv.google_client_secret,
   }
 }
 
@@ -80,7 +94,7 @@ export async function loadWebsiteSettings(
   const { data } = await admin
     .from('website_infrastructure')
     .select(
-      'whatsapp_web_gateway_url, whatsapp_web_login_api_key, whatsapp_web_debug, whatsapp_web_auth_backend, whatsapp_web_auth_bucket, whatsapp_web_auth_storage_prefix, whatsapp_web_auth_dir, whatsapp_web_langgraph_url',
+      'whatsapp_web_gateway_url, whatsapp_web_login_api_key, whatsapp_web_debug, whatsapp_web_auth_backend, whatsapp_web_auth_bucket, whatsapp_web_auth_storage_prefix, whatsapp_web_auth_dir, whatsapp_web_langgraph_url, google_client_id, google_client_secret',
     )
     .eq('id', 1)
     .maybeSingle()
@@ -90,14 +104,20 @@ export async function loadWebsiteSettings(
     supabase_url: fromEnv.supabase_url,
     supabase_anon_key: fromEnv.supabase_anon_key,
     supabase_service_role: fromEnv.supabase_service_role,
+    openai_api_key: fromEnv.openai_api_key,
+    langsmith_api_key: fromEnv.langsmith_api_key,
+    redis_uri: fromEnv.redis_uri,
     ...infrastructure,
   }
 }
 
 export async function saveWebsiteInfrastructure(
   admin: SupabaseClient,
-  input: Partial<WebsiteInfrastructure> & { whatsapp_web_login_api_key?: string | null },
-  options?: { keepExistingApiKey?: boolean },
+  input: Partial<WebsiteInfrastructure> & {
+    whatsapp_web_login_api_key?: string | null
+    google_client_secret?: string | null
+  },
+  options?: { keepExistingApiKey?: boolean; keepExistingGoogleSecret?: boolean },
 ): Promise<WebsiteInfrastructure> {
   const current = await loadWebsiteSettings(admin)
   const next: WebsiteInfrastructure = {
@@ -130,10 +150,19 @@ export async function saveWebsiteInfrastructure(
       input.whatsapp_web_langgraph_url !== undefined
         ? trim(input.whatsapp_web_langgraph_url).replace(/\/$/, '')
         : current.whatsapp_web_langgraph_url,
+    google_client_id:
+      input.google_client_id !== undefined
+        ? trim(input.google_client_id)
+        : current.google_client_id,
+    google_client_secret: current.google_client_secret,
   }
 
   if (input.whatsapp_web_login_api_key !== undefined && !options?.keepExistingApiKey) {
     next.whatsapp_web_login_api_key = trim(input.whatsapp_web_login_api_key)
+  }
+
+  if (input.google_client_secret !== undefined && !options?.keepExistingGoogleSecret) {
+    next.google_client_secret = trim(input.google_client_secret)
   }
 
   const { error } = await admin.from('website_infrastructure').upsert({

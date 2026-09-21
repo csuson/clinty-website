@@ -102,9 +102,11 @@ Add to `.env`:
 VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 ```
 
-### 3. Supabase Edge Functions
+### 3. OAuth client credentials (database or Edge secrets)
 
-Deploy the functions and set secrets:
+**Recommended:** store the OAuth client in **Admin → Infrastructure → Gmail OAuth client** (`website_infrastructure.google_client_id` / `google_client_secret`). Only admin users (`ADMIN_EMAILS`) can read or update these fields. The Gmail connect flow and `agent-settings` `GMAIL_SECRET` use this value (Edge Function secrets are fallback).
+
+Alternatively, set Supabase Edge Function secrets:
 
 ```bash
 supabase functions deploy gmail-oauth-exchange
@@ -113,6 +115,8 @@ supabase functions deploy gmail-oauth-download
 supabase secrets set GOOGLE_CLIENT_ID=your-client-id
 supabase secrets set GOOGLE_CLIENT_SECRET=your-client-secret
 ```
+
+Apply migration `supabase/migrations/20260921160000_gmail_oauth_infrastructure.sql` (or run the `alter table` in the SQL editor).
 
 ### 4. Database
 

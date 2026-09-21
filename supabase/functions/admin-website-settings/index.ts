@@ -81,6 +81,12 @@ Deno.serve(async (req) => {
         (body.whatsapp_web_login_api_key === undefined ||
           String(body.whatsapp_web_login_api_key).trim() === '')
 
+      const googleSecretInput = emptyToNull(body.google_client_secret)
+      const keepExistingGoogleSecret =
+        googleSecretInput === null &&
+        (body.google_client_secret === undefined ||
+          String(body.google_client_secret).trim() === '')
+
       await saveWebsiteInfrastructure(
         admin,
         {
@@ -92,8 +98,11 @@ Deno.serve(async (req) => {
           whatsapp_web_auth_storage_prefix:
             emptyToNull(body.whatsapp_web_auth_storage_prefix) ?? undefined,
           whatsapp_web_auth_dir: emptyToNull(body.whatsapp_web_auth_dir) ?? undefined,
+          google_client_id:
+            body.google_client_id !== undefined ? String(body.google_client_id).trim() : undefined,
+          google_client_secret: googleSecretInput ?? undefined,
         },
-        { keepExistingApiKey },
+        { keepExistingApiKey, keepExistingGoogleSecret },
       )
 
       const websiteSettings = await loadWebsiteSettings(admin)

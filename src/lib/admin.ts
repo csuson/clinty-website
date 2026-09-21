@@ -111,6 +111,9 @@ export type AdminWebsiteSettings = {
   supabase_url: string
   supabase_anon_key: string
   supabase_service_role: string
+  openai_api_key: string
+  langsmith_api_key: string
+  redis_uri: string
   whatsapp_web_gateway_url: string
   whatsapp_web_login_api_key: string
   whatsapp_web_debug: string
@@ -119,6 +122,8 @@ export type AdminWebsiteSettings = {
   whatsapp_web_auth_storage_prefix: string
   whatsapp_web_auth_dir: string
   whatsapp_web_langgraph_url: string
+  google_client_id: string
+  google_client_secret: string
 }
 
 export type AdminData = {
@@ -142,6 +147,8 @@ export type UpdateWebsiteInfrastructureInput = {
   whatsapp_web_auth_bucket?: string
   whatsapp_web_auth_storage_prefix?: string
   whatsapp_web_auth_dir?: string
+  google_client_id?: string
+  google_client_secret?: string
 }
 
 export async function fetchAdminWhatsAppInfrastructure(userId: string): Promise<AdminWhatsAppInfrastructure> {

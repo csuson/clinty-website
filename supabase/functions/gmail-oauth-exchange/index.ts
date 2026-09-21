@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveGoogleOAuthClient } from '../_shared/googleOAuthCredentials.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,13 +43,15 @@ Deno.serve(async (req) => {
       return json({ error: 'Missing code or redirectUri' }, 400)
     }
 
-    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
-    const envClientId = Deno.env.get('GOOGLE_CLIENT_ID')
-    const effectiveClientId = clientId || envClientId
+    const oauth = await resolveGoogleOAuthClient(admin, clientId)
+    const effectiveClientId = oauth.clientId
+    const clientSecret = oauth.clientSecret
+    const envClientId = Deno.env.get('GOOGLE_CLIENT_ID')?.trim()
 
     if (!effectiveClientId || !clientSecret) {
       return json({
-        error: 'Google OAuth not configured on server. Set GOOGLE_CLIENT_SECRET (and optionally GOOGLE_CLIENT_ID) in Supabase Edge Function secrets.',
+        error:
+          'Google OAuth not configured. Set Gmail OAuth client ID and secret in Admin → Infrastructure, or GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET in Supabase Edge Function secrets.',
       }, 500)
     }
 
