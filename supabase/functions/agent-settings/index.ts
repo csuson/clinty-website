@@ -1,17 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveUserPrompts } from '../_shared/promptDefaults.ts'
-import {
-  buildRuntimeEnv,
+import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
+import {  buildRuntimeEnv,
   listMissingRuntimeEnvKeys,
   RUNTIME_ENV_KEYS,
 } from '../_shared/runtimeEnv.ts'
 import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-clinty-api-key, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-}
+let corsHeaders: Record<string, string> = {}
 
 async function hashApiKey(key: string): Promise<string> {
   const data = new TextEncoder().encode(key)
@@ -39,8 +35,10 @@ function extractClintyApiKey(req: Request): string | null {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return corsPreflightResponse(req)
   }
+
+  corsHeaders = getCorsHeaders(req)
 
   if (req.method !== 'GET') {
     return json({ error: 'Method not allowed' }, 405)

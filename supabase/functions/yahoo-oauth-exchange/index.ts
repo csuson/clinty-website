@@ -1,10 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+let corsHeaders: Record<string, string> = {}
 
 const SCOPES = ['openid', 'mail-r', 'mail-w', 'ycal-r', 'ycal-w']
 const YAHOO_TOKEN_URL = 'https://api.login.yahoo.com/oauth2/get_token'
@@ -12,8 +9,10 @@ const YAHOO_USERINFO_URL = 'https://api.login.yahoo.com/openid/v1/userinfo'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return corsPreflightResponse(req)
   }
+
+  corsHeaders = getCorsHeaders(req)
 
   try {
     const authHeader = req.headers.get('Authorization')

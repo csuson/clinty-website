@@ -10,6 +10,7 @@ import {
   startGmailOAuth,
   type GmailConnection,
 } from '../../lib/gmail/oauth'
+import { reauthenticateWithPassword } from '../../lib/mfa'
 
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
 
@@ -55,17 +56,44 @@ export default function GmailIntegration({ expanded, onToggle }: GmailIntegratio
     }
   }, [loadConnection])
 
-  function handleConnect() {
-    if (!user || !clientId) return
+  async function handleConnect() {
+    if (!user || !clientId || !user.email) return
     setError(null)
-    startGmailOAuth(user.id, clientId)
+    const password = window.prompt(
+      'For security, re-enter your Clinty account password to connect Gmail:',
+    )
+    if (password == null) return
+    if (!password.trim()) {
+      setError('Password is required to connect Gmail.')
+      return
+    }
+
+    setWorking(true)
+    try {
+      await reauthenticateWithPassword(user.email, password)
+      await startGmailOAuth(user.id, clientId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start Gmail connection')
+      setWorking(false)
+    }
   }
 
   async function handleDownloadToken() {
+    if (!user?.email) return
+    const password = window.prompt(
+      'For security, re-enter your Clinty account password to download token.json:',
+    )
+    if (password == null) return
+    if (!password.trim()) {
+      setError('Password is required to download token.json.')
+      return
+    }
+
     setWorking(true)
     setError(null)
     setSuccess(null)
     try {
+      await reauthenticateWithPassword(user.email, password)
       await downloadGmailTokenJson()
       setSuccess('token.json downloaded. Store it securely — it contains your OAuth credentials.')
     } catch (err) {

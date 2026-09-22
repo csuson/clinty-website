@@ -1,22 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import {
-  analyticsUnavailablePayload,
+import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
+import {  analyticsUnavailablePayload,
   fetchAssistantAnalytics,
   resolveAnalyticsTarget,
 } from '../_shared/emailAssistant.ts'
 
-// Force a fresh bundle so admin tenant lists are included.
+let corsHeaders: Record<string, string> = {}
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+// Force a fresh bundle so admin tenant lists are included.
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return corsPreflightResponse(req)
   }
+
+  corsHeaders = getCorsHeaders(req)
 
   try {
     const authHeader = req.headers.get('Authorization')

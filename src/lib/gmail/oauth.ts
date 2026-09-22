@@ -26,11 +26,26 @@ export type GmailTokenPayload = {
   expiry: string
 }
 
-function createOAuthState(userId: string): string {
+function base64UrlEncode(bytes: ArrayBuffer | Uint8Array): string {
+  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  let binary = ''
+  for (const byte of view) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+async function createPkcePair(): Promise<{ verifier: string; challenge: string }> {
+  const random = crypto.getRandomValues(new Uint8Array(32))
+  const verifier = base64UrlEncode(random)
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
+  const challenge = base64UrlEncode(digest)
+  return { verifier, challenge }
+}
+
+function createOAuthState(userId: string, codeVerifier: string): string {
   const nonce = crypto.randomUUID()
   sessionStorage.setItem(
     GMAIL_OAUTH_STATE_KEY,
-    JSON.stringify({ nonce, userId, ts: Date.now() }),
+    JSON.stringify({ nonce, userId, codeVerifier, ts: Date.now() }),
   )
   return btoa(JSON.stringify({ nonce, userId }))
 }
@@ -42,8 +57,6 @@ export function validateOAuthState(state: string, userId: string): boolean {
       sessionStorage.getItem(GMAIL_OAUTH_STATE_KEY) ?? '{}',
     ) as { nonce?: string; userId?: string; ts?: number }
 
-    sessionStorage.removeItem(GMAIL_OAUTH_STATE_KEY)
-
     if (!parsed.nonce || !stored.nonce || parsed.nonce !== stored.nonce) return false
     if (parsed.userId !== userId || stored.userId !== userId) return false
     if (!stored.ts || Date.now() - stored.ts > 10 * 60 * 1000) return false
@@ -53,10 +66,24 @@ export function validateOAuthState(state: string, userId: string): boolean {
   }
 }
 
-/** Start the Google OAuth flow (web port of setup_gmail.py InstalledAppFlow). */
-export function startGmailOAuth(userId: string, clientId: string): void {
+export function takeOAuthCodeVerifier(): string | null {
+  try {
+    const stored = JSON.parse(
+      sessionStorage.getItem(GMAIL_OAUTH_STATE_KEY) ?? '{}',
+    ) as { codeVerifier?: string }
+    sessionStorage.removeItem(GMAIL_OAUTH_STATE_KEY)
+    return stored.codeVerifier?.trim() || null
+  } catch {
+    sessionStorage.removeItem(GMAIL_OAUTH_STATE_KEY)
+    return null
+  }
+}
+
+/** Start the Google OAuth flow (Authorization Code + PKCE). */
+export async function startGmailOAuth(userId: string, clientId: string): Promise<void> {
   const redirectUri = getGmailRedirectUri()
-  const state = createOAuthState(userId)
+  const { verifier, challenge } = await createPkcePair()
+  const state = createOAuthState(userId, verifier)
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -66,19 +93,25 @@ export function startGmailOAuth(userId: string, clientId: string): void {
     access_type: 'offline',
     prompt: 'consent',
     state,
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
   })
 
   window.location.href = `${GOOGLE_AUTH_URL}?${params.toString()}`
 }
 
 /** Exchange authorization code via Supabase Edge Function (stores token server-side). */
-export async function exchangeGmailCode(code: string, redirectUri: string): Promise<GmailTokenPayload> {
+export async function exchangeGmailCode(
+  code: string,
+  redirectUri: string,
+  codeVerifier: string,
+): Promise<GmailTokenPayload> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
   }
 
   const result = await supabase.functions.invoke('gmail-oauth-exchange', {
-    body: { code, redirectUri, clientId: GOOGLE_CLIENT_ID },
+    body: { code, redirectUri, clientId: GOOGLE_CLIENT_ID, codeVerifier },
   })
 
   if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {

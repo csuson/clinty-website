@@ -1,11 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { DEFAULT_RESPONSE_TONE } from '../_shared/promptDefaults.ts'
+import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
+import { requireAdminMfa } from '../_shared/adminAuth.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, PUT, OPTIONS',
-}
+let corsHeaders: Record<string, string> = {}
 
 function parseAdminEmails(raw: string | undefined): Set<string> {
   return new Set(
@@ -58,6 +56,11 @@ async function authorizeAdmin(req: Request) {
     return { error: json({ error: 'Forbidden' }, 403) }
   }
 
+  const mfaGate = requireAdminMfa(user.email, authHeader, true)
+  if (!mfaGate.ok) {
+    return { error: json({ error: mfaGate.error }, mfaGate.status) }
+  }
+
   return { admin }
 }
 
@@ -83,8 +86,10 @@ function buildPromptPayload(body: Record<string, unknown>) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return corsPreflightResponse(req)
   }
+
+  corsHeaders = getCorsHeaders(req)
 
   if (req.method !== 'POST' && req.method !== 'PUT') {
     return json({ error: 'Method not allowed' }, 405)

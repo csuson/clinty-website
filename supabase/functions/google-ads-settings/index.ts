@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import {
-  getGlobalGoogleAdsDeveloperToken,
+import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
+import {  getGlobalGoogleAdsDeveloperToken,
   googlePublishPayload,
   isGoogleAdsPublishConfigured,
   publicGoogleCredentialsStatus,
@@ -8,11 +8,7 @@ import {
   type StoredGoogleCredentials,
 } from '../_shared/googleAdsCredentials.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+let corsHeaders: Record<string, string> = {}
 
 type SettingsAction =
   | 'get_settings'
@@ -57,8 +53,10 @@ type CampaignBrief = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return corsPreflightResponse(req)
   }
+
+  corsHeaders = getCorsHeaders(req)
 
   try {
     const authHeader = req.headers.get('Authorization')

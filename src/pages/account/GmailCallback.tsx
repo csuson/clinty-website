@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getGmailRedirectUri } from '../../constants/gmail'
 import { useAuth } from '../../context/AuthContext'
-import { exchangeGmailCode, validateOAuthState } from '../../lib/gmail/oauth'
+import { exchangeGmailCode, takeOAuthCodeVerifier, validateOAuthState } from '../../lib/gmail/oauth'
 
 export default function GmailCallback() {
   const { user, loading: authLoading } = useAuth()
@@ -46,10 +46,20 @@ export default function GmailCallback() {
       return
     }
 
+    const codeVerifier = takeOAuthCodeVerifier()
+    if (!codeVerifier) {
+      navigate(
+        `/account/integrations?gmail_error=${encodeURIComponent('Missing PKCE verifier. Please try connecting again.')}`,
+        { replace: true },
+      )
+      return
+    }
+    const pkceVerifier = codeVerifier
+
     async function complete() {
       try {
         setMessage('Exchanging authorization code and storing credentials...')
-        await exchangeGmailCode(code!, getGmailRedirectUri())
+        await exchangeGmailCode(code!, getGmailRedirectUri(), pkceVerifier)
         navigate('/account/integrations?connected=1', { replace: true })
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Gmail authorization failed'

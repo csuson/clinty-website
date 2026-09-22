@@ -1,7 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import FormField from '../../components/FormField'
+import MfaSecurityPanel from '../../components/MfaSecurityPanel'
 import { inputClass } from '../../constants/forms'
+import { isAdminEmail } from '../../constants/admin'
 import { useAuth } from '../../context/AuthContext'
+import { reauthenticateWithPassword } from '../../lib/mfa'
 import { supabase } from '../../lib/supabase'
 
 export default function AccountSettings() {
@@ -9,6 +12,7 @@ export default function AccountSettings() {
 
   const [fullName, setFullName] = useState('')
   const [companyName, setCompanyName] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [profileMessage, setProfileMessage] = useState<string | null>(null)
@@ -49,7 +53,7 @@ export default function AccountSettings() {
 
   async function handlePasswordSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!supabase) return
+    if (!supabase || !user?.email) return
 
     if (newPassword.length < 8) {
       setPasswordError('Password must be at least 8 characters.')
@@ -61,22 +65,29 @@ export default function AccountSettings() {
       return
     }
 
+    if (!currentPassword) {
+      setPasswordError('Enter your current password to confirm this change.')
+      return
+    }
+
     setSavingPassword(true)
     setPasswordMessage(null)
     setPasswordError(null)
 
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    try {
+      await reauthenticateWithPassword(user.email, currentPassword)
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw new Error(error.message)
 
-    setSavingPassword(false)
-
-    if (error) {
-      setPasswordError(error.message)
-      return
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setPasswordMessage('Password updated successfully.')
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Failed to update password')
+    } finally {
+      setSavingPassword(false)
     }
-
-    setNewPassword('')
-    setConfirmPassword('')
-    setPasswordMessage('Password updated successfully.')
   }
 
   return (
@@ -134,13 +145,37 @@ export default function AccountSettings() {
       </section>
 
       <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
+        <h2 className="text-lg font-semibold text-navy-900 mb-1">Security</h2>
+        <p className="text-sm text-navy-600 mb-6">
+          Multi-factor authentication
+          {isAdminEmail(user?.email) ? ' is required for Admin access' : ''}.
+        </p>
+        <MfaSecurityPanel requiredForAdmin={isAdminEmail(user?.email)} />
+      </section>
+
+      <section className="bg-white rounded-2xl border border-navy-900/5 p-8 shadow-sm">
         <h2 className="text-lg font-semibold text-navy-900 mb-1">Password</h2>
-        <p className="text-sm text-navy-600 mb-6">Choose a strong password with at least 8 characters.</p>
+        <p className="text-sm text-navy-600 mb-6">
+          Confirm your current password, then choose a new one with at least 8 characters.
+        </p>
 
         {passwordError && <Alert type="error" message={passwordError} />}
         {passwordMessage && <Alert type="success" message={passwordMessage} />}
 
         <form onSubmit={handlePasswordSubmit} className="space-y-5">
+          <FormField label="Current password" id="current-password" required>
+            <input
+              id="current-password"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+              className={inputClass}
+              disabled={savingPassword}
+            />
+          </FormField>
+
           <FormField label="New password" id="new-password" required>
             <input
               id="new-password"
@@ -149,6 +184,7 @@ export default function AccountSettings() {
               onChange={(e) => setNewPassword(e.target.value)}
               required
               minLength={8}
+              autoComplete="new-password"
               className={inputClass}
               disabled={savingPassword}
             />
@@ -162,6 +198,7 @@ export default function AccountSettings() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               minLength={8}
+              autoComplete="new-password"
               className={inputClass}
               disabled={savingPassword}
             />

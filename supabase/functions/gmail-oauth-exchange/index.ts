@@ -1,10 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveGoogleOAuthClient } from '../_shared/googleOAuthCredentials.ts'
+import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+let corsHeaders: Record<string, string> = {}
 
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.modify',
@@ -14,8 +12,10 @@ const SCOPES = [
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return corsPreflightResponse(req)
   }
+
+  corsHeaders = getCorsHeaders(req)
 
   try {
     const authHeader = req.headers.get('Authorization')
@@ -39,9 +39,12 @@ Deno.serve(async (req) => {
       return json({ error: 'Unauthorized' }, 401)
     }
 
-    const { code, redirectUri, clientId } = await req.json()
+    const { code, redirectUri, clientId, codeVerifier } = await req.json()
     if (!code || !redirectUri) {
       return json({ error: 'Missing code or redirectUri' }, 400)
+    }
+    if (typeof codeVerifier !== 'string' || !codeVerifier.trim()) {
+      return json({ error: 'Missing PKCE code_verifier' }, 400)
     }
 
     const requestClientId = typeof clientId === 'string' ? clientId.trim() : ''
@@ -73,6 +76,7 @@ Deno.serve(async (req) => {
         client_secret: clientSecret,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
+        code_verifier: codeVerifier.trim(),
       }),
     })
 

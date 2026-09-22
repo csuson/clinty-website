@@ -1,15 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import {
-  assertWithinTokenLimit,
+import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
+import {  assertWithinTokenLimit,
   readOpenAiUsage,
   recordAiUsageWithAlerts,
 } from '../_shared/aiUsage.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+let corsHeaders: Record<string, string> = {}
 
 const MAX_PAGE_BYTES = 2_500_000
 const MAX_HTML_PROCESS_CHARS = 900_000
@@ -75,8 +71,10 @@ Do not write an FAQ section — all FAQs from the site are appended automaticall
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return corsPreflightResponse(req)
   }
+
+  corsHeaders = getCorsHeaders(req)
 
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405)
@@ -145,7 +143,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    if (isBlockedUrl(siteUrl)) {
+    if (await isBlockedUrlAfterDns(siteUrl)) {
       return json({
         error: 'That URL cannot be fetched from the server. Local and private URLs are read from your browser instead — try again, or use a public website URL.',
       }, 400)
@@ -189,6 +187,8 @@ function normalizeWebsiteUrl(raw: string): URL | null {
 }
 
 function isBlockedUrl(url: URL): boolean {
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return true
+
   const host = url.hostname.toLowerCase()
   if (
     host === 'localhost' ||
@@ -196,21 +196,68 @@ function isBlockedUrl(url: URL): boolean {
     host === '127.0.0.1' ||
     host === '0.0.0.0' ||
     host === '::1' ||
-    host.endsWith('.internal')
+    host.endsWith('.internal') ||
+    host.endsWith('.localhost')
   ) {
     return true
   }
 
+  if (isPrivateOrReservedIp(host)) return true
+  return false
+}
+
+function isPrivateOrReservedIp(host: string): boolean {
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
     const parts = host.split('.').map(Number)
+    if (parts.some((part) => Number.isNaN(part) || part < 0 || part > 255)) return true
+    if (parts[0] === 0) return true
     if (parts[0] === 10) return true
     if (parts[0] === 127) return true
     if (parts[0] === 192 && parts[1] === 168) return true
     if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true
     if (parts[0] === 169 && parts[1] === 254) return true
+    if (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) return true // CGNAT
+    if (parts[0] === 192 && parts[1] === 0 && parts[2] === 0) return true
+    if (parts[0] === 192 && parts[1] === 0 && parts[2] === 2) return true
+    if (parts[0] === 198 && (parts[1] === 18 || parts[1] === 19)) return true
+    if (parts[0] >= 224) return true // multicast / reserved
+    return false
+  }
+
+  // IPv6 literals (basic ULA / loopback / link-local)
+  if (host.includes(':')) {
+    const normalized = host.replace(/^\[|\]$/g, '').toLowerCase()
+    if (normalized === '::1' || normalized === '::') return true
+    if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true // ULA
+    if (normalized.startsWith('fe80')) return true
+    if (normalized.startsWith('ff')) return true // multicast
+    return false
   }
 
   return false
+}
+
+/** Resolve hostname and block if any A/AAAA record is private (SSRF / DNS rebinding). */
+async function isBlockedUrlAfterDns(url: URL): Promise<boolean> {
+  if (isBlockedUrl(url)) return true
+
+  const host = url.hostname
+  if (isPrivateOrReservedIp(host)) return true
+
+  try {
+    const [aRecords, aaaaRecords] = await Promise.all([
+      Deno.resolveDns(host, 'A').catch(() => [] as string[]),
+      Deno.resolveDns(host, 'AAAA').catch(() => [] as string[]),
+    ])
+    const ips = [...aRecords, ...aaaaRecords]
+    if (ips.length === 0) {
+      // Fail closed when DNS yields nothing usable
+      return true
+    }
+    return ips.some((ip) => isPrivateOrReservedIp(ip))
+  } catch {
+    return true
+  }
 }
 
 type FaqPair = { question: string; answer: string }
@@ -300,8 +347,12 @@ function appendFaqsToBusinessBackground(background: string, faqs: FaqPair[]): st
   return `${base}\n\n${faqBlock}`.trim()
 }
 
-async function fetchHtml(url: string): Promise<string | null> {
+async function fetchHtml(url: string, redirectDepth = 0): Promise<string | null> {
+  if (redirectDepth > 5) return null
   try {
+    const parsed = new URL(url)
+    if (await isBlockedUrlAfterDns(parsed)) return null
+
     const response = await fetch(url, {
       headers: {
         'User-Agent':
@@ -310,8 +361,16 @@ async function fetchHtml(url: string): Promise<string | null> {
         'Accept-Language': 'en-US,en;q=0.9',
       },
       signal: AbortSignal.timeout(15_000),
-      redirect: 'follow',
+      redirect: 'manual',
     })
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location')
+      if (!location) return null
+      const redirected = new URL(location, url)
+      if (await isBlockedUrlAfterDns(redirected)) return null
+      return await fetchHtml(redirected.href, redirectDepth + 1)
+    }
 
     if (!response.ok) return null
 

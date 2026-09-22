@@ -1,15 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import {
-  normalizeShopifyDomain,
+import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
+import {  normalizeShopifyDomain,
   SHOPIFY_COMPLIANCE_TOPICS,
   verifyShopifyWebhookHmac,
 } from '../_shared/shopifyWebhook.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-shopify-hmac-sha256, x-shopify-topic, x-shopify-shop-domain',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-}
+let corsHeaders: Record<string, string> = {}
 
 type CompliancePayload = {
   shop_id?: number
@@ -26,8 +22,10 @@ type CompliancePayload = {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return corsPreflightResponse(req)
   }
+
+  corsHeaders = getCorsHeaders(req)
 
   if (req.method === 'GET') {
     return handleStatus(req)

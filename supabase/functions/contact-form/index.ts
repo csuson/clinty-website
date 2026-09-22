@@ -1,10 +1,7 @@
 import { sendTransactionalEmail } from '../_shared/transactionalEmail.ts'
+import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+let corsHeaders: Record<string, string> = {}
 
 function json(body: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -27,8 +24,10 @@ function isValidEmail(value: string): boolean {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return corsPreflightResponse(req)
   }
+
+  corsHeaders = getCorsHeaders(req)
 
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405)

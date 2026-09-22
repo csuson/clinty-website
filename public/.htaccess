@@ -1,4 +1,13 @@
 <IfModule mod_headers.c>
+  # CASA / ASVS hardening — apply to all responses
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Content-Security-Policy "upgrade-insecure-requests; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
   <FilesMatch "^index\.html$">
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
@@ -9,6 +18,12 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # Force HTTPS (Hostinger / proxy aware)
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
   RewriteRule ^webhooks/shopify-compliance/?$ webhooks/shopify-compliance.php [L]
   RewriteRule ^webhooks/meta-data-deletion/?$ webhooks/meta-data-deletion.php [L]
   RewriteRule ^index\.html$ - [L]
