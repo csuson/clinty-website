@@ -9,6 +9,7 @@ const corsHeaders = {
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.modify',
   'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/userinfo.email',
 ]
 
 Deno.serve(async (req) => {
@@ -43,21 +44,23 @@ Deno.serve(async (req) => {
       return json({ error: 'Missing code or redirectUri' }, 400)
     }
 
-    const oauth = await resolveGoogleOAuthClient(admin, clientId)
+    const requestClientId = typeof clientId === 'string' ? clientId.trim() : ''
+    const oauth = await resolveGoogleOAuthClient(admin, requestClientId || undefined)
     const effectiveClientId = oauth.clientId
     const clientSecret = oauth.clientSecret
-    const envClientId = Deno.env.get('GOOGLE_CLIENT_ID')?.trim()
 
     if (!effectiveClientId || !clientSecret) {
       return json({
-        error:
-          'Google OAuth not configured. Set Gmail OAuth client ID and secret in Admin → Infrastructure, or GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET in Supabase Edge Function secrets.',
+        error: requestClientId
+          ? `No client secret found for OAuth client ${requestClientId}. In Admin → Infrastructure, save the Web application client ID and secret that match VITE_GOOGLE_CLIENT_ID (not a Desktop/installed client), or set matching GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET Edge secrets.`
+          : 'Google OAuth not configured. Set Gmail OAuth client ID and secret in Admin → Infrastructure, or GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET in Supabase Edge Function secrets.',
       }, 500)
     }
 
-    if (envClientId && clientId && envClientId !== clientId) {
+    if (requestClientId && effectiveClientId !== requestClientId) {
       return json({
-        error: 'GOOGLE_CLIENT_ID in Supabase secrets must match VITE_GOOGLE_CLIENT_ID in your website .env',
+        error:
+          'OAuth client ID mismatch: the website VITE_GOOGLE_CLIENT_ID must match the client ID stored for token exchange.',
       }, 400)
     }
 
@@ -75,7 +78,15 @@ Deno.serve(async (req) => {
 
     const tokenData = await tokenRes.json()
     if (!tokenRes.ok) {
-      return json({ error: tokenData.error_description ?? tokenData.error ?? 'Token exchange failed' }, 400)
+      const googleError = tokenData.error_description ?? tokenData.error ?? 'Token exchange failed'
+      const hint =
+        typeof tokenData.error === 'string' &&
+        (tokenData.error === 'redirect_uri_mismatch' ||
+          tokenData.error === 'invalid_client' ||
+          String(googleError).toLowerCase().includes('redirect_uri'))
+          ? ` Use the Web application OAuth client (same as VITE_GOOGLE_CLIENT_ID) with authorized redirect URI ${redirectUri}.`
+          : ''
+      return json({ error: `${googleError}.${hint}`.trim() }, 400)
     }
 
     const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {

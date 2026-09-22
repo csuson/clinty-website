@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import LegalPageLayout, { LegalSection } from '../components/LegalPageLayout'
 
-const LAST_UPDATED = 'July 10, 2026'
+const LAST_UPDATED = 'September 21, 2026'
 
 export default function PrivacyPolicy() {
   return (
@@ -37,7 +37,38 @@ export default function PrivacyPolicy() {
         </p>
       </LegalSection>
 
-      <LegalSection title="2. How We Use Your Information">
+      <LegalSection title="2. Information Collection and Use — Google API Data Access">
+        <p>
+          Our platform, Clinty, integrates with Google Workspace APIs to provide automated administrative
+          and scheduling features. If you choose to connect your Google Account to your Clinty agent, our
+          application uses Google OAuth scopes under{' '}
+          <code className="text-sm bg-cream px-1 py-0.5 rounded">https://www.googleapis.com/auth/</code>
+          , including Gmail modify and Google Calendar access as shown during consent.
+        </p>
+        <p>
+          This access is strictly confined to the following functions necessary to run your automated
+          assistant:
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <strong className="text-navy-900">Reading customer inquiries.</strong> The AI agent reads
+            incoming email text to identify scheduling requests, appointment cancellations, or booking
+            updates sent by your clients.
+          </li>
+          <li>
+            <strong className="text-navy-900">Sending booking confirmations.</strong> The agent
+            programmatically composes and sends emails to your clients to confirm, shift, or cancel
+            appointment blocks.
+          </li>
+          <li>
+            <strong className="text-navy-900">Managing inbox states.</strong> To keep your workspace
+            organized, the agent modifies message labels to mark emails as read or archived once the AI
+            has successfully handled the transaction.
+          </li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="3. How We Use Your Information">
         <p>We use the information we collect to:</p>
         <ul className="list-disc pl-5 space-y-2">
           <li>Provide, operate, and maintain our AI agent services</li>
@@ -49,7 +80,41 @@ export default function PrivacyPolicy() {
         </ul>
       </LegalSection>
 
-      <LegalSection title="3. AI Processing">
+      <LegalSection title="4. Google Limited Use Disclosure">
+        <p>
+          Clinty&apos;s use and transfer of information received from Google APIs to any other app will
+          adhere to the{' '}
+          <a
+            href="https://developers.google.com/terms/api-services-user-data-policy"
+            className="text-teal-500 hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Google API Services User Data Policy
+          </a>
+          , including the Limited Use requirements.
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <strong className="text-navy-900">No advertising.</strong> We will never use your Google
+            Workspace data to serve advertisements, track user behavior for ad platforms, or pass data to
+            third-party brokers.
+          </li>
+          <li>
+            <strong className="text-navy-900">Human-in-the-loop restraints.</strong> No human employees
+            or contractors at Clinty will read your private email content unless you explicitly give us
+            consent to troubleshoot a specific technical error, it is necessary for security purposes, or
+            it is required to comply with applicable laws.
+          </li>
+          <li>
+            <strong className="text-navy-900">AI model restrictions.</strong> Your email content is
+            processed in real time solely to execute your workflows. We do not use your private email data
+            to train generalized machine learning or AI models.
+          </li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection title="5. AI Processing">
         <p>
           Clinty uses artificial intelligence to analyze email content and calendar data in order to
           generate responses and manage scheduling. AI-generated drafts are created based on your
@@ -62,7 +127,7 @@ export default function PrivacyPolicy() {
         </p>
       </LegalSection>
 
-      <LegalSection title="4. Data Sharing">
+      <LegalSection title="6. Data Sharing">
         <p>We do not sell your personal information. We may share data with:</p>
         <ul className="list-disc pl-5 space-y-2">
           <li>
@@ -80,16 +145,33 @@ export default function PrivacyPolicy() {
         </ul>
       </LegalSection>
 
-      <LegalSection title="5. Data Retention">
+      <LegalSection title="7. Data Retention and Control">
         <p>
           We retain your account data for as long as your account is active. Email and calendar data
           processed by Clinty is retained only as long as needed to provide the service. Upon account
           cancellation, we delete or anonymize your data within 30 days, except where retention is
           required by law.
         </p>
+        <p>
+          You maintain full ownership of your data. You can disconnect your Google Account and completely
+          revoke Clinty&apos;s access to your email inbox at any time directly through your{' '}
+          <Link to="/account/integrations" className="text-teal-500 hover:underline">
+            account integration settings
+          </Link>{' '}
+          or via your{' '}
+          <a
+            href="https://myaccount.google.com/permissions"
+            className="text-teal-500 hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Google Security Console
+          </a>
+          . Once disconnected, our system immediately ceases all API calls to your inbox.
+        </p>
       </LegalSection>
 
-      <LegalSection title="6. Security">
+      <LegalSection title="8. Security">
         <p>
           We implement industry-standard security measures including encryption in transit and at rest,
           access controls, and regular security audits. No method of transmission over the internet is
@@ -97,7 +179,7 @@ export default function PrivacyPolicy() {
         </p>
       </LegalSection>
 
-      <LegalSection title="7. Your Rights">
+      <LegalSection title="9. Your Rights">
         <p>Depending on your location, you may have the right to:</p>
         <ul className="list-disc pl-5 space-y-2">
           <li>Access, correct, or delete your personal data</li>
@@ -125,7 +207,7 @@ export default function PrivacyPolicy() {
         </p>
       </LegalSection>
 
-      <LegalSection title="8. Cookies">
+      <LegalSection title="10. Cookies">
         <p>
           Our website uses essential cookies to maintain your session and preferences. We may also use
           analytics cookies to understand how visitors use our site. You can control cookie preferences
@@ -133,14 +215,14 @@ export default function PrivacyPolicy() {
         </p>
       </LegalSection>
 
-      <LegalSection title="9. Children's Privacy">
+      <LegalSection title="11. Children's Privacy">
         <p>
           Clinty is not intended for individuals under 18 years of age. We do not knowingly collect
           personal information from children.
         </p>
       </LegalSection>
 
-      <LegalSection title="10. Changes to This Policy">
+      <LegalSection title="12. Changes to This Policy">
         <p>
           We may update this Privacy Policy from time to time. We will notify you of material changes
           via email or a notice on our website. Continued use of Clinty after changes take effect
@@ -148,7 +230,7 @@ export default function PrivacyPolicy() {
         </p>
       </LegalSection>
 
-      <LegalSection title="11. Contact Us">
+      <LegalSection title="13. Contact Us">
         <p>
           If you have questions about this Privacy Policy, please visit our{' '}
           <Link to="/contact" className="text-teal-500 hover:underline">contact page</Link>.

@@ -165,7 +165,13 @@ export function gmailTokenToRuntimeEnv(row: GmailTokenRow | null | undefined): R
     token_uri: trim(row.token_uri) || 'https://oauth2.googleapis.com/token',
     client_id: clientId,
     client_secret: trim(row.client_secret),
-    scopes: Array.isArray(row.scopes) ? row.scopes : [],
+    scopes:
+      Array.isArray(row.scopes) && row.scopes.length > 0
+        ? row.scopes
+        : [
+            'https://www.googleapis.com/auth/gmail.modify',
+            'https://www.googleapis.com/auth/calendar',
+          ],
     universe_domain: trim(row.universe_domain) || 'googleapis.com',
     account: trim(row.google_account),
     expiry: formatGmailExpiry(row.expiry),

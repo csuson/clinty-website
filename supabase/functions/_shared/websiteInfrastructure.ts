@@ -18,8 +18,6 @@ export type WebsiteSettings = WebsiteInfrastructure & {
   supabase_anon_key: string
   supabase_service_role: string
   openai_api_key: string
-  langsmith_api_key: string
-  redis_uri: string
 }
 
 type WebsiteInfrastructureRow = {
@@ -45,8 +43,6 @@ export function loadWebsiteSettingsFromEdgeEnv(): WebsiteSettings {
     supabase_anon_key: Deno.env.get('SUPABASE_ANON_KEY') ?? '',
     supabase_service_role: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     openai_api_key: Deno.env.get('OPENAI_API_KEY') ?? '',
-    langsmith_api_key: Deno.env.get('LANGSMITH_API_KEY') ?? '',
-    redis_uri: Deno.env.get('REDIS_URI') ?? '',
     whatsapp_web_gateway_url: (Deno.env.get('WHATSAPP_WEB_GATEWAY_URL') ?? '').replace(/\/$/, ''),
     whatsapp_web_login_api_key:
       Deno.env.get('WHATSAPP_WEB_LOGIN_API_KEY') ??
@@ -105,8 +101,6 @@ export async function loadWebsiteSettings(
     supabase_anon_key: fromEnv.supabase_anon_key,
     supabase_service_role: fromEnv.supabase_service_role,
     openai_api_key: fromEnv.openai_api_key,
-    langsmith_api_key: fromEnv.langsmith_api_key,
-    redis_uri: fromEnv.redis_uri,
     ...infrastructure,
   }
 }

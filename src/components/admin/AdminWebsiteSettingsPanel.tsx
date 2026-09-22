@@ -83,18 +83,6 @@ function buildAssistantRuntimeRows(settings?: AdminWebsiteSettings | null): Sett
       value: settings?.openai_api_key ?? '',
       secret: true,
     },
-    {
-      label: 'LangSmith API Key',
-      envKey: 'LANGSMITH_API_KEY',
-      value: settings?.langsmith_api_key ?? '',
-      secret: true,
-    },
-    {
-      label: 'Redis URI',
-      envKey: 'REDIS_URI',
-      value: settings?.redis_uri ?? '',
-      secret: true,
-    },
   ]
 }
 
@@ -139,7 +127,7 @@ export default function AdminWebsiteSettingsPanel({ settings }: AdminWebsiteSett
     <div className="px-6 py-5 space-y-6">
       <p className="text-sm text-navy-600">
         Supabase URL and anon key use this website&apos;s <code className="text-xs">VITE_SUPABASE_*</code> build values.
-        Service role, OpenAI, LangSmith, and Redis use Edge Function secrets. WhatsApp gateway settings are configured
+        Service role and OpenAI use Edge Function secrets. WhatsApp gateway settings are configured
         per user in WhatsApp Settings.
       </p>
 

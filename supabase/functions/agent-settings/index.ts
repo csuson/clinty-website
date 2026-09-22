@@ -114,9 +114,15 @@ Deno.serve(async (req) => {
     })
     const runtimeEnvMissing = listMissingRuntimeEnvKeys(runtimeEnv)
 
+    const gmailGoogleAccount =
+      typeof integrationRows.gmailToken?.google_account === 'string'
+        ? integrationRows.gmailToken.google_account.trim()
+        : ''
+
     const sharedPayload = {
       user_id: userId,
       clinty_api_key_id: apiKeyRow.id,
+      google_account: gmailGoogleAccount || null,
       prompts,
       prompt_background: prompts.background,
       prompt_calendar_preference: prompts.calendar_preference,

@@ -7,6 +7,8 @@ import {
   parseGoogleOAuthSecretsJson,
 } from '../../lib/gmail/parseOAuthSecrets'
 import { updateWebsiteInfrastructure, type AdminWebsiteSettings } from '../../lib/admin'
+import { SecretValue } from '../SecretField'
+import { CopyButton } from './adminTableUtils'
 
 type GmailOAuthForm = {
   google_client_id: string
@@ -24,7 +26,7 @@ function settingsToForm(settings?: AdminWebsiteSettings | null): GmailOAuthForm 
 
 type AdminGmailOAuthInfrastructurePanelProps = {
   settings?: AdminWebsiteSettings | null
-  onSaved?: () => void
+  onSaved?: (websiteSettings: AdminWebsiteSettings) => void
 }
 
 export default function AdminGmailOAuthInfrastructurePanel({
@@ -91,7 +93,7 @@ export default function AdminGmailOAuthInfrastructurePanel({
       setSuccess(
         `Gmail OAuth client saved. agent-settings GMAIL_SECRET uses this installed JSON shape (${gmailSecretPreview.length} chars).`,
       )
-      onSaved?.()
+      onSaved?.(updated)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save Gmail OAuth settings')
     } finally {
@@ -104,9 +106,12 @@ export default function AdminGmailOAuthInfrastructurePanel({
       <div className="mb-4">
         <h3 className="text-sm font-semibold text-navy-900">Gmail OAuth client</h3>
         <p className="text-sm text-navy-600 mt-1">
-          Stored in <code className="text-xs">website_infrastructure</code> (admin-only). Values are
-          exported to the email assistant as <code className="text-xs">GMAIL_SECRET</code> (installed
-          JSON, same as <code className="text-xs">.secrets/secrets.json</code>).
+          Stored in <code className="text-xs">website_infrastructure</code> (admin-only). For Gmail
+          connect on clinty.net, use the <strong>Web application</strong> OAuth client — the client
+          ID must match <code className="text-xs">VITE_GOOGLE_CLIENT_ID</code>, with redirect URI{' '}
+          <code className="text-xs">https://clinty.net/account/integrations/gmail/callback</code>.
+          A Desktop/installed <code className="text-xs">secrets.json</code> will not work for the
+          website OAuth flow.
         </p>
       </div>
 
@@ -125,7 +130,7 @@ export default function AdminGmailOAuthInfrastructurePanel({
         <FormField
           label="Paste secrets.json"
           id="google-secrets-json"
-          hint="Paste the full JSON from Google Cloud (Desktop OAuth client). Client ID and secret fields below will fill automatically."
+          hint="Paste the Web application client JSON from Google Cloud (or Desktop JSON only if that same client ID is also VITE_GOOGLE_CLIENT_ID — usually it is not). Client ID and secret fill below."
         >
           <textarea
             id="google-secrets-json"
@@ -190,6 +195,37 @@ export default function AdminGmailOAuthInfrastructurePanel({
           {saving ? 'Saving…' : 'Save Gmail OAuth client'}
         </button>
       </form>
+
+      {(settings?.google_client_id?.trim() || settings?.google_client_secret?.trim()) && (
+        <div className="mt-6 max-w-2xl rounded-xl border border-navy-900/10 bg-navy-900/[0.02] px-4 py-3 space-y-3">
+          <p className="text-sm font-medium text-navy-900">Saved in infrastructure</p>
+          <div className="space-y-2 text-sm">
+            <div className="flex flex-wrap items-start gap-2">
+              <span className="text-navy-600 shrink-0 w-36">Google client ID</span>
+              {settings.google_client_id?.trim() ? (
+                <>
+                  <span className="font-mono text-navy-900 break-all">{settings.google_client_id.trim()}</span>
+                  <CopyButton value={settings.google_client_id.trim()} label="Google client ID" />
+                </>
+              ) : (
+                <span className="text-navy-500">Not configured</span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-start gap-2">
+              <span className="text-navy-600 shrink-0 w-36">Google client secret</span>
+              {settings.google_client_secret?.trim() ? (
+                <SecretValue
+                  value={settings.google_client_secret.trim()}
+                  truncateLength={32}
+                  className="font-mono text-sm"
+                />
+              ) : (
+                <span className="text-navy-500">Not configured</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

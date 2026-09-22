@@ -77,6 +77,11 @@ export async function loadGoogleOAuthFromInfrastructure(
   return data
 }
 
+/**
+ * Resolve OAuth client credentials for token exchange.
+ * When `requestClientId` is set (from the browser auth URL / VITE_GOOGLE_CLIENT_ID),
+ * the secret MUST belong to that same client — otherwise Google rejects the code.
+ */
 export async function resolveGoogleOAuthClient(
   admin: SupabaseClient,
   requestClientId?: string,
@@ -86,18 +91,30 @@ export async function resolveGoogleOAuthClient(
   const dbSecret = trim(row?.google_client_secret)
   const envId = trim(Deno.env.get('GOOGLE_CLIENT_ID'))
   const envSecret = trim(Deno.env.get('GOOGLE_CLIENT_SECRET'))
+  const requested = trim(requestClientId)
 
-  const clientId = dbId || envId || trim(requestClientId)
-  const clientSecret = dbSecret || envSecret
-
-  let source: GoogleOAuthClient['source'] = 'none'
-  if (dbId && dbSecret) {
-    source = 'database'
-  } else if (envId && envSecret) {
-    source = 'edge_secret'
-  } else if (dbSecret || envSecret) {
-    source = dbSecret ? 'database' : 'edge_secret'
+  if (requested) {
+    if (dbId === requested && dbSecret) {
+      return { clientId: requested, clientSecret: dbSecret, source: 'database' }
+    }
+    if (envSecret && (!envId || envId === requested)) {
+      return { clientId: requested, clientSecret: envSecret, source: 'edge_secret' }
+    }
+    return { clientId: requested, clientSecret: '', source: 'none' }
   }
 
+  if (dbId && dbSecret) {
+    return { clientId: dbId, clientSecret: dbSecret, source: 'database' }
+  }
+  if (envId && envSecret) {
+    return { clientId: envId, clientSecret: envSecret, source: 'edge_secret' }
+  }
+
+  const clientId = dbId || envId
+  const clientSecret = dbSecret || envSecret
+  let source: GoogleOAuthClient['source'] = 'none'
+  if (clientSecret) {
+    source = dbSecret ? 'database' : 'edge_secret'
+  }
   return { clientId, clientSecret, source }
 }

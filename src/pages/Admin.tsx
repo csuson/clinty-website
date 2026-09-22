@@ -47,15 +47,19 @@ export default function Admin() {
   const [error, setError] = useState<string | null>(null)
   const [deletingKey, setDeletingKey] = useState<string | null>(null)
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true)
+    }
     setError(null)
 
     try {
       setData(await fetchAdminData())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load admin data')
-      setData(null)
+      if (!options?.silent) {
+        setData(null)
+      }
     } finally {
       setLoading(false)
     }
@@ -106,7 +110,7 @@ export default function Admin() {
             </Link>
             <button
               type="button"
-              onClick={loadData}
+              onClick={() => void loadData()}
               disabled={loading}
               className="text-sm font-medium bg-navy-900 text-cream px-4 py-2 rounded-lg hover:bg-navy-800 transition-colors disabled:opacity-60"
             >
@@ -143,7 +147,15 @@ export default function Admin() {
 
             <Section title="Infrastructure" count={countConfiguredWebsiteSettings(data.websiteSettings)}>
               <AdminWebsiteSettingsPanel settings={data.websiteSettings} />
-              <AdminGmailOAuthInfrastructurePanel settings={data.websiteSettings} onSaved={loadData} />
+              <AdminGmailOAuthInfrastructurePanel
+                settings={data.websiteSettings}
+                onSaved={(websiteSettings) => {
+                  setData((current) =>
+                    current ? { ...current, websiteSettings } : current,
+                  )
+                  void loadData({ silent: true })
+                }}
+              />
             </Section>
 
             <Section title="AI token limits" count={data.users.length}>

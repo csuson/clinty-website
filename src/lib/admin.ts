@@ -112,8 +112,6 @@ export type AdminWebsiteSettings = {
   supabase_anon_key: string
   supabase_service_role: string
   openai_api_key: string
-  langsmith_api_key: string
-  redis_uri: string
   whatsapp_web_gateway_url: string
   whatsapp_web_login_api_key: string
   whatsapp_web_debug: string
