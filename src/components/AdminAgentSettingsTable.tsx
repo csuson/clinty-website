@@ -6,6 +6,7 @@ import type {
   AdminOutlookToken,
   AdminShopifyToken,
   AdminSquareToken,
+  AdminStripeToken,
   AdminWebsiteSettings,
   AdminWhatsAppConnection,
 } from '../lib/admin'
@@ -114,6 +115,7 @@ function ExportAgentSettingsEnvButton({
   gmailTokens,
   outlookTokens,
   squareTokens,
+  stripeTokens,
   shopifyTokens,
   websiteSettings,
   whatsappConnections,
@@ -122,6 +124,7 @@ function ExportAgentSettingsEnvButton({
   gmailTokens: AdminGmailToken[]
   outlookTokens: AdminOutlookToken[]
   squareTokens: AdminSquareToken[]
+  stripeTokens: AdminStripeToken[]
   shopifyTokens: AdminShopifyToken[]
   whatsappConnections: AdminWhatsAppConnection[]
   websiteSettings?: AdminWebsiteSettings | null
@@ -138,6 +141,7 @@ function ExportAgentSettingsEnvButton({
             gmailTokens,
             outlookTokens,
             squareTokens,
+            stripeTokens,
             shopifyTokens,
             whatsappConnections,
             websiteSettings,
@@ -160,6 +164,7 @@ type AdminAgentSettingsTableProps = {
   gmailTokens: AdminGmailToken[]
   outlookTokens: AdminOutlookToken[]
   squareTokens: AdminSquareToken[]
+  stripeTokens: AdminStripeToken[]
   shopifyTokens: AdminShopifyToken[]
   whatsappConnections: AdminWhatsAppConnection[]
   websiteSettings?: AdminWebsiteSettings | null
@@ -172,6 +177,7 @@ export default function AdminAgentSettingsTable({
   gmailTokens,
   outlookTokens,
   squareTokens,
+  stripeTokens,
   shopifyTokens,
   whatsappConnections,
   websiteSettings,
@@ -311,6 +317,7 @@ export default function AdminAgentSettingsTable({
                   gmailTokens={gmailTokens}
                   outlookTokens={outlookTokens}
                   squareTokens={squareTokens}
+                  stripeTokens={stripeTokens}
                   shopifyTokens={shopifyTokens}
                   whatsappConnections={whatsappConnections}
                   websiteSettings={websiteSettings}

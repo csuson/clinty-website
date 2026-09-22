@@ -5,6 +5,7 @@ import type {
   AdminOutlookToken,
   AdminShopifyToken,
   AdminSquareToken,
+  AdminStripeToken,
   AdminWebsiteSettings,
   AdminWhatsAppConnection,
   CreateAgentSettingsInput,
@@ -14,6 +15,7 @@ export type AgentSettingsEnvContext = {
   gmailToken?: AdminGmailToken | null
   outlookToken?: AdminOutlookToken | null
   squareToken?: AdminSquareToken | null
+  stripeToken?: AdminStripeToken | null
   shopifyToken?: AdminShopifyToken | null
   whatsappConnection?: AdminWhatsAppConnection | null
   websiteSettings?: AdminWebsiteSettings | null
@@ -231,7 +233,7 @@ export function parsedEnvToAgentSettingsInput(
     auto_respond_catalog: parseEnvBoolean(parsed.AUTO_RESPOND_CATALOG) ?? false,
     auto_respond_personal: parseEnvBoolean(parsed.AUTO_RESPOND_PERSONAL) ?? true,
     email_ignore_personal: parseEnvBoolean(parsed.EMAIL_IGNORE_PERSONAL) ?? false,
-    email_ad_enabled: parseEnvBoolean(parsed.EMAIL_AD_ENABLED) ?? true,
+    email_ad_enabled: parseEnvBoolean(parsed.EMAIL_AD_ENABLED) ?? false,
     email_draft_instead_of_hitl: parseEnvBoolean(parsed.EMAIL_DRAFT_INSTEAD_OF_HITL) ?? false,
     whatsapp_ignore_personal: parseEnvBoolean(parsed.WHATSAPP_IGNORE_PERSONAL) ?? true,
     thread_message_cap: parseEnvPositiveInt(parsed.THREAD_MESSAGE_CAP, 10),
@@ -314,7 +316,7 @@ export function agentSettingsToEnvContent(
   addBoolean('AUTO_RESPOND_CATALOG', settings.auto_respond_catalog ?? false)
   addBoolean('AUTO_RESPOND_PERSONAL', settings.auto_respond_personal ?? true)
   addBoolean('EMAIL_IGNORE_PERSONAL', settings.email_ignore_personal ?? false)
-  addBoolean('EMAIL_AD_ENABLED', settings.email_ad_enabled ?? true)
+  addBoolean('EMAIL_AD_ENABLED', settings.email_ad_enabled ?? false)
   addBoolean('EMAIL_DRAFT_INSTEAD_OF_HITL', settings.email_draft_instead_of_hitl ?? false)
   addBoolean('WHATSAPP_IGNORE_PERSONAL', settings.whatsapp_ignore_personal ?? true)
   add('THREAD_MESSAGE_CAP', settings.thread_message_cap ?? 10)
@@ -342,6 +344,9 @@ export function agentSettingsToEnvContent(
   add('SQUARE_SERVICE_VARIATION_VERSION', settings.square_service_variation_version)
   add('SQUARE_TEAM_MEMBER_ID', settings.square_team_member_id)
   add('SQUARE_TIMEZONE', settings.square_timezone)
+  add('STRIPE_ACCESS_TOKEN', context.stripeToken?.access_token)
+  add('STRIPE_ACCOUNT_ID', context.stripeToken?.stripe_account_id)
+  add('STRIPE_PUBLISHABLE_KEY', context.stripeToken?.publishable_key)
   add('SUPABASE_URL', websiteSupabase.supabase_url)
   add('SUPABASE_ANON_KEY', websiteSupabase.supabase_anon_key)
   add('SUPABASE_SERVICE_ROLE', websiteSupabase.supabase_service_role)
@@ -363,6 +368,7 @@ export function buildAgentSettingsEnvContext(
     gmailTokens?: AdminGmailToken[]
     outlookTokens?: AdminOutlookToken[]
     squareTokens?: AdminSquareToken[]
+    stripeTokens?: AdminStripeToken[]
     shopifyTokens?: AdminShopifyToken[]
     whatsappConnections?: AdminWhatsAppConnection[]
     websiteSettings?: AdminWebsiteSettings | null
@@ -375,6 +381,7 @@ export function buildAgentSettingsEnvContext(
     gmailToken: matchByUser(data.gmailTokens),
     outlookToken: matchByUser(data.outlookTokens),
     squareToken: matchByUser(data.squareTokens),
+    stripeToken: matchByUser(data.stripeTokens),
     shopifyToken: matchByUser(data.shopifyTokens),
     whatsappConnection: matchByUser(data.whatsappConnections),
     websiteSettings: data.websiteSettings ?? null,

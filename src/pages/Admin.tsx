@@ -13,6 +13,7 @@ import AdminShopifyTokensTable from '../components/admin/AdminShopifyTokensTable
 import AdminWhatsAppInfrastructurePanel from '../components/admin/AdminWhatsAppInfrastructurePanel'
 import AdminWhatsAppTokensTable from '../components/admin/AdminWhatsAppTokensTable'
 import AdminSquareTokensTable from '../components/admin/AdminSquareTokensTable'
+import AdminStripeTokensTable from '../components/admin/AdminStripeTokensTable'
 import AdminUsersTable from '../components/admin/AdminUsersTable'
 import AdminGmailOAuthInfrastructurePanel from '../components/admin/AdminGmailOAuthInfrastructurePanel'
 import AdminWebsiteSettingsPanel, {
@@ -194,6 +195,14 @@ export default function Admin() {
               />
             </Section>
 
+            <Section title="Stripe Tokens" count={(data.stripeTokens ?? []).length}>
+              <AdminStripeTokensTable
+                stripeTokens={data.stripeTokens ?? []}
+                isDeleting={(id) => isDeleting('stripe_token', id)}
+                onDelete={(id, label) => handleDelete('stripe_token', id, `Stripe token for ${label}`)}
+              />
+            </Section>
+
             <Section title="Shopify Tokens" count={(data.shopifyTokens ?? []).length}>
               <AdminShopifyTokensTable
                 shopifyTokens={data.shopifyTokens ?? []}
@@ -230,6 +239,7 @@ export default function Admin() {
                 gmailTokens={data.gmailTokens ?? []}
                 outlookTokens={data.outlookTokens ?? []}
                 squareTokens={data.squareTokens ?? []}
+                stripeTokens={data.stripeTokens ?? []}
                 shopifyTokens={data.shopifyTokens ?? []}
                 whatsappConnections={data.whatsappConnections ?? []}
                 websiteSettings={data.websiteSettings}

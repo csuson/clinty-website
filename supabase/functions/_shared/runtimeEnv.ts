@@ -51,6 +51,9 @@ export const RUNTIME_ENV_KEYS = [
   'SQUARE_SERVICE_VARIATION_VERSION',
   'SQUARE_TEAM_MEMBER_ID',
   'SQUARE_TIMEZONE',
+  'STRIPE_ACCESS_TOKEN',
+  'STRIPE_ACCOUNT_ID',
+  'STRIPE_PUBLISHABLE_KEY',
   'SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE',
   'SUPABASE_URL',
@@ -78,6 +81,7 @@ type GmailTokenRow = Record<string, unknown>
 type OutlookTokenRow = Record<string, unknown>
 type SquareTokenRow = Record<string, unknown>
 type SquareConnectionRow = Record<string, unknown>
+type StripeTokenRow = Record<string, unknown>
 type ShopifyTokenRow = Record<string, unknown>
 type WhatsAppConnectionRow = Record<string, unknown>
 
@@ -288,6 +292,16 @@ export function squareIntegrationToRuntimeEnv(
   return env
 }
 
+export function stripeTokenToRuntimeEnv(row: StripeTokenRow | null | undefined): RuntimeEnv {
+  if (!row) return {}
+
+  const env: RuntimeEnv = {}
+  setIfPresent(env, 'STRIPE_ACCESS_TOKEN', row.access_token)
+  setIfPresent(env, 'STRIPE_ACCOUNT_ID', row.stripe_account_id)
+  setIfPresent(env, 'STRIPE_PUBLISHABLE_KEY', row.publishable_key)
+  return env
+}
+
 export function websiteSettingsToRuntimeEnv(settings: WebsiteSettings): RuntimeEnv {
   const env: RuntimeEnv = {}
   setIfPresent(env, 'SUPABASE_URL', settings.supabase_url)
@@ -351,7 +365,7 @@ export function agentSettingsToRuntimeEnv(row: AgentSettingsRow | null | undefin
   setBooleanWithDefault(env, 'AUTO_RESPOND_WHATSAPP', row.auto_respond_whatsapp, true)
   setBooleanWithDefault(env, 'AUTO_RESPOND_CATALOG', row.auto_respond_catalog, false)
   setBooleanWithDefault(env, 'AUTO_RESPOND_PERSONAL', row.auto_respond_personal, true)
-  setBooleanWithDefault(env, 'EMAIL_AD_ENABLED', row.email_ad_enabled, true)
+  setBooleanWithDefault(env, 'EMAIL_AD_ENABLED', row.email_ad_enabled, false)
   setBooleanWithDefault(
     env,
     'EMAIL_DRAFT_INSTEAD_OF_HITL',
@@ -390,6 +404,7 @@ export type BuildRuntimeEnvInput = {
   outlookToken?: OutlookTokenRow | null
   squareToken?: SquareTokenRow | null
   squareConnection?: SquareConnectionRow | null
+  stripeToken?: StripeTokenRow | null
   shopifyToken?: ShopifyTokenRow | null
   whatsappConnection?: WhatsAppConnectionRow | null
   websiteSettings?: WebsiteSettings
@@ -402,6 +417,7 @@ export function buildRuntimeEnv(input: BuildRuntimeEnvInput): RuntimeEnv {
     ...gmailTokenToRuntimeEnv(input.gmailToken),
     ...outlookTokenToRuntimeEnv(input.outlookToken),
     ...shopifyTokenToRuntimeEnv(input.shopifyToken),
+    ...stripeTokenToRuntimeEnv(input.stripeToken),
     ...squareIntegrationToRuntimeEnv(
       input.squareToken,
       input.squareConnection,

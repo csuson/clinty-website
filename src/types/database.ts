@@ -161,6 +161,31 @@ export type SquareToken = {
   updated_at: string
 }
 
+export type StripeConnection = {
+  user_id: string
+  stripe_account_id: string | null
+  business_name: string | null
+  email: string | null
+  country: string | null
+  default_currency: string | null
+  livemode: boolean
+  scopes: string[]
+  connected_at: string
+  status: 'connected' | 'disconnected' | 'error'
+}
+
+export type StripeToken = {
+  user_id: string
+  access_token: string
+  refresh_token: string | null
+  stripe_account_id: string
+  client_id: string
+  publishable_key: string | null
+  livemode: boolean
+  scopes: string[]
+  updated_at: string
+}
+
 export type UserPrompts = {
   user_id: string
   background: string | null
@@ -532,6 +557,57 @@ export type Database = {
           merchant_id?: string
           application_id?: string
           expires_at?: string | null
+          scopes?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      stripe_connections: {
+        Row: StripeConnection
+        Insert: {
+          user_id: string
+          stripe_account_id?: string | null
+          business_name?: string | null
+          email?: string | null
+          country?: string | null
+          default_currency?: string | null
+          livemode?: boolean
+          scopes?: string[]
+          connected_at?: string
+          status?: 'connected' | 'disconnected' | 'error'
+        }
+        Update: {
+          stripe_account_id?: string | null
+          business_name?: string | null
+          email?: string | null
+          country?: string | null
+          default_currency?: string | null
+          livemode?: boolean
+          scopes?: string[]
+          status?: 'connected' | 'disconnected' | 'error'
+        }
+        Relationships: []
+      }
+      stripe_tokens: {
+        Row: StripeToken
+        Insert: {
+          user_id: string
+          access_token: string
+          refresh_token?: string | null
+          stripe_account_id: string
+          client_id: string
+          publishable_key?: string | null
+          livemode?: boolean
+          scopes?: string[]
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          refresh_token?: string | null
+          stripe_account_id?: string
+          client_id?: string
+          publishable_key?: string | null
+          livemode?: boolean
           scopes?: string[]
           updated_at?: string
         }

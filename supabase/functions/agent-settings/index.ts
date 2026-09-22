@@ -106,6 +106,7 @@ Deno.serve(async (req) => {
       outlookToken: integrationRows.outlookToken,
       squareToken: integrationRows.squareToken,
       squareConnection: integrationRows.squareConnection,
+      stripeToken: integrationRows.stripeToken,
       shopifyToken: integrationRows.shopifyToken,
       whatsappConnection: integrationRows.whatsappConnection,
       websiteSettings,
@@ -193,6 +194,7 @@ async function loadIntegrationRows(
     outlookTokenResult,
     squareTokenResult,
     squareConnectionResult,
+    stripeTokenResult,
     shopifyTokenResult,
     whatsappConnectionResult,
   ] = await Promise.all([
@@ -200,6 +202,7 @@ async function loadIntegrationRows(
     admin.from('outlook_tokens').select('*').eq('user_id', userId).maybeSingle(),
     admin.from('square_tokens').select('*').eq('user_id', userId).maybeSingle(),
     admin.from('square_connections').select('*').eq('user_id', userId).maybeSingle(),
+    admin.from('stripe_tokens').select('*').eq('user_id', userId).maybeSingle(),
     admin.from('shopify_tokens').select('*').eq('user_id', userId).maybeSingle(),
     admin.from('whatsapp_connections').select('*').eq('user_id', userId).maybeSingle(),
   ])
@@ -208,6 +211,7 @@ async function loadIntegrationRows(
   if (outlookTokenResult.error) throw new Error(outlookTokenResult.error.message)
   if (squareTokenResult.error) throw new Error(squareTokenResult.error.message)
   if (squareConnectionResult.error) throw new Error(squareConnectionResult.error.message)
+  if (stripeTokenResult.error) throw new Error(stripeTokenResult.error.message)
   if (shopifyTokenResult.error) throw new Error(shopifyTokenResult.error.message)
   if (whatsappConnectionResult.error) throw new Error(whatsappConnectionResult.error.message)
 
@@ -216,6 +220,7 @@ async function loadIntegrationRows(
     outlookToken: outlookTokenResult.data,
     squareToken: squareTokenResult.data,
     squareConnection: squareConnectionResult.data,
+    stripeToken: stripeTokenResult.data,
     shopifyToken: shopifyTokenResult.data,
     whatsappConnection: whatsappConnectionResult.data,
   }

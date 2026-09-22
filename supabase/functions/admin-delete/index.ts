@@ -9,6 +9,7 @@ const allowedResources = new Set([
   'api_key',
   'gmail_token',
   'square_token',
+  'stripe_token',
   'shopify_token',
   'outlook_token',
   'whatsapp_token',
@@ -146,6 +147,22 @@ Deno.serve(async (req) => {
       const [tokensRes, connectionsRes] = await Promise.all([
         admin.from('square_tokens').delete().eq('user_id', id),
         admin.from('square_connections').delete().eq('user_id', id),
+      ])
+
+      if (tokensRes.error) {
+        return json({ error: tokensRes.error.message }, 500)
+      }
+      if (connectionsRes.error) {
+        return json({ error: connectionsRes.error.message }, 500)
+      }
+
+      return json({ ok: true })
+    }
+
+    if (resource === 'stripe_token') {
+      const [tokensRes, connectionsRes] = await Promise.all([
+        admin.from('stripe_tokens').delete().eq('user_id', id),
+        admin.from('stripe_connections').delete().eq('user_id', id),
       ])
 
       if (tokensRes.error) {

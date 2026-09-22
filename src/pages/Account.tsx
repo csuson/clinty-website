@@ -16,6 +16,7 @@ import AgentSettings from './account/AgentSettings'
 import Prompts from './account/Prompts'
 import ShopifyCallback from './account/ShopifyCallback'
 import SquareCallback from './account/SquareCallback'
+import StripeCallback from './account/StripeCallback'
 import WhatsAppLogin from './account/WhatsAppLogin'
 
 export default function Account() {
@@ -32,6 +33,7 @@ export default function Account() {
         <Route path="integrations/outlook/callback" element={<OutlookCallback />} />
         <Route path="integrations/yahoo/callback" element={<YahooCallback />} />
         <Route path="integrations/square/callback" element={<SquareCallback />} />
+        <Route path="integrations/stripe/callback" element={<StripeCallback />} />
         <Route path="integrations/shopify/callback" element={<ShopifyCallback />} />
         <Route path="prompts" element={<Prompts />} />
         <Route path="agent-settings" element={<AgentSettings />} />

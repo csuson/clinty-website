@@ -81,6 +81,7 @@ The Vite dev/build tooling also loads this certificate for any Node-side HTTPS c
 | Billing | `/account/billing` |
 | API Keys | `/account/api-keys` |
 | Integrations (Gmail) | `/account/integrations` |
+| Integrations (Stripe) | `/account/integrations` (Stripe panel) |
 
 ## Gmail Integration Setup
 
@@ -121,6 +122,62 @@ Apply migration `supabase/migrations/20260921160000_gmail_oauth_infrastructure.s
 ### 4. Database
 
 Run the Gmail tables section in `supabase/schema.sql` (creates `gmail_tokens` and `gmail_connections`).
+
+## Stripe Connect Integration Setup
+
+Merchant Stripe accounts connect via **Stripe Connect Standard OAuth** (same pattern as Square). Tokens live in Supabase (`stripe_tokens` / `stripe_connections`). `agent-settings` exposes `STRIPE_ACCESS_TOKEN`, `STRIPE_ACCOUNT_ID`, and `STRIPE_PUBLISHABLE_KEY` in `runtime_env`.
+
+### 1. Enable OAuth in the Stripe Dashboard
+
+1. Open **[Connect → Onboarding options → OAuth](https://dashboard.stripe.com/settings/connect/onboarding-options/oauth)**  
+   (`Settings → Connect → Onboarding options → OAuth`)
+2. Turn **on** **Enable OAuth** / onboard accounts with OAuth
+3. Copy the **Client ID** (`ca_...`) — use **Test mode** client ID for sandbox, **Live mode** for production (toggle Test mode in the Dashboard)
+4. Under redirect URIs, add:
+   - `http://localhost:5173/account/integrations/stripe/callback`
+   - `https://clinty.net/account/integrations/stripe/callback`
+
+See [Using OAuth with Standard accounts](https://docs.stripe.com/connect/oauth-standard-accounts).
+
+### 2. Frontend environment
+
+Add to `.env` (match test vs live client ID to the mode you use):
+
+```
+VITE_STRIPE_CONNECT_CLIENT_ID=ca_...
+# optional override:
+# VITE_STRIPE_REDIRECT_URI=https://clinty.net/account/integrations/stripe/callback
+```
+
+### 3. Database
+
+Apply the migration (or run the Stripe tables section in `supabase/schema.sql`):
+
+```bash
+npm run supabase -- db push
+```
+
+Creates `stripe_tokens` (server-only) and `stripe_connections` (account owner can `select`).
+
+### 4. Edge Functions and secrets
+
+Use the platform **secret key** that matches the client ID mode (`sk_test_...` with test `ca_...`, or `sk_live_...` with live `ca_...`):
+
+```bash
+npm run supabase -- secrets set STRIPE_SECRET_KEY=sk_...
+npm run supabase -- secrets set STRIPE_CONNECT_CLIENT_ID=ca_...
+npm run supabase -- functions deploy stripe-oauth-exchange
+npm run supabase -- functions deploy stripe-oauth-disconnect
+npm run supabase -- functions deploy admin-data
+npm run supabase -- functions deploy admin-delete
+npm run supabase -- functions deploy agent-settings
+```
+
+`STRIPE_SECRET_KEY` is the platform secret key (Connect OAuth token exchange). `STRIPE_CONNECT_CLIENT_ID` is optional; if set, it should match `VITE_STRIPE_CONNECT_CLIENT_ID`.
+
+### 5. Website deploy
+
+Rebuild and deploy the frontend so the Integrations Stripe panel and callback route are live (`/account/integrations/stripe/callback`).
 
 ## Agent Settings API
 

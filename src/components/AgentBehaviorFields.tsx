@@ -39,7 +39,7 @@ export function defaultAgentBehaviorSettings(): AgentBehaviorSettings {
     auto_respond_catalog: false,
     auto_respond_personal: true,
     email_ignore_personal: false,
-    email_ad_enabled: true,
+    email_ad_enabled: false,
     email_draft_instead_of_hitl: false,
     whatsapp_ignore_personal: true,
     thread_message_cap: 10,
@@ -329,7 +329,7 @@ export default function AgentBehaviorFields({
             id={`${idPrefix}-email-ad-enabled`}
             value={booleanSelectValue(settings.email_ad_enabled)}
             onChange={(e) =>
-              onChange('email_ad_enabled', parseRequiredBooleanSelect(e.target.value, true))
+              onChange('email_ad_enabled', parseRequiredBooleanSelect(e.target.value, false))
             }
             className={inputClass}
             disabled={disabled}

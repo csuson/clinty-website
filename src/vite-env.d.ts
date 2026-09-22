@@ -12,6 +12,8 @@ interface ImportMetaEnv {
   readonly VITE_SQUARE_APPLICATION_ID?: string
   readonly VITE_SQUARE_REDIRECT_URI?: string
   readonly VITE_SQUARE_SANDBOX?: string
+  readonly VITE_STRIPE_CONNECT_CLIENT_ID?: string
+  readonly VITE_STRIPE_REDIRECT_URI?: string
   readonly VITE_SHOPIFY_CLIENT_ID?: string
   readonly VITE_SHOPIFY_REDIRECT_URI?: string
   readonly VITE_ADMIN_EMAILS?: string

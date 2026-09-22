@@ -9,6 +9,8 @@ import type {
   ShopifyToken,
   SquareConnection,
   SquareToken,
+  StripeConnection,
+  StripeToken,
   UserPrompts,
   WhatsAppConnection,
 } from '../types/database'
@@ -27,6 +29,13 @@ export type AdminSquareToken = SquareToken & {
   team_member_id: string | null
   timezone: string | null
   connection_status: SquareConnection['status'] | null
+}
+export type AdminStripeToken = StripeToken & {
+  user_email: string | null
+  business_name: string | null
+  email: string | null
+  country: string | null
+  connection_status: StripeConnection['status'] | null
 }
 export type AdminShopifyToken = ShopifyToken & {
   user_email: string | null
@@ -129,6 +138,7 @@ export type AdminData = {
   apiKeys: AdminApiKey[]
   gmailTokens: AdminGmailToken[]
   squareTokens: AdminSquareToken[]
+  stripeTokens: AdminStripeToken[]
   shopifyTokens: AdminShopifyToken[]
   outlookTokens: AdminOutlookToken[]
   whatsappConnections: AdminWhatsAppConnection[]
@@ -266,6 +276,7 @@ export type AdminDeleteResource =
   | 'api_key'
   | 'gmail_token'
   | 'square_token'
+  | 'stripe_token'
   | 'shopify_token'
   | 'outlook_token'
   | 'whatsapp_token'

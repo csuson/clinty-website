@@ -19,6 +19,12 @@ verify_jwt = false
 [functions.square-oauth-disconnect]
 verify_jwt = false
 
+[functions.stripe-oauth-exchange]
+verify_jwt = false
+
+[functions.stripe-oauth-disconnect]
+verify_jwt = false
+
 [functions.outlook-oauth-exchange]
 verify_jwt = false
 

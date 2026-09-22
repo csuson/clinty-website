@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       return json({ error: mfaGate.error }, mfaGate.status)
     }
 
-    const [profilesRes, apiKeysRes, gmailTokensRes, outlookTokensRes, outlookConnectionsRes, squareTokensRes, squareConnectionsRes, shopifyTokensRes, shopifyConnectionsRes, whatsappConnectionsRes, agentSettingsRes, userPromptsRes] =
+    const [profilesRes, apiKeysRes, gmailTokensRes, outlookTokensRes, outlookConnectionsRes, squareTokensRes, squareConnectionsRes, stripeTokensRes, stripeConnectionsRes, shopifyTokensRes, shopifyConnectionsRes, whatsappConnectionsRes, agentSettingsRes, userPromptsRes] =
       await Promise.all([
       admin.from('profiles').select('*').order('created_at', { ascending: false }),
       admin.from('api_keys').select('*').order('created_at', { ascending: false }),
@@ -73,6 +73,8 @@ Deno.serve(async (req) => {
       admin.from('outlook_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('square_tokens').select('*').order('updated_at', { ascending: false }),
       admin.from('square_connections').select('*').order('connected_at', { ascending: false }),
+      admin.from('stripe_tokens').select('*').order('updated_at', { ascending: false }),
+      admin.from('stripe_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('shopify_tokens').select('*').order('updated_at', { ascending: false }),
       admin.from('shopify_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('whatsapp_connections').select('*').order('connected_at', { ascending: false }),
@@ -101,6 +103,12 @@ Deno.serve(async (req) => {
     if (squareConnectionsRes.error) {
       return json({ error: squareConnectionsRes.error.message }, 500)
     }
+    if (stripeTokensRes.error) {
+      return json({ error: stripeTokensRes.error.message }, 500)
+    }
+    if (stripeConnectionsRes.error) {
+      return json({ error: stripeConnectionsRes.error.message }, 500)
+    }
     if (shopifyTokensRes.error) {
       return json({ error: shopifyTokensRes.error.message }, 500)
     }
@@ -125,6 +133,9 @@ Deno.serve(async (req) => {
     )
     const squareConnectionByUserId = new Map(
       (squareConnectionsRes.data ?? []).map((connection) => [connection.user_id, connection]),
+    )
+    const stripeConnectionByUserId = new Map(
+      (stripeConnectionsRes.data ?? []).map((connection) => [connection.user_id, connection]),
     )
     const outlookConnectionByUserId = new Map(
       (outlookConnectionsRes.data ?? []).map((connection) => [connection.user_id, connection]),
@@ -169,6 +180,17 @@ Deno.serve(async (req) => {
         location_name: connection?.location_name ?? null,
         team_member_id: connection?.team_member_id ?? null,
         timezone: connection?.timezone ?? null,
+        connection_status: connection?.status ?? null,
+      }
+    })
+    const stripeTokens = (stripeTokensRes.data ?? []).map((token) => {
+      const connection = stripeConnectionByUserId.get(token.user_id) ?? null
+      return {
+        ...token,
+        user_email: emailByUserId.get(token.user_id) ?? null,
+        business_name: connection?.business_name ?? null,
+        email: connection?.email ?? null,
+        country: connection?.country ?? null,
         connection_status: connection?.status ?? null,
       }
     })
@@ -242,6 +264,7 @@ Deno.serve(async (req) => {
       gmailTokens,
       outlookTokens,
       squareTokens,
+      stripeTokens,
       shopifyTokens,
       whatsappConnections,
       agentSettings,
