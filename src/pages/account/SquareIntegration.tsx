@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import IntegrationPanel, { oauthIntegrationStatus } from '../../components/IntegrationPanel'
+import { SquareIcon } from '../../components/IntegrationIcons'
 import { SQUARE_SCOPES, isSquareOAuthConfigured } from '../../constants/square'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -75,12 +76,8 @@ export default function SquareIntegration({ expanded, onToggle }: SquareIntegrat
   return (
     <IntegrationPanel
       title="Square Appointments"
-      icon={(
-        <svg className="w-7 h-7 text-cream" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-          <path d="M4.01 0A4.01 4.01 0 0 0 0 4.01v15.98A4.01 4.01 0 0 0 4.01 24h15.98A4.01 4.01 0 0 0 24 19.99V4.01A4.01 4.01 0 0 0 19.99 0H4.01zm9.66 4.39c1.01 0 1.83.82 1.83 1.83s-.82 1.83-1.83 1.83-1.83-.82-1.83-1.83.82-1.83 1.83-1.83zm-5.66 2.74h11.32v1.83H8.01V7.13zm0 3.66h11.32v1.83H8.01v-1.83zm0 3.66h7.55v1.83H8.01v-1.83z" />
-        </svg>
-      )}
-      iconWrapperClassName="bg-navy-900"
+      icon={<SquareIcon />}
+      iconWrapperClassName="bg-neutral-100"
       status={status}
       statusLabel={statusLabel}
       expanded={expanded}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import AdminAgentSettingsForm, { emptyAgentSettingsForm } from '../components/AdminAgentSettingsForm'
+import { agentBehaviorFromRow } from '../components/AgentBehaviorFields'
 import {
   fetchAdminData,
   updateAgentSettings,
@@ -29,21 +30,7 @@ function agentSettingsToForm(settings: AdminAgentSettings): CreateAgentSettingsI
     square_service_variation_version: settings.square_service_variation_version,
     square_team_member_id: settings.square_team_member_id ?? '',
     square_timezone: settings.square_timezone ?? '',
-    auto_book_scheduling: settings.auto_book_scheduling,
-    auto_respond_instruction: settings.auto_respond_instruction,
-    auto_respond_scheduling: settings.auto_respond_scheduling,
-    auto_respond_whatsapp: settings.auto_respond_whatsapp ?? true,
-    auto_respond_catalog: settings.auto_respond_catalog ?? false,
-    auto_respond_personal: settings.auto_respond_personal ?? true,
-    email_ignore_personal: settings.email_ignore_personal ?? false,
-    email_ad_enabled: settings.email_ad_enabled ?? false,
-    email_draft_instead_of_hitl: settings.email_draft_instead_of_hitl ?? false,
-    whatsapp_ignore_personal: settings.whatsapp_ignore_personal ?? true,
-    thread_message_cap: settings.thread_message_cap ?? 10,
-    whatsapp_thread_message_cap: settings.whatsapp_thread_message_cap ?? 10,
-    daily_incoming_email_limit: settings.daily_incoming_email_limit ?? 50,
-    daily_incoming_email_timezone: settings.daily_incoming_email_timezone ?? '',
-    daily_incoming_whatsapp_limit: settings.daily_incoming_whatsapp_limit ?? 50,
+    ...agentBehaviorFromRow(settings),
     environment: settings.environment ?? '',
     log_level: settings.log_level ?? '',
     pgoptions: settings.pgoptions ?? '',

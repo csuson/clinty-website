@@ -9,8 +9,20 @@ import {
 } from '../../constants/responseTones'
 import { useAuth } from '../../context/AuthContext'
 import { useAiUsage } from '../../hooks/useAiUsage'
+import { GENERAL_SMALL_BUSINESS_RESPONSE_PREFERENCES_EXAMPLE } from '../../constants/customResponsePreferencesExample'
+import {
+  BUSINESS_BACKGROUND_TYPE_OPTIONS,
+  type BusinessBackgroundType,
+} from '../../constants/businessBackgroundTypes'
+import {
+  EXAMPLE_PROMPT_BACKGROUND,
+  EXAMPLE_PROMPT_CALENDAR_PREFERENCE,
+  EXAMPLE_PROMPT_FOOTER,
+} from '../../constants/promptExamples'
+import { isLocalOrPrivateWebsiteUrl, normalizeWebsiteUrl } from '../../lib/websiteTextExtract'
 import {
   defaultPromptFields,
+  describeGeneratedBusinessType,
   fetchUserPrompts,
   generateBackgroundFromWebsite,
   responseToneCustomText,
@@ -21,13 +33,6 @@ import {
   whatsappToneSelectValue,
   type PromptFields,
 } from '../../lib/prompts'
-import { GENERAL_SMALL_BUSINESS_RESPONSE_PREFERENCES_EXAMPLE } from '../../constants/customResponsePreferencesExample'
-import {
-  EXAMPLE_PROMPT_BACKGROUND,
-  EXAMPLE_PROMPT_CALENDAR_PREFERENCE,
-  EXAMPLE_PROMPT_FOOTER,
-} from '../../constants/promptExamples'
-import { isLocalOrPrivateWebsiteUrl, normalizeWebsiteUrl } from '../../lib/websiteTextExtract'
 
 export default function Prompts() {
   const { user } = useAuth()
@@ -41,6 +46,7 @@ export default function Prompts() {
   const [generating, setGenerating] = useState(false)
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [websiteHtmlFile, setWebsiteHtmlFile] = useState<File | null>(null)
+  const [businessType, setBusinessType] = useState<BusinessBackgroundType>('auto')
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lastUsage, setLastUsage] = useState<number | null>(null)
@@ -124,14 +130,17 @@ export default function Prompts() {
     setError(null)
 
     try {
-      const { background, usage } = await generateBackgroundFromWebsite(url, {
+      const { background, usage, businessType: detectedType } = await generateBackgroundFromWebsite(url, {
         userId: user?.id,
         htmlFile: websiteHtmlFile,
+        businessType,
       })
       setPrompts((current) => ({ ...current, background }))
       setLastUsage(usage?.total_tokens ?? null)
       void refreshAiUsage()
-      setMessage('Business Background generated from your website. Review and save when ready.')
+      setMessage(
+        `Business Background generated (${describeGeneratedBusinessType(detectedType)}). Review and save when ready.`,
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate background')
     } finally {
@@ -166,7 +175,8 @@ export default function Prompts() {
               <h3 className="text-base font-semibold text-navy-900 mb-1">Generate from website</h3>
               <p className="text-sm text-navy-600">
                 Enter your business website and Clinty will draft Business Background text from your
-                public pages (home, about, pricing, location, etc.). Review and edit before saving.
+                public pages. Auto-detect chooses lessons/appointments vs fixed camp weeks (or
+                general). Override below if needed, then review and save.
               </p>
             </div>
 
@@ -183,29 +193,51 @@ export default function Prompts() {
                 site if it runs on the same machine.
               </p>
             )}
-            <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-              <div className="flex-1">
-                <FormField label="Website URL" id="prompt-website-url">
-                  <input
-                    id="prompt-website-url"
-                    type="text"
-                    inputMode="url"
-                    placeholder="yourbusiness.com"
-                    value={websiteUrl}
-                    onChange={(e) => setWebsiteUrl(e.target.value)}
-                    className={inputClass}
-                    disabled={generating || saving}
-                  />
-                </FormField>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+                <div className="flex-1">
+                  <FormField label="Website URL" id="prompt-website-url">
+                    <input
+                      id="prompt-website-url"
+                      type="text"
+                      inputMode="url"
+                      placeholder="yourbusiness.com"
+                      value={websiteUrl}
+                      onChange={(e) => setWebsiteUrl(e.target.value)}
+                      className={inputClass}
+                      disabled={generating || saving}
+                    />
+                  </FormField>
+                </div>
+                <div className="sm:w-56">
+                  <FormField label="Business type" id="prompt-business-type">
+                    <select
+                      id="prompt-business-type"
+                      value={businessType}
+                      onChange={(e) => setBusinessType(e.target.value as BusinessBackgroundType)}
+                      className={inputClass}
+                      disabled={generating || saving}
+                    >
+                      {BUSINESS_BACKGROUND_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGenerateBackground}
+                  disabled={generating || saving || !websiteUrl.trim() || limitReached}
+                  className="bg-teal-500 text-white font-medium px-6 py-3 rounded-xl hover:bg-teal-600 transition-colors disabled:opacity-60 whitespace-nowrap"
+                >
+                  {generating ? 'Generating...' : 'Generate background'}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleGenerateBackground}
-                disabled={generating || saving || !websiteUrl.trim() || limitReached}
-                className="bg-teal-500 text-white font-medium px-6 py-3 rounded-xl hover:bg-teal-600 transition-colors disabled:opacity-60 whitespace-nowrap"
-              >
-                {generating ? 'Generating...' : 'Generate background'}
-              </button>
+              <p className="text-xs text-navy-600">
+                {BUSINESS_BACKGROUND_TYPE_OPTIONS.find((option) => option.value === businessType)?.description}
+              </p>
             </div>
             {limitReached && (
               <p className="text-sm text-red-700">
@@ -234,7 +266,7 @@ export default function Prompts() {
 
           <PromptSection
             title="Business Background"
-            description="Who you are, what you offer, pricing, locations, and reply templates for common inquiries."
+            description="Who you are, booking model, offerings, constraints, agent rules, and a short reply template."
             id="prompt-background"
             value={prompts.background}
             onChange={(background) => setPrompts((current) => ({ ...current, background }))}

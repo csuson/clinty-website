@@ -180,13 +180,23 @@ export default function AdminWhatsAppInfrastructurePanel({
           ) : null}
 
           <div className="rounded-xl border border-navy-900/5 p-4 space-y-5">
-            <FormField label="Gateway URL" id="admin-whatsapp-gateway-url" hint="WHATSAPP_WEB_GATEWAY_URL">
+            <p className="text-sm text-navy-600">
+              For multi-tenant WhatsApp, set Gateway URL to the shared service
+              (e.g. <code className="text-xs">https://whatsapp-web-gateway-70je.onrender.com</code>).
+              LangGraph URL should match this user&apos;s Agent Settings URL so inbound messages
+              route to the right assistant.
+            </p>
+            <FormField
+              label="Gateway URL"
+              id="admin-whatsapp-gateway-url"
+              hint="WHATSAPP_WEB_GATEWAY_URL — shared multitenant gateway for most users"
+            >
               <input
                 id="admin-whatsapp-gateway-url"
                 type="url"
                 value={form.gateway_url}
                 onChange={(event) => updateField('gateway_url', event.target.value)}
-                placeholder="https://your-gateway.example.com:8787"
+                placeholder="https://whatsapp-web-gateway-70je.onrender.com"
                 className={inputClass}
                 disabled={saving}
               />
@@ -195,7 +205,7 @@ export default function AdminWhatsAppInfrastructurePanel({
             <FormField
             label="LangGraph URL"
             id="admin-whatsapp-langgraph-url"
-            hint="WHATSAPP_WEB_LANGGRAPH_URL — base URL the gateway POSTs inbound WhatsApp to"
+            hint="WHATSAPP_WEB_LANGGRAPH_URL — usually this user’s agent_settings.url"
           >
             <input
               id="admin-whatsapp-langgraph-url"

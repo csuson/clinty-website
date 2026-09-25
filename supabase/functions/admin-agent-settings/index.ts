@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 import { requireAdminMfa } from '../_shared/adminAuth.ts'
+import { syncWhatsAppLanggraphUrlFromAgent } from '../_shared/whatsappInfrastructure.ts'
 
 let corsHeaders: Record<string, string> = {}
 
@@ -181,6 +182,7 @@ async function buildPayload(body: Record<string, unknown>) {
       email_ignore_personal: parseBoolean(body.email_ignore_personal) ?? false,
       email_ad_enabled: parseBoolean(body.email_ad_enabled) ?? false,
       email_draft_instead_of_hitl: parseBoolean(body.email_draft_instead_of_hitl) ?? false,
+      response_template_enabled: parseBoolean(body.response_template_enabled) ?? false,
       whatsapp_ignore_personal: parseBoolean(body.whatsapp_ignore_personal) ?? true,
       thread_message_cap: parsePositiveInt(body.thread_message_cap, 10),
       whatsapp_thread_message_cap: parsePositiveInt(body.whatsapp_thread_message_cap, 10),
@@ -300,6 +302,7 @@ Deno.serve(async (req) => {
           return json({ error: updateError.message }, 500)
         }
 
+        await syncWhatsAppLanggraphUrlFromAgent(admin, payload.user_id, data?.url ?? payload.url)
         return json({ agentSettings: data })
       }
 
@@ -313,6 +316,7 @@ Deno.serve(async (req) => {
         return json({ error: insertError.message }, 500)
       }
 
+      await syncWhatsAppLanggraphUrlFromAgent(admin, payload.user_id, data?.url ?? payload.url)
       return json({ agentSettings: data })
     }
 
@@ -345,6 +349,7 @@ Deno.serve(async (req) => {
       return json({ error: updateError.message }, 500)
     }
 
+    await syncWhatsAppLanggraphUrlFromAgent(admin, payload.user_id, data?.url ?? payload.url)
     return json({ agentSettings: data })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)

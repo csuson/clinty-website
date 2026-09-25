@@ -70,8 +70,7 @@ const integrations = [
     category: 'Bookings',
     description: 'Sync Square Appointments for availability and bookings.',
     icon: SquareIcon,
-    iconBg: 'bg-navy-900',
-    iconClass: 'text-cream',
+    iconBg: 'bg-neutral-100',
   },
   {
     name: 'Microsoft Excel',

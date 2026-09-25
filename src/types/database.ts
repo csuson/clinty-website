@@ -235,6 +235,7 @@ export type AgentSettings = {
   email_ignore_personal: boolean
   email_ad_enabled: boolean
   email_draft_instead_of_hitl: boolean
+  response_template_enabled: boolean
   whatsapp_ignore_personal: boolean
   thread_message_cap: number
   whatsapp_thread_message_cap: number
@@ -262,6 +263,37 @@ export type WhatsAppConnection = {
   gateway_auth_storage_prefix?: string | null
   gateway_auth_dir?: string | null
   gateway_langgraph_url?: string | null
+}
+
+export type WeTravelConnection = {
+  user_id: string
+  display_name: string | null
+  sandbox: boolean
+  connected_at: string
+  status: 'connected' | 'disconnected' | 'error'
+  last_error: string | null
+}
+
+export type FluentBookingConnection = {
+  user_id: string
+  site_url: string | null
+  display_name: string | null
+  calendar_id: string | null
+  event_id: string | null
+  connected_at: string
+  status: 'connected' | 'disconnected' | 'error'
+  last_error: string | null
+}
+
+export type LatePointConnection = {
+  user_id: string
+  site_url: string | null
+  display_name: string | null
+  service_id: string | null
+  agent_id: string | null
+  connected_at: string
+  status: 'connected' | 'disconnected' | 'error'
+  last_error: string | null
 }
 
 export type GoogleAdsConnection = {
@@ -588,6 +620,47 @@ export type Database = {
         }
         Relationships: []
       }
+      wetravel_connections: {
+        Row: WeTravelConnection
+        Insert: {
+          user_id: string
+          display_name?: string | null
+          sandbox?: boolean
+          connected_at?: string
+          status?: 'connected' | 'disconnected' | 'error'
+          last_error?: string | null
+        }
+        Update: {
+          display_name?: string | null
+          sandbox?: boolean
+          status?: 'connected' | 'disconnected' | 'error'
+          last_error?: string | null
+        }
+        Relationships: []
+      }
+      wetravel_tokens: {
+        Row: {
+          user_id: string
+          api_key: string
+          sandbox: boolean
+          display_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          api_key: string
+          sandbox?: boolean
+          display_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          sandbox?: boolean
+          display_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       stripe_tokens: {
         Row: StripeToken
         Insert: {
@@ -639,6 +712,114 @@ export type Database = {
           whatsapp_response_tone?: string | null
           response_preferences?: string | null
           whatsapp_response_preferences?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fluentbooking_connections: {
+        Row: FluentBookingConnection
+        Insert: {
+          user_id: string
+          site_url?: string | null
+          display_name?: string | null
+          calendar_id?: string | null
+          event_id?: string | null
+          connected_at?: string
+          status?: 'connected' | 'disconnected' | 'error'
+          last_error?: string | null
+        }
+        Update: {
+          site_url?: string | null
+          display_name?: string | null
+          calendar_id?: string | null
+          event_id?: string | null
+          status?: 'connected' | 'disconnected' | 'error'
+          last_error?: string | null
+        }
+        Relationships: []
+      }
+      fluentbooking_tokens: {
+        Row: {
+          user_id: string
+          site_url: string
+          username: string
+          app_password: string
+          calendar_id: string
+          event_id: string | null
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          site_url: string
+          username: string
+          app_password: string
+          calendar_id: string
+          event_id?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          site_url?: string
+          username?: string
+          app_password?: string
+          calendar_id?: string
+          event_id?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      latepoint_connections: {
+        Row: LatePointConnection
+        Insert: {
+          user_id: string
+          site_url?: string | null
+          display_name?: string | null
+          service_id?: string | null
+          agent_id?: string | null
+          connected_at?: string
+          status?: 'connected' | 'disconnected' | 'error'
+          last_error?: string | null
+        }
+        Update: {
+          site_url?: string | null
+          display_name?: string | null
+          service_id?: string | null
+          agent_id?: string | null
+          status?: 'connected' | 'disconnected' | 'error'
+          last_error?: string | null
+        }
+        Relationships: []
+      }
+      latepoint_tokens: {
+        Row: {
+          user_id: string
+          site_url: string
+          api_key: string
+          service_id: string
+          agent_id: string
+          location_id: string | null
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          site_url: string
+          api_key: string
+          service_id: string
+          agent_id: string
+          location_id?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          site_url?: string
+          api_key?: string
+          service_id?: string
+          agent_id?: string
+          location_id?: string | null
+          timezone?: string
           updated_at?: string
         }
         Relationships: []
@@ -727,6 +908,7 @@ export type Database = {
           email_ignore_personal?: boolean
           email_ad_enabled?: boolean
           email_draft_instead_of_hitl?: boolean
+          response_template_enabled?: boolean
           whatsapp_ignore_personal?: boolean
           thread_message_cap?: number
           whatsapp_thread_message_cap?: number
@@ -772,6 +954,7 @@ export type Database = {
           email_ignore_personal?: boolean
           email_ad_enabled?: boolean
           email_draft_instead_of_hitl?: boolean
+          response_template_enabled?: boolean
           whatsapp_ignore_personal?: boolean
           thread_message_cap?: number
           whatsapp_thread_message_cap?: number

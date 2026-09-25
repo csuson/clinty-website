@@ -30,6 +30,15 @@ const EXTRA_PATH_PATTERNS = [
   /help/i,
   /support/i,
   /questions/i,
+  /camp/i,
+  /schedule/i,
+  /dates?/i,
+  /book/i,
+  /reserv/i,
+  /room/i,
+  /lodg/i,
+  /week/i,
+  /package/i,
 ]
 
 /** Always try these paths when crawling for FAQ and business background text. */
@@ -40,6 +49,13 @@ const FAQ_SEARCH_PATHS = [
   '/contact-us',
   '/faq',
   '/frequently-asked-questions',
+  '/camps',
+  '/camp',
+  '/dates',
+  '/schedule',
+  '/book',
+  '/booking',
+  '/packages',
 ]
 
 const WIX_FALLBACK_PATHS = [
@@ -49,25 +65,87 @@ const WIX_FALLBACK_PATHS = [
   '/contact',
   '/teaching-methodology',
   '/events',
+  '/camps',
+  '/dates',
+  '/book',
 ]
 
-const GENERATION_SYSTEM_PROMPT = `You write "Business Background" prompt text for an AI customer-service agent.
-Use ONLY facts present in the provided website content. Do not invent prices, phone numbers, or policies.
-If a detail is missing, omit that line rather than guessing.
+const BUSINESS_BACKGROUND_TYPES = [
+  'auto',
+  'lessons_appointments',
+  'fixed_windows_packages',
+  'general',
+] as const
 
-Format the output as plain text with these sections when data exists:
-- Opening paragraph: who runs the business, location/region, experience, certifications
-- Business name, website, phone, email (only if found)
-- School/business location with address
-- What we offer (bullet list)
-- Lesson packages and pricing OR services and pricing (bullet list with durations/prices when available)
-- Policies (only if stated on the site)
-- Why customers choose us / differentiators (bullet list)
-- Response template: a short paragraph the agent can reuse when replying to new customer inquiries
+type BusinessBackgroundType = (typeof BUSINESS_BACKGROUND_TYPES)[number]
+type ResolvedBusinessBackgroundType = Exclude<BusinessBackgroundType, 'auto'>
+
+const CLASSIFY_MAX_CHARS = 10_000
+
+function parseBusinessBackgroundType(raw: unknown): BusinessBackgroundType {
+  if (typeof raw !== 'string') return 'auto'
+  const normalized = raw.trim().toLowerCase()
+  return (BUSINESS_BACKGROUND_TYPES as readonly string[]).includes(normalized)
+    ? (normalized as BusinessBackgroundType)
+    : 'auto'
+}
+
+function buildGenerationSystemPrompt(businessType: ResolvedBusinessBackgroundType): string {
+  const typeGuidance = {
+    lessons_appointments: `Detected / selected booking model: LESSONS & APPOINTMENTS.
+Emphasize open scheduling, lesson or session packages, durations, pricing, and how to book a time.
+Include agent rules for offering 2–3 concrete time options when possible and clarifying skill level before recommending a package.
+Omit fixed camp-week / lodging capacity sections unless the site clearly has them.`,
+    fixed_windows_packages: `Detected / selected booking model: FIXED DATES / CAMPS / PACKAGES.
+Emphasize set booking windows (exact dates), lodging/venue, hard capacity limits, daily rhythm, and bundled booking steps (e.g. dates → room → coaching/shuttle).
+Include agent rules that forbid inventing arbitrary open-calendar dates outside listed windows.
+Include weather or contingency fallbacks when the site describes them.
+Omit hourly drop-in lesson catalogs unless the site clearly sells them.`,
+    general: `Detected / selected booking model: GENERAL BUSINESS.
+Cover identity, offerings, pricing if present, policies, and a short response template.
+Only include booking-window or lesson-package detail when clearly present on the site.`,
+  }[businessType]
+
+  return `You write "Business Background" prompt text for an AI customer-service agent.
+Use ONLY facts present in the provided website content. Do not invent prices, phone numbers, policies, dates, or capacity.
+If a detail is missing, omit that section rather than guessing.
+
+${typeGuidance}
+
+Format the output as plain text with these sections when data exists (skip any section with no supporting facts):
+1. Business type: one short labeled line naming the booking model (Lessons & appointments, Fixed dates / camps, or General business) plus a one-sentence explanation of how customers book
+2. Opening paragraph: who runs the business, location/region, experience, certifications
+3. Business name, website, phone, email (only if found)
+4. Venue / location with address when available
+5. Booking model & hard constraints: open hours vs fixed windows, capacity/scarcity, what cannot be booked
+6. Schedule windows OR lesson/service packages: bullet list with dates, durations, and prices when available
+7. What we offer / inclusions (bullet list)
+8. Daily rhythm or customer expectations (when the site describes a typical day or lesson flow)
+9. Policies (only if stated)
+10. Contingencies / differentiators (weather pivots, why customers choose you)
+11. Agent rules: 2–5 short imperative rules the AI must follow when booking or answering (e.g. multi-step booking flow, what to ask for flight details, never invent dates)
+12. Response template: a short paragraph the agent can reuse for new inquiries
+
+Always include the Business type section first, even if other sections are sparse.
 
 Write in first person when the site is clearly owner-operated (e.g. "I'm Tony..."), otherwise third person.
-Keep it concise but complete enough for email and chat replies.
+Keep it concise but complete enough for email and chat replies — prefer concrete constraints over marketing fluff.
 Do not write an FAQ section — all FAQs from the site are appended automatically after generation.`
+}
+
+const CLASSIFY_SYSTEM_PROMPT = `Classify the business booking model from website text for an AI agent.
+Reply with ONLY one token from this list:
+lessons_appointments
+fixed_windows_packages
+general
+
+Use:
+- lessons_appointments — open calendar, private/group lessons, session packages, hourly rates, book a time
+- fixed_windows_packages — set camp/retreat weeks or fixed date packages, lodging + coaching bundles, guest capacity, choose dates from a short list
+- general — retail, restaurants, mixed services, or unclear
+
+Prefer fixed_windows_packages when the site stresses specific camp weeks/dates and lodging capacity over drop-in lesson booking.`
+
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -117,6 +195,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Missing website URL' }, 400)
     }
 
+    const requestedType = parseBusinessBackgroundType(body.business_type)
     const siteUrl = normalizeWebsiteUrl(rawUrl)
     if (!siteUrl) {
       return json({ error: 'Enter a valid website URL (https://example.com)' }, 400)
@@ -130,16 +209,22 @@ Deno.serve(async (req) => {
       }
 
       const parsedFaqs = parseFormattedFaqsFromCombinedText(combinedText)
-      const { background, usage } = await generateBackground(openaiKey, siteUrl.href, combinedText)
+      const generated = await generateBackgroundWithType(
+        openaiKey,
+        siteUrl.href,
+        combinedText,
+        requestedType,
+      )
       await recordAiUsageWithAlerts(admin, {
         user_id: user.id,
         feature: 'prompt_background',
         model: 'gpt-4o-mini',
-        usage,
+        usage: generated.usage,
       })
       return json({
-        background: appendFaqsToBusinessBackground(background, parsedFaqs),
-        usage,
+        background: appendFaqsToBusinessBackground(generated.background, parsedFaqs),
+        business_type: generated.businessType,
+        usage: generated.usage,
       })
     }
 
@@ -156,16 +241,22 @@ Deno.serve(async (req) => {
 
     const combinedText = formatWebsiteTextForGeneration(crawl.pages, crawl.faqs)
 
-    const { background, usage } = await generateBackground(openaiKey, siteUrl.href, combinedText)
+    const generated = await generateBackgroundWithType(
+      openaiKey,
+      siteUrl.href,
+      combinedText,
+      requestedType,
+    )
     await recordAiUsageWithAlerts(admin, {
       user_id: user.id,
       feature: 'prompt_background',
       model: 'gpt-4o-mini',
-      usage,
+      usage: generated.usage,
     })
     return json({
-      background: appendFaqsToBusinessBackground(background, crawl.faqs),
-      usage,
+      background: appendFaqsToBusinessBackground(generated.background, crawl.faqs),
+      business_type: generated.businessType,
+      usage: generated.usage,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unexpected error'
@@ -798,10 +889,146 @@ function extractSameOriginLinks(html: string, origin: string): string[] {
   return [...links]
 }
 
+async function generateBackgroundWithType(
+  openaiKey: string,
+  siteUrl: string,
+  websiteText: string,
+  requestedType: BusinessBackgroundType,
+): Promise<{
+  background: string
+  businessType: ResolvedBusinessBackgroundType
+  usage: ReturnType<typeof readOpenAiUsage>
+}> {
+  let businessType: ResolvedBusinessBackgroundType
+  let classifyUsage = emptyUsage()
+
+  if (requestedType === 'auto') {
+    const classified = await classifyBusinessType(openaiKey, websiteText)
+    businessType = classified.businessType
+    classifyUsage = classified.usage
+  } else {
+    businessType = requestedType
+  }
+
+  const generated = await generateBackground(openaiKey, siteUrl, websiteText, businessType)
+  return {
+    background: ensureBusinessTypeSection(generated.background, businessType),
+    businessType,
+    usage: mergeUsage(classifyUsage, generated.usage),
+  }
+}
+
+function businessTypeSectionLabel(businessType: ResolvedBusinessBackgroundType): string {
+  switch (businessType) {
+    case 'lessons_appointments':
+      return 'Lessons & appointments'
+    case 'fixed_windows_packages':
+      return 'Fixed dates / camps'
+    case 'general':
+      return 'General business'
+  }
+}
+
+function businessTypeSectionBlurb(businessType: ResolvedBusinessBackgroundType): string {
+  switch (businessType) {
+    case 'lessons_appointments':
+      return 'Customers book open-calendar lessons or session packages (times and packages), not fixed camp weeks.'
+    case 'fixed_windows_packages':
+      return 'Customers book from fixed camp/package date windows (often with lodging and capacity limits), not arbitrary open-calendar slots.'
+    case 'general':
+      return 'General services or mixed offerings — follow stated products, policies, and booking instructions only; do not invent a lesson calendar or camp weeks.'
+  }
+}
+
+/** Guarantee a canonical Business type section at the top (survives save to DB). */
+function ensureBusinessTypeSection(
+  background: string,
+  businessType: ResolvedBusinessBackgroundType,
+): string {
+  const label = businessTypeSectionLabel(businessType)
+  const blurb = businessTypeSectionBlurb(businessType)
+  const section = [
+    'Business type',
+    `${label} (${businessType})`,
+    blurb,
+  ].join('\n')
+
+  let body = background.trim()
+  // Drop a leading Business type paragraph if the model already wrote one.
+  if (/^Business type\b/i.test(body)) {
+    const blank = body.search(/\n\s*\n/)
+    body = blank >= 0 ? body.slice(blank).trim() : ''
+  }
+
+  return body ? `${section}\n\n${body}` : section
+}
+
+function emptyUsage(): ReturnType<typeof readOpenAiUsage> {
+  return { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+}
+
+function mergeUsage(
+  a: ReturnType<typeof readOpenAiUsage>,
+  b: ReturnType<typeof readOpenAiUsage>,
+): ReturnType<typeof readOpenAiUsage> {
+  return {
+    prompt_tokens: a.prompt_tokens + b.prompt_tokens,
+    completion_tokens: a.completion_tokens + b.completion_tokens,
+    total_tokens: a.total_tokens + b.total_tokens,
+  }
+}
+
+async function classifyBusinessType(
+  openaiKey: string,
+  websiteText: string,
+): Promise<{
+  businessType: ResolvedBusinessBackgroundType
+  usage: ReturnType<typeof readOpenAiUsage>
+}> {
+  const sample = websiteText.slice(0, CLASSIFY_MAX_CHARS)
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${openaiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      temperature: 0,
+      max_tokens: 20,
+      messages: [
+        { role: 'system', content: CLASSIFY_SYSTEM_PROMPT },
+        { role: 'user', content: `Website text:\n${sample}` },
+      ],
+    }),
+    signal: AbortSignal.timeout(30_000),
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const message = typeof data?.error?.message === 'string'
+      ? data.error.message
+      : `OpenAI classify request failed (${response.status})`
+    throw new Error(message)
+  }
+
+  const content = typeof data?.choices?.[0]?.message?.content === 'string'
+    ? data.choices[0].message.content.trim().toLowerCase()
+    : ''
+  const match = content.match(/lessons_appointments|fixed_windows_packages|general/)
+  const businessType = (match?.[0] ?? 'general') as ResolvedBusinessBackgroundType
+
+  return {
+    businessType,
+    usage: readOpenAiUsage(data),
+  }
+}
+
 async function generateBackground(
   openaiKey: string,
   siteUrl: string,
   websiteText: string,
+  businessType: ResolvedBusinessBackgroundType,
 ): Promise<{ background: string; usage: ReturnType<typeof readOpenAiUsage> }> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -813,10 +1040,10 @@ async function generateBackground(
       model: 'gpt-4o-mini',
       temperature: 0.2,
       messages: [
-        { role: 'system', content: GENERATION_SYSTEM_PROMPT },
+        { role: 'system', content: buildGenerationSystemPrompt(businessType) },
         {
           role: 'user',
-          content: `Website: ${siteUrl}\n\nExtracted website text:\n${websiteText}`,
+          content: `Website: ${siteUrl}\nBooking model for this draft: ${businessType}\n\nExtracted website text:\n${websiteText}`,
         },
       ],
     }),

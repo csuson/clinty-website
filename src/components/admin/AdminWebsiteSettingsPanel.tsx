@@ -127,8 +127,9 @@ export default function AdminWebsiteSettingsPanel({ settings }: AdminWebsiteSett
     <div className="px-6 py-5 space-y-6">
       <p className="text-sm text-navy-600">
         Supabase URL and anon key use this website&apos;s <code className="text-xs">VITE_SUPABASE_*</code> build values.
-        Service role and OpenAI use Edge Function secrets. WhatsApp gateway settings are configured
-        per user in WhatsApp Settings.
+        Service role and OpenAI use Edge Function secrets. WhatsApp uses the shared multitenant gateway by default
+        (configured per user in WhatsApp Settings; QR login claims the website gateway URL and sets LangGraph from
+        Agent Settings).
       </p>
 
       {edgeSupabaseMismatch ? (

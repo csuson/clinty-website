@@ -24,6 +24,7 @@ export const RUNTIME_ENV_KEYS = [
   'EMAIL_AD_ENABLED',
   'EMAIL_DRAFT_INSTEAD_OF_HITL',
   'EMAIL_IGNORE_PERSONAL',
+  'RESPONSE_TEMPLATE_ENABLED',
   'CALENDAR_PROVIDER',
   'DAILY_INCOMING_EMAIL_LIMIT',
   'DAILY_INCOMING_EMAIL_TIMEZONE',
@@ -58,6 +59,20 @@ export const RUNTIME_ENV_KEYS = [
   'SUPABASE_SERVICE_ROLE',
   'SUPABASE_URL',
   'THREAD_MESSAGE_CAP',
+  'WETRAVEL_API_KEY',
+  'WETRAVEL_SANDBOX',
+  'FLUENTBOOKING_SITE_URL',
+  'FLUENTBOOKING_USERNAME',
+  'FLUENTBOOKING_APP_PASSWORD',
+  'FLUENTBOOKING_CALENDAR_ID',
+  'FLUENTBOOKING_EVENT_ID',
+  'FLUENTBOOKING_TIMEZONE',
+  'LATEPOINT_SITE_URL',
+  'LATEPOINT_API_KEY',
+  'LATEPOINT_SERVICE_ID',
+  'LATEPOINT_AGENT_ID',
+  'LATEPOINT_LOCATION_ID',
+  'LATEPOINT_TIMEZONE',
   'WHATSAPP_BUSINESS_PHONE',
   'WHATSAPP_IGNORE_PERSONAL',
   'WHATSAPP_PROVIDER',
@@ -83,6 +98,9 @@ type SquareTokenRow = Record<string, unknown>
 type SquareConnectionRow = Record<string, unknown>
 type StripeTokenRow = Record<string, unknown>
 type ShopifyTokenRow = Record<string, unknown>
+type WeTravelTokenRow = Record<string, unknown>
+type FluentBookingTokenRow = Record<string, unknown>
+type LatePointTokenRow = Record<string, unknown>
 type WhatsAppConnectionRow = Record<string, unknown>
 
 function trim(value: unknown): string {
@@ -302,6 +320,45 @@ export function stripeTokenToRuntimeEnv(row: StripeTokenRow | null | undefined):
   return env
 }
 
+export function wetravelTokenToRuntimeEnv(row: WeTravelTokenRow | null | undefined): RuntimeEnv {
+  if (!row) return {}
+
+  const apiKey = trim(row.api_key)
+  if (!apiKey) return {}
+
+  const env: RuntimeEnv = { WETRAVEL_API_KEY: apiKey }
+  env.WETRAVEL_SANDBOX = row.sandbox === true || trim(row.sandbox) === '1' || trim(row.sandbox) === 'true'
+    ? '1'
+    : '0'
+  return env
+}
+
+export function fluentbookingTokenToRuntimeEnv(
+  row: FluentBookingTokenRow | null | undefined,
+): RuntimeEnv {
+  if (!row) return {}
+  const env: RuntimeEnv = {}
+  setIfPresent(env, 'FLUENTBOOKING_SITE_URL', row.site_url)
+  setIfPresent(env, 'FLUENTBOOKING_USERNAME', row.username)
+  setIfPresent(env, 'FLUENTBOOKING_APP_PASSWORD', row.app_password)
+  setIfPresent(env, 'FLUENTBOOKING_CALENDAR_ID', row.calendar_id)
+  setIfPresent(env, 'FLUENTBOOKING_EVENT_ID', row.event_id)
+  setIfPresent(env, 'FLUENTBOOKING_TIMEZONE', row.timezone)
+  return env
+}
+
+export function latepointTokenToRuntimeEnv(row: LatePointTokenRow | null | undefined): RuntimeEnv {
+  if (!row) return {}
+  const env: RuntimeEnv = {}
+  setIfPresent(env, 'LATEPOINT_SITE_URL', row.site_url)
+  setIfPresent(env, 'LATEPOINT_API_KEY', row.api_key)
+  setIfPresent(env, 'LATEPOINT_SERVICE_ID', row.service_id)
+  setIfPresent(env, 'LATEPOINT_AGENT_ID', row.agent_id)
+  setIfPresent(env, 'LATEPOINT_LOCATION_ID', row.location_id)
+  setIfPresent(env, 'LATEPOINT_TIMEZONE', row.timezone)
+  return env
+}
+
 export function websiteSettingsToRuntimeEnv(settings: WebsiteSettings): RuntimeEnv {
   const env: RuntimeEnv = {}
   setIfPresent(env, 'SUPABASE_URL', settings.supabase_url)
@@ -324,9 +381,12 @@ export function whatsappConnectionToRuntimeEnv(
   websiteSettings: WebsiteSettings,
   options?: { defaultApiKey?: string | null },
 ): RuntimeEnv {
+  const agentUrl =
+    typeof agentSettings?.url === 'string' ? agentSettings.url : null
   const resolved = resolveWhatsAppInfrastructure(row, websiteSettings, {
     postgresSchema: agentSettings?.postgres_schema ?? null,
     defaultApiKey: options?.defaultApiKey ?? null,
+    agentLanggraphUrl: agentUrl,
   })
 
   const env = websiteSettingsToRuntimeEnv(websiteSettings)
@@ -373,6 +433,7 @@ export function agentSettingsToRuntimeEnv(row: AgentSettingsRow | null | undefin
     false,
   )
   setBooleanWithDefault(env, 'EMAIL_IGNORE_PERSONAL', row.email_ignore_personal, false)
+  setBooleanWithDefault(env, 'RESPONSE_TEMPLATE_ENABLED', row.response_template_enabled, false)
   setBooleanWithDefault(env, 'WHATSAPP_IGNORE_PERSONAL', row.whatsapp_ignore_personal, true)
   setPositiveIntWithDefault(env, 'THREAD_MESSAGE_CAP', row.thread_message_cap, 10)
   setPositiveIntWithDefault(env, 'WHATSAPP_THREAD_MESSAGE_CAP', row.whatsapp_thread_message_cap, 10)
@@ -406,6 +467,9 @@ export type BuildRuntimeEnvInput = {
   squareConnection?: SquareConnectionRow | null
   stripeToken?: StripeTokenRow | null
   shopifyToken?: ShopifyTokenRow | null
+  wetravelToken?: WeTravelTokenRow | null
+  fluentbookingToken?: FluentBookingTokenRow | null
+  latepointToken?: LatePointTokenRow | null
   whatsappConnection?: WhatsAppConnectionRow | null
   websiteSettings?: WebsiteSettings
 }
@@ -418,6 +482,9 @@ export function buildRuntimeEnv(input: BuildRuntimeEnvInput): RuntimeEnv {
     ...outlookTokenToRuntimeEnv(input.outlookToken),
     ...shopifyTokenToRuntimeEnv(input.shopifyToken),
     ...stripeTokenToRuntimeEnv(input.stripeToken),
+    ...wetravelTokenToRuntimeEnv(input.wetravelToken),
+    ...fluentbookingTokenToRuntimeEnv(input.fluentbookingToken),
+    ...latepointTokenToRuntimeEnv(input.latepointToken),
     ...squareIntegrationToRuntimeEnv(
       input.squareToken,
       input.squareConnection,

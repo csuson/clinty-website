@@ -5,7 +5,11 @@ import OutlookIntegration from './OutlookIntegration'
 import YahooIntegration from './YahooIntegration'
 import ShopifyIntegration from './ShopifyIntegration'
 import SquareIntegration from './SquareIntegration'
-import StripeIntegration from './StripeIntegration'
+// Stripe temporarily disabled in the Integrations UI (code retained).
+// import StripeIntegration from './StripeIntegration'
+import WeTravelIntegration from './WeTravelIntegration'
+import FluentBookingIntegration from './FluentBookingIntegration'
+import LatePointIntegration from './LatePointIntegration'
 import WhatsAppIntegration from './WhatsAppIntegration'
 
 export type IntegrationId =
@@ -13,7 +17,10 @@ export type IntegrationId =
   | 'outlook'
   | 'yahoo'
   | 'square'
-  | 'stripe'
+  // | 'stripe'
+  | 'wetravel'
+  | 'fluentbooking'
+  | 'latepoint'
   | 'shopify'
   | 'whatsapp'
   | 'ad-campaigns'
@@ -23,7 +30,7 @@ function integrationFromSearchParams(params: URLSearchParams): IntegrationId | n
   if (params.get('outlook_connected') || params.get('outlook_error')) return 'outlook'
   if (params.get('yahoo_connected') || params.get('yahoo_error')) return 'yahoo'
   if (params.get('square_connected') || params.get('square_error')) return 'square'
-  if (params.get('stripe_connected') || params.get('stripe_error')) return 'stripe'
+  // if (params.get('stripe_connected') || params.get('stripe_error')) return 'stripe'
   if (params.get('shopify_connected') || params.get('shopify_error')) return 'shopify'
   if (params.get('whatsapp_connected')) return 'whatsapp'
   if (
@@ -71,9 +78,23 @@ export default function Integrations() {
         expanded={expandedId === 'square'}
         onToggle={() => toggle('square')}
       />
+      {/* Stripe temporarily disabled — restore by uncommenting import + panel above/below.
       <StripeIntegration
         expanded={expandedId === 'stripe'}
         onToggle={() => toggle('stripe')}
+      />
+      */}
+      <WeTravelIntegration
+        expanded={expandedId === 'wetravel'}
+        onToggle={() => toggle('wetravel')}
+      />
+      <FluentBookingIntegration
+        expanded={expandedId === 'fluentbooking'}
+        onToggle={() => toggle('fluentbooking')}
+      />
+      <LatePointIntegration
+        expanded={expandedId === 'latepoint'}
+        onToggle={() => toggle('latepoint')}
       />
       <ShopifyIntegration
         expanded={expandedId === 'shopify'}

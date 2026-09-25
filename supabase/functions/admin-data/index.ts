@@ -220,6 +220,7 @@ Deno.serve(async (req) => {
       const resolved = resolveWhatsAppInfrastructure(connection, websiteSettings, {
         defaultApiKey: clintyApiKey,
         postgresSchema: agentSettings?.postgres_schema ?? null,
+        agentLanggraphUrl: agentSettings?.url ?? null,
       })
       const effectiveGatewayApiKey = storedGatewayKey || clintyApiKey || resolved.gatewayApiKey || null
 

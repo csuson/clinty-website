@@ -11,6 +11,7 @@ const allowedResources = new Set([
   'square_token',
   'stripe_token',
   'shopify_token',
+  'wetravel_token',
   'outlook_token',
   'whatsapp_token',
   'agent_settings',
@@ -186,6 +187,26 @@ Deno.serve(async (req) => {
       }
       if (connectionsRes.error) {
         return json({ error: connectionsRes.error.message }, 500)
+      }
+
+      return json({ ok: true })
+    }
+
+    if (resource === 'wetravel_token') {
+      const [tokensRes, connectionsRes, bookingsRes] = await Promise.all([
+        admin.from('wetravel_tokens').delete().eq('user_id', id),
+        admin.from('wetravel_connections').delete().eq('user_id', id),
+        admin.from('wetravel_bookings').delete().eq('user_id', id),
+      ])
+
+      if (tokensRes.error) {
+        return json({ error: tokensRes.error.message }, 500)
+      }
+      if (connectionsRes.error) {
+        return json({ error: connectionsRes.error.message }, 500)
+      }
+      if (bookingsRes.error) {
+        return json({ error: bookingsRes.error.message }, 500)
       }
 
       return json({ ok: true })

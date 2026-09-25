@@ -26,6 +26,27 @@ export type AssistantReloadPayload = {
   shopify_storefront_token?: string
   shopify_token_type?: string
   clear_shopify?: boolean
+  wetravel_api_key?: string
+  wetravel_sandbox?: string
+  calendar_provider?: string
+  square_access_token?: string
+  square_location_id?: string
+  square_team_member_id?: string
+  square_service_variation_id?: string
+  square_service_variation_version?: string
+  square_timezone?: string
+  fluentbooking_site_url?: string
+  fluentbooking_username?: string
+  fluentbooking_app_password?: string
+  fluentbooking_calendar_id?: string
+  fluentbooking_event_id?: string
+  fluentbooking_timezone?: string
+  latepoint_site_url?: string
+  latepoint_api_key?: string
+  latepoint_service_id?: string
+  latepoint_agent_id?: string
+  latepoint_location_id?: string
+  latepoint_timezone?: string
 }
 
 export type AssistantReloadResult = {
@@ -36,6 +57,29 @@ export type AssistantReloadResult = {
 
 const ASSISTANT_ANALYTICS_TIMEOUT_MS = 55_000
 const ASSISTANT_RELOAD_TIMEOUT_MS = 20_000
+const ASSISTANT_CALENDAR_TIMEOUT_MS = 30_000
+
+export type WeTravelBookingCalendarPayload = {
+  order_id: string
+  trip_title?: string | null
+  buyer_email?: string | null
+  buyer_name?: string | null
+  status?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  amount?: number | null
+  currency?: string | null
+  calendar_event_id?: string | null
+}
+
+export type WeTravelBookingCalendarResult = {
+  ok: boolean
+  action?: string
+  calendar_event_id?: string | null
+  detail?: string | null
+  provider?: string | null
+  skipped?: boolean
+}
 
 function isTimeoutError(err: unknown): boolean {
   return err instanceof Error && /abort|timed out|timeout/i.test(err.message)
@@ -359,6 +403,71 @@ export async function resolveAssistantApiKey(admin: AdminClient, userId: string)
 
   const key = typeof data?.key_secret === 'string' ? data.key_secret.trim() : ''
   return key || null
+}
+
+/**
+ * Ask the email assistant to create/update/cancel a calendar event for a WeTravel booking.
+ * Uses the tenant's connected Google/Outlook calendar credentials on the assistant.
+ */
+export async function notifyWeTravelBookingCalendar(
+  admin: AdminClient,
+  userId: string,
+  payload: WeTravelBookingCalendarPayload,
+): Promise<WeTravelBookingCalendarResult> {
+  const assistantUrl = await resolveAssistantUrl(admin, userId)
+  if (!assistantUrl) {
+    return { ok: false, skipped: true, detail: 'Assistant URL not configured' }
+  }
+  if (isLoopbackUrl(assistantUrl)) {
+    return { ok: false, skipped: true, detail: 'Assistant URL is local; calendar sync skipped' }
+  }
+
+  const apiKey = await resolveAssistantApiKey(admin, userId)
+  if (!apiKey) {
+    return { ok: false, skipped: true, detail: 'No Clinty API key linked' }
+  }
+
+  try {
+    const response = await fetch(`${assistantUrl}/wetravel/booking-calendar`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'X-Clinty-Api-Key': apiKey,
+        'X-Api-Key': apiKey,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(ASSISTANT_CALENDAR_TIMEOUT_MS),
+    })
+
+    const body = await response.json().catch(() => ({})) as Record<string, unknown>
+    if (!response.ok) {
+      const detail = typeof body.detail === 'string'
+        ? body.detail
+        : typeof body.error === 'string'
+          ? body.error
+          : `Assistant returned ${response.status}`
+      return { ok: false, detail }
+    }
+
+    return {
+      ok: body.ok !== false,
+      action: typeof body.action === 'string' ? body.action : undefined,
+      calendar_event_id: typeof body.calendar_event_id === 'string'
+        ? body.calendar_event_id
+        : body.calendar_event_id === null
+          ? null
+          : undefined,
+      detail: typeof body.detail === 'string' ? body.detail : null,
+      provider: typeof body.provider === 'string' ? body.provider : null,
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      detail: err instanceof Error ? err.message : 'Could not reach the email assistant.',
+    }
+  }
 }
 
 function normalizeBaseUrl(raw: unknown): string {

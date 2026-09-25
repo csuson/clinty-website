@@ -13,7 +13,8 @@ import AdminShopifyTokensTable from '../components/admin/AdminShopifyTokensTable
 import AdminWhatsAppInfrastructurePanel from '../components/admin/AdminWhatsAppInfrastructurePanel'
 import AdminWhatsAppTokensTable from '../components/admin/AdminWhatsAppTokensTable'
 import AdminSquareTokensTable from '../components/admin/AdminSquareTokensTable'
-import AdminStripeTokensTable from '../components/admin/AdminStripeTokensTable'
+// Stripe temporarily hidden from Admin UI (code retained).
+// import AdminStripeTokensTable from '../components/admin/AdminStripeTokensTable'
 import AdminUsersTable from '../components/admin/AdminUsersTable'
 import AdminGmailOAuthInfrastructurePanel from '../components/admin/AdminGmailOAuthInfrastructurePanel'
 import AdminWebsiteSettingsPanel, {
@@ -195,6 +196,7 @@ export default function Admin() {
               />
             </Section>
 
+            {/* Stripe temporarily hidden — restore by uncommenting import + section.
             <Section title="Stripe Tokens" count={(data.stripeTokens ?? []).length}>
               <AdminStripeTokensTable
                 stripeTokens={data.stripeTokens ?? []}
@@ -202,6 +204,7 @@ export default function Admin() {
                 onDelete={(id, label) => handleDelete('stripe_token', id, `Stripe token for ${label}`)}
               />
             </Section>
+            */}
 
             <Section title="Shopify Tokens" count={(data.shopifyTokens ?? []).length}>
               <AdminShopifyTokensTable

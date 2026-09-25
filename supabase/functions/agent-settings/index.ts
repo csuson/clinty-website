@@ -108,6 +108,9 @@ Deno.serve(async (req) => {
       squareConnection: integrationRows.squareConnection,
       stripeToken: integrationRows.stripeToken,
       shopifyToken: integrationRows.shopifyToken,
+      wetravelToken: integrationRows.wetravelToken,
+      fluentbookingToken: integrationRows.fluentbookingToken,
+      latepointToken: integrationRows.latepointToken,
       whatsappConnection: integrationRows.whatsappConnection,
       websiteSettings,
     })
@@ -196,6 +199,9 @@ async function loadIntegrationRows(
     squareConnectionResult,
     stripeTokenResult,
     shopifyTokenResult,
+    wetravelTokenResult,
+    fluentbookingTokenResult,
+    latepointTokenResult,
     whatsappConnectionResult,
   ] = await Promise.all([
     admin.from('gmail_tokens').select('*').eq('user_id', userId).maybeSingle(),
@@ -204,6 +210,9 @@ async function loadIntegrationRows(
     admin.from('square_connections').select('*').eq('user_id', userId).maybeSingle(),
     admin.from('stripe_tokens').select('*').eq('user_id', userId).maybeSingle(),
     admin.from('shopify_tokens').select('*').eq('user_id', userId).maybeSingle(),
+    admin.from('wetravel_tokens').select('*').eq('user_id', userId).maybeSingle(),
+    admin.from('fluentbooking_tokens').select('*').eq('user_id', userId).maybeSingle(),
+    admin.from('latepoint_tokens').select('*').eq('user_id', userId).maybeSingle(),
     admin.from('whatsapp_connections').select('*').eq('user_id', userId).maybeSingle(),
   ])
 
@@ -213,6 +222,9 @@ async function loadIntegrationRows(
   if (squareConnectionResult.error) throw new Error(squareConnectionResult.error.message)
   if (stripeTokenResult.error) throw new Error(stripeTokenResult.error.message)
   if (shopifyTokenResult.error) throw new Error(shopifyTokenResult.error.message)
+  if (wetravelTokenResult.error) throw new Error(wetravelTokenResult.error.message)
+  if (fluentbookingTokenResult.error) throw new Error(fluentbookingTokenResult.error.message)
+  if (latepointTokenResult.error) throw new Error(latepointTokenResult.error.message)
   if (whatsappConnectionResult.error) throw new Error(whatsappConnectionResult.error.message)
 
   return {
@@ -222,6 +234,9 @@ async function loadIntegrationRows(
     squareConnection: squareConnectionResult.data,
     stripeToken: stripeTokenResult.data,
     shopifyToken: shopifyTokenResult.data,
+    wetravelToken: wetravelTokenResult.data,
+    fluentbookingToken: fluentbookingTokenResult.data,
+    latepointToken: latepointTokenResult.data,
     whatsappConnection: whatsappConnectionResult.data,
   }
 }

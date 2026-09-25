@@ -9,7 +9,7 @@ import { getFunctionErrorMessage } from './supabaseFunctions'
 import { supabase } from './supabase'
 
 const BEHAVIOR_COLUMNS =
-  'id, auto_book_scheduling, multiple_booking_enabled, overbook_enabled, max_bookings_per_slot, appointment_reminders_enabled, appointment_reminder_email_hours, appointment_reminder_whatsapp_hours, auto_respond_instruction, auto_respond_scheduling, auto_respond_whatsapp, auto_respond_catalog, auto_respond_personal, email_ignore_personal, whatsapp_ignore_personal, thread_message_cap, whatsapp_thread_message_cap, daily_incoming_email_limit, daily_incoming_email_timezone, daily_incoming_whatsapp_limit'
+  'id, auto_book_scheduling, multiple_booking_enabled, overbook_enabled, max_bookings_per_slot, appointment_reminders_enabled, appointment_reminder_email_hours, appointment_reminder_whatsapp_hours, auto_respond_instruction, auto_respond_scheduling, auto_respond_whatsapp, auto_respond_catalog, auto_respond_personal, email_ignore_personal, email_ad_enabled, email_draft_instead_of_hitl, response_template_enabled, whatsapp_ignore_personal, thread_message_cap, whatsapp_thread_message_cap, daily_incoming_email_limit, daily_incoming_email_timezone, daily_incoming_whatsapp_limit'
 
 export type UserAgentBehaviorRecord = {
   id: string | null

@@ -111,12 +111,13 @@ Deno.serve(async (req) => {
       const [{ data: connection }, defaultApiKey, agentSettingsRes] = await Promise.all([
         admin.from('whatsapp_connections').select(WHATSAPP_INFRA_SELECT).eq('user_id', userId).maybeSingle(),
         fetchUserDefaultApiKey(admin, userId),
-        admin.from('agent_settings').select('postgres_schema').eq('user_id', userId).maybeSingle(),
+        admin.from('agent_settings').select('postgres_schema, url').eq('user_id', userId).maybeSingle(),
       ])
 
       const resolved = resolveWhatsAppInfrastructure(connection, websiteSettings, {
         defaultApiKey,
         postgresSchema: agentSettingsRes.data?.postgres_schema ?? null,
+        agentLanggraphUrl: agentSettingsRes.data?.url ?? null,
       })
 
       const storedGatewayKey =
@@ -148,9 +149,24 @@ Deno.serve(async (req) => {
       const apiKeyInput = typeof body.gateway_api_key === 'string' ? body.gateway_api_key.trim() : undefined
       const keepExistingApiKey = apiKeyInput === '' || apiKeyInput === undefined
 
+      const upsertInput = parseInput(body)
+      // Default LangGraph URL from agent_settings.url when the admin leaves it blank.
+      if (!upsertInput.gateway_langgraph_url) {
+        const { data: agentForLanggraph } = await admin
+          .from('agent_settings')
+          .select('url')
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (typeof agentForLanggraph?.url === 'string' && agentForLanggraph.url.trim()) {
+          upsertInput.gateway_langgraph_url = agentForLanggraph.url.trim()
+        }
+      }
+
       const upsertRow = buildWhatsAppInfrastructureUpsert(
         userId,
-        parseInput(body),
+        upsertInput,
         existing,
         { keepExistingApiKey },
       )
@@ -169,13 +185,14 @@ Deno.serve(async (req) => {
 
       const { data: agentSettings } = await admin
         .from('agent_settings')
-        .select('postgres_schema')
+        .select('postgres_schema, url')
         .eq('user_id', userId)
         .maybeSingle()
 
       const resolved = resolveWhatsAppInfrastructure(connection, websiteSettings, {
         defaultApiKey,
         postgresSchema: agentSettings?.postgres_schema ?? null,
+        agentLanggraphUrl: agentSettings?.url ?? null,
       })
 
       const storedGatewayKey =

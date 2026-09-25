@@ -1,4 +1,10 @@
 import {
+  labelForBusinessBackgroundType,
+  parseBusinessBackgroundType,
+  type BusinessBackgroundType,
+  type ResolvedBusinessBackgroundType,
+} from '../constants/businessBackgroundTypes'
+import {
   DEFAULT_RESPONSE_TONE,
   isResponseTonePreset,
   WHATSAPP_SAME_AS_EMAIL,
@@ -249,12 +255,19 @@ async function reloadEmailAssistantRuntime(userId: string): Promise<SaveUserProm
 export type GenerateBackgroundOptions = {
   userId?: string
   htmlFile?: File | null
+  businessType?: BusinessBackgroundType
+}
+
+export type GenerateBackgroundResult = {
+  background: string
+  businessType: ResolvedBusinessBackgroundType
+  usage?: AiTokenUsage
 }
 
 export async function generateBackgroundFromWebsite(
   websiteUrl: string,
   options: GenerateBackgroundOptions = {},
-): Promise<{ background: string; usage?: AiTokenUsage }> {
+): Promise<GenerateBackgroundResult> {
   if (!supabase) {
     throw new Error('Supabase is not configured.')
   }
@@ -264,7 +277,11 @@ export async function generateBackgroundFromWebsite(
     throw new Error('Enter a valid website URL (https://example.com)')
   }
 
-  const body: { url: string; website_text?: string } = { url: siteUrl.href }
+  const businessType = parseBusinessBackgroundType(options.businessType)
+  const body: { url: string; website_text?: string; business_type: BusinessBackgroundType } = {
+    url: siteUrl.href,
+    business_type: businessType,
+  }
   const websiteText = await resolveWebsiteTextForGeneration(siteUrl, options)
   if (websiteText) {
     body.website_text = websiteText
@@ -279,18 +296,34 @@ export async function generateBackgroundFromWebsite(
     throw new Error(await getFunctionErrorMessage(result.error, result.data))
   }
 
-  const background = result.data && typeof result.data === 'object'
-    ? (result.data as { background?: unknown; usage?: AiTokenUsage }).background
+  const data = result.data && typeof result.data === 'object'
+    ? (result.data as {
+      background?: unknown
+      business_type?: unknown
+      usage?: AiTokenUsage
+    })
     : null
-  const usage = result.data && typeof result.data === 'object'
-    ? (result.data as { usage?: AiTokenUsage }).usage
-    : undefined
+
+  const background = data?.background
+  const usage = data?.usage
+  const resolvedType = parseBusinessBackgroundType(data?.business_type)
+  const resolved: ResolvedBusinessBackgroundType =
+    resolvedType === 'auto' ? 'general' : resolvedType
 
   if (typeof background !== 'string' || !background.trim()) {
     throw new Error('Background generation returned no content')
   }
 
-  return { background: background.trim(), usage }
+  return {
+    background: background.trim(),
+    businessType: resolved,
+    usage,
+  }
+}
+
+/** Human-readable label for a successful generate (for toast copy). */
+export function describeGeneratedBusinessType(type: ResolvedBusinessBackgroundType): string {
+  return labelForBusinessBackgroundType(type)
 }
 
 async function resolveWebsiteTextForGeneration(

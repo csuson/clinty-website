@@ -1,6 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
-import {  resolveWhatsAppInfrastructure,
+import {
+  normalizeLanggraphUrl,
+  resolveWhatsAppInfrastructure,
   WHATSAPP_INFRA_SELECT,
 } from '../_shared/whatsappInfrastructure.ts'
 import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
@@ -94,6 +96,7 @@ Deno.serve(async (req) => {
     if (action === 'get_settings') {
       const websiteSettings = await loadWebsiteSettings(admin)
       const defaultApiKey = await fetchUserDefaultApiKey(admin, user.id)
+      const agentSettings = await fetchUserAgentSettings(admin, user.id)
       const { data: connection } = await admin
         .from('whatsapp_connections')
         .select(WHATSAPP_INFRA_SELECT)
@@ -102,6 +105,9 @@ Deno.serve(async (req) => {
 
       const resolved = resolveWhatsAppInfrastructure(connection, websiteSettings, {
         defaultApiKey,
+        postgresSchema: agentSettings?.postgres_schema,
+        agentLanggraphUrl: agentSettings?.url,
+        preferSharedGateway: true,
       })
       const storedGatewayKey =
         typeof connection?.gateway_api_key === 'string' ? connection.gateway_api_key.trim() : ''
@@ -114,7 +120,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { gatewayUrl, gatewayKey } = await resolveUserGateway(admin, user.id)
+    const { gatewayUrl, gatewayKey, langgraphUrl } = await resolveUserGateway(admin, user.id)
     requireGateway(gatewayUrl, gatewayKey)
 
     if (action === 'status' || !action) {
@@ -137,7 +143,10 @@ Deno.serve(async (req) => {
         patch.last_error = typeof status.error === 'string' ? status.error : 'Link failed'
       }
       if (Object.keys(patch).length > 0) {
-        await mergeWhatsAppConnection(admin, user.id, patch, gatewayUrl)
+        await mergeWhatsAppConnection(admin, user.id, patch, {
+          claimGatewayUrl: gatewayUrl,
+          claimLanggraphUrl: langgraphUrl,
+        })
       }
       return json({
         status: status.status,
@@ -169,7 +178,10 @@ Deno.serve(async (req) => {
               status: 'pairing',
               last_error: null,
             },
-            gatewayUrl,
+            {
+              claimGatewayUrl: gatewayUrl,
+              claimLanggraphUrl: langgraphUrl,
+            },
           )
           return json({
             status: 'pairing',
@@ -199,7 +211,10 @@ Deno.serve(async (req) => {
             : {}),
           last_error: status.error ?? null,
         },
-        gatewayUrl,
+        {
+          claimGatewayUrl: gatewayUrl,
+          claimLanggraphUrl: langgraphUrl,
+        },
       )
 
       return json({
@@ -259,30 +274,60 @@ async function fetchUserDefaultApiKey(
   return key || null
 }
 
+async function fetchUserAgentSettings(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<{ url: string | null; postgres_schema: string | null }> {
+  const { data } = await admin
+    .from('agent_settings')
+    .select('url, postgres_schema')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return {
+    url: typeof data?.url === 'string' && data.url.trim() ? data.url.trim() : null,
+    postgres_schema:
+      typeof data?.postgres_schema === 'string' && data.postgres_schema.trim()
+        ? data.postgres_schema.trim()
+        : null,
+  }
+}
+
 async function resolveUserGateway(
   admin: ReturnType<typeof createClient>,
   userId: string,
 ) {
   const websiteSettings = await loadWebsiteSettings(admin)
   const defaultApiKey = await fetchUserDefaultApiKey(admin, userId)
+  const agentSettings = await fetchUserAgentSettings(admin, userId)
   const { data } = await admin
     .from('whatsapp_connections')
     .select(WHATSAPP_INFRA_SELECT)
     .eq('user_id', userId)
     .maybeSingle()
 
-  const resolved = resolveWhatsAppInfrastructure(data, websiteSettings, { defaultApiKey })
+  // Prefer the shared website gateway so QR login migrates off stale per-agent gateways.
+  const resolved = resolveWhatsAppInfrastructure(data, websiteSettings, {
+    defaultApiKey,
+    postgresSchema: agentSettings.postgres_schema,
+    agentLanggraphUrl: agentSettings.url,
+    preferSharedGateway: true,
+  })
 
   return {
     gatewayUrl: resolved.gatewayUrl,
     gatewayKey: resolved.gatewayApiKey,
+    // Prefer agent_settings.url so QR login refreshes routing when the assistant URL changes.
+    langgraphUrl: agentSettings.url || resolved.langgraphUrl || '',
   }
 }
 
 function requireGateway(gatewayUrl: string, gatewayKey: string) {
   if (!gatewayUrl) {
     throw new Error(
-      'WhatsApp gateway not configured. Ask an admin to set your gateway URL and API key in Admin → WhatsApp Settings.',
+      'WhatsApp gateway not configured. Ask an admin to set the shared multitenant gateway URL in website settings (or Admin → WhatsApp Settings).',
     )
   }
   if (!gatewayKey) {
@@ -314,19 +359,37 @@ function resolveStoredGatewayUrl(
   existingUrl: unknown,
   claimGatewayUrl?: string,
 ): string | null {
-  const stored = normalizeGatewayUrl(trimGatewayUrl(existingUrl))
-  if (stored) return stored
-
+  // When claiming (QR start/status), force the shared gateway so stale per-agent URLs migrate.
   const claimed = claimGatewayUrl ? normalizeGatewayUrl(claimGatewayUrl) : ''
-  return claimed || null
+  if (claimed) return claimed
+
+  const stored = normalizeGatewayUrl(trimGatewayUrl(existingUrl))
+  return stored || null
+}
+
+function resolveStoredLanggraphUrl(
+  existingUrl: unknown,
+  claimLanggraphUrl?: string,
+): string | null {
+  const claimed = claimLanggraphUrl ? normalizeLanggraphUrl(claimLanggraphUrl) : null
+  if (claimed) return claimed
+  return normalizeLanggraphUrl(existingUrl)
+}
+
+type MergeWhatsAppConnectionClaims = {
+  claimGatewayUrl?: string
+  claimLanggraphUrl?: string
 }
 
 async function mergeWhatsAppConnection(
   admin: ReturnType<typeof createClient>,
   userId: string,
   patch: Record<string, unknown>,
-  claimGatewayUrl?: string,
+  claims?: string | MergeWhatsAppConnectionClaims,
 ) {
+  const claimOpts: MergeWhatsAppConnectionClaims =
+    typeof claims === 'string' ? { claimGatewayUrl: claims } : (claims ?? {})
+
   const { data: existing } = await admin
     .from('whatsapp_connections')
     .select(WHATSAPP_INFRA_SELECT)
@@ -335,14 +398,17 @@ async function mergeWhatsAppConnection(
 
   const { error } = await admin.from('whatsapp_connections').upsert({
     user_id: userId,
-    gateway_url: resolveStoredGatewayUrl(existing?.gateway_url, claimGatewayUrl),
+    gateway_url: resolveStoredGatewayUrl(existing?.gateway_url, claimOpts.claimGatewayUrl),
     gateway_api_key: existing?.gateway_api_key ?? null,
     gateway_debug: existing?.gateway_debug ?? null,
     gateway_auth_backend: existing?.gateway_auth_backend ?? null,
     gateway_auth_bucket: existing?.gateway_auth_bucket ?? null,
     gateway_auth_storage_prefix: existing?.gateway_auth_storage_prefix ?? null,
     gateway_auth_dir: existing?.gateway_auth_dir ?? null,
-    gateway_langgraph_url: existing?.gateway_langgraph_url ?? null,
+    gateway_langgraph_url: resolveStoredLanggraphUrl(
+      existing?.gateway_langgraph_url,
+      claimOpts.claimLanggraphUrl,
+    ),
     phone:
       typeof patch.phone === 'string' && patch.phone.trim()
         ? patch.phone.trim()

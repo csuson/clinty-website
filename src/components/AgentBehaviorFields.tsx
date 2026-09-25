@@ -16,6 +16,7 @@ export type AgentBehaviorSettings = {
   email_ignore_personal: boolean
   email_ad_enabled: boolean
   email_draft_instead_of_hitl: boolean
+  response_template_enabled: boolean
   whatsapp_ignore_personal: boolean
   thread_message_cap: number
   whatsapp_thread_message_cap: number
@@ -41,6 +42,7 @@ export function defaultAgentBehaviorSettings(): AgentBehaviorSettings {
     email_ignore_personal: false,
     email_ad_enabled: false,
     email_draft_instead_of_hitl: false,
+    response_template_enabled: false,
     whatsapp_ignore_personal: true,
     thread_message_cap: 10,
     whatsapp_thread_message_cap: 10,
@@ -339,6 +341,27 @@ export default function AgentBehaviorFields({
           </select>
         </FormField>
         <FormField
+          label="Response Template"
+          id={`${idPrefix}-response-template-enabled`}
+          copyValue={copy(booleanSelectValue(settings.response_template_enabled))}
+        >
+          <select
+            id={`${idPrefix}-response-template-enabled`}
+            value={booleanSelectValue(settings.response_template_enabled)}
+            onChange={(e) =>
+              onChange(
+                'response_template_enabled',
+                parseRequiredBooleanSelect(e.target.value, false),
+              )
+            }
+            className={inputClass}
+            disabled={disabled}
+          >
+            <option value="true">True</option>
+            <option value="false">False</option>
+          </select>
+        </FormField>
+        <FormField
           label="Draft Instead of HITL"
           id={`${idPrefix}-email-draft-instead-of-hitl`}
           copyValue={copy(booleanSelectValue(settings.email_draft_instead_of_hitl))}
@@ -522,6 +545,7 @@ export type AgentBehaviorRowInput = {
   email_ignore_personal?: boolean | null
   email_ad_enabled?: boolean | null
   email_draft_instead_of_hitl?: boolean | null
+  response_template_enabled?: boolean | null
   whatsapp_ignore_personal?: boolean | null
   thread_message_cap?: number | null
   whatsapp_thread_message_cap?: number | null
@@ -554,6 +578,8 @@ export function agentBehaviorFromRow(
     email_ad_enabled: row.email_ad_enabled ?? defaults.email_ad_enabled,
     email_draft_instead_of_hitl:
       row.email_draft_instead_of_hitl ?? defaults.email_draft_instead_of_hitl,
+    response_template_enabled:
+      row.response_template_enabled ?? defaults.response_template_enabled,
     whatsapp_ignore_personal: row.whatsapp_ignore_personal ?? defaults.whatsapp_ignore_personal,
     thread_message_cap: row.thread_message_cap ?? defaults.thread_message_cap,
     whatsapp_thread_message_cap:
@@ -587,6 +613,7 @@ export function agentBehaviorToDbPayload(settings: AgentBehaviorSettings) {
     email_ignore_personal: settings.email_ignore_personal,
     email_ad_enabled: settings.email_ad_enabled,
     email_draft_instead_of_hitl: settings.email_draft_instead_of_hitl,
+    response_template_enabled: settings.response_template_enabled,
     whatsapp_ignore_personal: settings.whatsapp_ignore_personal,
     thread_message_cap: settings.thread_message_cap,
     whatsapp_thread_message_cap: settings.whatsapp_thread_message_cap,
@@ -613,6 +640,9 @@ export function agentBehaviorToUserDbPayload(settings: AgentBehaviorSettings) {
     auto_respond_catalog: settings.auto_respond_catalog,
     auto_respond_personal: settings.auto_respond_personal,
     email_ignore_personal: settings.email_ignore_personal,
+    email_ad_enabled: settings.email_ad_enabled,
+    email_draft_instead_of_hitl: settings.email_draft_instead_of_hitl,
+    response_template_enabled: settings.response_template_enabled,
     whatsapp_ignore_personal: settings.whatsapp_ignore_personal,
     daily_incoming_email_timezone: settings.daily_incoming_email_timezone?.trim() || null,
     appointment_reminders_enabled: settings.appointment_reminders_enabled,

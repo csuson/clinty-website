@@ -40,6 +40,33 @@ verify_jwt = false
 [functions.shopify-storefront-token]
 verify_jwt = false
 
+[functions.wetravel-connect]
+verify_jwt = false
+
+[functions.wetravel-disconnect]
+verify_jwt = false
+
+[functions.wetravel-webhook]
+verify_jwt = false
+
+[functions.fluentbooking-connect]
+verify_jwt = false
+
+[functions.fluentbooking-disconnect]
+verify_jwt = false
+
+[functions.fluentbooking-webhook]
+verify_jwt = false
+
+[functions.latepoint-connect]
+verify_jwt = false
+
+[functions.latepoint-disconnect]
+verify_jwt = false
+
+[functions.latepoint-webhook]
+verify_jwt = false
+
 [functions.whatsapp-web-login]
 verify_jwt = false
 

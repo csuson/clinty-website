@@ -61,7 +61,7 @@ export type WhatsAppEnvSettings = {
 export function resolveWhatsAppEnvSettings(
   whatsappConnection?: AdminWhatsAppConnection | null,
   websiteSettings?: AdminWebsiteSettings | null,
-  agentSettings?: Pick<AdminAgentSettings, 'postgres_schema'> | null,
+  agentSettings?: Pick<AdminAgentSettings, 'postgres_schema' | 'url'> | null,
 ): WhatsAppEnvSettings {
   const gatewayUrl =
     whatsappConnection?.gateway_url?.trim() ||
@@ -101,6 +101,7 @@ export function resolveWhatsAppEnvSettings(
     langgraphUrl:
       whatsappConnection?.gateway_langgraph_url?.trim() ||
       whatsappConnection?.effective_langgraph_url?.trim() ||
+      agentSettings?.url?.trim() ||
       websiteSettings?.whatsapp_web_langgraph_url?.trim() ||
       '',
   }
@@ -235,6 +236,7 @@ export function parsedEnvToAgentSettingsInput(
     email_ignore_personal: parseEnvBoolean(parsed.EMAIL_IGNORE_PERSONAL) ?? false,
     email_ad_enabled: parseEnvBoolean(parsed.EMAIL_AD_ENABLED) ?? false,
     email_draft_instead_of_hitl: parseEnvBoolean(parsed.EMAIL_DRAFT_INSTEAD_OF_HITL) ?? false,
+    response_template_enabled: parseEnvBoolean(parsed.RESPONSE_TEMPLATE_ENABLED) ?? false,
     whatsapp_ignore_personal: parseEnvBoolean(parsed.WHATSAPP_IGNORE_PERSONAL) ?? true,
     thread_message_cap: parseEnvPositiveInt(parsed.THREAD_MESSAGE_CAP, 10),
     whatsapp_thread_message_cap: parseEnvPositiveInt(parsed.WHATSAPP_THREAD_MESSAGE_CAP, 10),
@@ -318,6 +320,7 @@ export function agentSettingsToEnvContent(
   addBoolean('EMAIL_IGNORE_PERSONAL', settings.email_ignore_personal ?? false)
   addBoolean('EMAIL_AD_ENABLED', settings.email_ad_enabled ?? false)
   addBoolean('EMAIL_DRAFT_INSTEAD_OF_HITL', settings.email_draft_instead_of_hitl ?? false)
+  addBoolean('RESPONSE_TEMPLATE_ENABLED', settings.response_template_enabled ?? false)
   addBoolean('WHATSAPP_IGNORE_PERSONAL', settings.whatsapp_ignore_personal ?? true)
   add('THREAD_MESSAGE_CAP', settings.thread_message_cap ?? 10)
   add('WHATSAPP_THREAD_MESSAGE_CAP', settings.whatsapp_thread_message_cap ?? 10)
@@ -344,9 +347,10 @@ export function agentSettingsToEnvContent(
   add('SQUARE_SERVICE_VARIATION_VERSION', settings.square_service_variation_version)
   add('SQUARE_TEAM_MEMBER_ID', settings.square_team_member_id)
   add('SQUARE_TIMEZONE', settings.square_timezone)
-  add('STRIPE_ACCESS_TOKEN', context.stripeToken?.access_token)
-  add('STRIPE_ACCOUNT_ID', context.stripeToken?.stripe_account_id)
-  add('STRIPE_PUBLISHABLE_KEY', context.stripeToken?.publishable_key)
+  // Stripe temporarily hidden from admin env export UI (runtime still served by agent-settings).
+  // add('STRIPE_ACCESS_TOKEN', context.stripeToken?.access_token)
+  // add('STRIPE_ACCOUNT_ID', context.stripeToken?.stripe_account_id)
+  // add('STRIPE_PUBLISHABLE_KEY', context.stripeToken?.publishable_key)
   add('SUPABASE_URL', websiteSupabase.supabase_url)
   add('SUPABASE_ANON_KEY', websiteSupabase.supabase_anon_key)
   add('SUPABASE_SERVICE_ROLE', websiteSupabase.supabase_service_role)

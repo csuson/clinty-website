@@ -51,12 +51,26 @@ function emptyToNull(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null
 }
 
+export type ResolveWhatsAppInfrastructureOptions = {
+  postgresSchema?: string | null
+  defaultApiKey?: string | null
+  /** Prefer website shared gateway over a stale per-user gateway_url (QR login / multitenant). */
+  preferSharedGateway?: boolean
+  /** Per-user assistant base URL from agent_settings.url. */
+  agentLanggraphUrl?: string | null
+}
+
 export function resolveWhatsAppInfrastructure(
   row: WhatsAppConnectionInfraRow | null | undefined,
   websiteSettings: WebsiteInfrastructure,
-  options?: { postgresSchema?: string | null; defaultApiKey?: string | null },
+  options?: ResolveWhatsAppInfrastructureOptions,
 ): ResolvedWhatsAppInfrastructure {
-  const gatewayUrl = (trim(row?.gateway_url) || trim(websiteSettings.whatsapp_web_gateway_url)).replace(/\/$/, '')
+  const sharedGatewayUrl = normalizeBaseUrl(trim(websiteSettings.whatsapp_web_gateway_url))
+  const rowGatewayUrl = normalizeBaseUrl(trim(row?.gateway_url))
+  const gatewayUrl =
+    options?.preferSharedGateway && sharedGatewayUrl
+      ? sharedGatewayUrl
+      : rowGatewayUrl || sharedGatewayUrl
   const storedGatewayKey = trim(row?.gateway_api_key)
   const gatewayApiKey =
     storedGatewayKey ||
@@ -79,10 +93,42 @@ export function resolveWhatsAppInfrastructure(
     authStoragePrefix,
     authDir:
       trim(row?.gateway_auth_dir) || trim(websiteSettings.whatsapp_web_auth_dir) || '/tmp/whatsapp-web-auth',
-    langgraphUrl:
-      normalizeBaseUrl(
-        trim(row?.gateway_langgraph_url) || trim(websiteSettings.whatsapp_web_langgraph_url),
-      ),
+    langgraphUrl: normalizeBaseUrl(
+      trim(row?.gateway_langgraph_url) ||
+        trim(options?.agentLanggraphUrl) ||
+        trim(websiteSettings.whatsapp_web_langgraph_url),
+    ),
+  }
+}
+
+/** Normalize an assistant / LangGraph base URL for gateway_langgraph_url. */
+export function normalizeLanggraphUrl(value: unknown): string | null {
+  const normalized = normalizeBaseUrl(trim(value))
+  return normalized || null
+}
+
+/**
+ * Keep whatsapp_connections.gateway_langgraph_url aligned with agent_settings.url
+ * so the multitenant gateway can route inbound messages to the right assistant.
+ */
+export async function syncWhatsAppLanggraphUrlFromAgent(
+  admin: { from: (table: string) => any },
+  userId: string,
+  agentUrl: unknown,
+): Promise<void> {
+  const langgraphUrl = normalizeLanggraphUrl(agentUrl)
+  if (!userId || !langgraphUrl) return
+
+  const { error } = await admin
+    .from('whatsapp_connections')
+    .update({ gateway_langgraph_url: langgraphUrl })
+    .eq('user_id', userId)
+
+  if (error) {
+    console.warn(
+      `Failed to sync gateway_langgraph_url for user ${userId}:`,
+      error.message ?? error,
+    )
   }
 }
 

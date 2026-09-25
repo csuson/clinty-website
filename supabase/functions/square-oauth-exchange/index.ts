@@ -1,4 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { activateBookingProvider } from '../_shared/bookingProviderSwitch.ts'
+import { notifyEmailAssistantRuntimeReload } from '../_shared/emailAssistant.ts'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 
 let corsHeaders: Record<string, string> = {}
@@ -335,6 +337,22 @@ Deno.serve(async (req) => {
       merchantContext.serviceVariationVersion,
     )
 
+    const exclusive = await activateBookingProvider(admin, user.id, 'square')
+
+    const assistantReload = await notifyEmailAssistantRuntimeReload(admin, user.id, {
+      ...exclusive,
+      calendar_provider: 'square',
+      square_access_token: accessToken,
+      square_location_id: merchantContext.locationId ?? '',
+      square_team_member_id: merchantContext.teamMemberId ?? '',
+      square_service_variation_id: merchantContext.serviceVariationId ?? '',
+      square_service_variation_version:
+        merchantContext.serviceVariationVersion != null
+          ? String(merchantContext.serviceVariationVersion)
+          : '',
+      square_timezone: merchantContext.timezone ?? '',
+    })
+
     return json({
       success: true,
       merchantId,
@@ -346,6 +364,9 @@ Deno.serve(async (req) => {
       serviceVariationName: merchantContext.serviceVariationName,
       serviceVariationId: merchantContext.serviceVariationId,
       serviceVariationVersion: merchantContext.serviceVariationVersion,
+      calendar_provider: 'square',
+      assistant_reloaded: assistantReload.ok,
+      assistant_reload_error: assistantReload.ok ? undefined : assistantReload.detail,
     })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)

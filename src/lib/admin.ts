@@ -259,6 +259,7 @@ export type CreateAgentSettingsInput = {
   email_ignore_personal?: boolean | null
   email_ad_enabled?: boolean | null
   email_draft_instead_of_hitl?: boolean | null
+  response_template_enabled?: boolean | null
   whatsapp_ignore_personal?: boolean | null
   thread_message_cap?: number | null
   whatsapp_thread_message_cap?: number | null

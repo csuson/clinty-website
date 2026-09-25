@@ -21,6 +21,15 @@ const EXTRA_PATH_PATTERNS = [
   /help/i,
   /support/i,
   /questions/i,
+  /camp/i,
+  /schedule/i,
+  /dates?/i,
+  /book/i,
+  /reserv/i,
+  /room/i,
+  /lodg/i,
+  /week/i,
+  /package/i,
 ]
 
 /** Always try these paths when crawling for FAQ and business background text. */
@@ -31,6 +40,13 @@ const FAQ_SEARCH_PATHS = [
   '/contact-us',
   '/faq',
   '/frequently-asked-questions',
+  '/camps',
+  '/camp',
+  '/dates',
+  '/schedule',
+  '/book',
+  '/booking',
+  '/packages',
 ]
 
 const WIX_FALLBACK_PATHS = [
@@ -40,6 +56,9 @@ const WIX_FALLBACK_PATHS = [
   '/contact',
   '/teaching-methodology',
   '/events',
+  '/camps',
+  '/dates',
+  '/book',
 ]
 
 export function normalizeWebsiteUrl(raw: string): URL | null {
