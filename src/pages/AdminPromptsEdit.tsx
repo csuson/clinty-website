@@ -22,10 +22,13 @@ function promptsToForm(row: AdminUserPrompts | null, userId: string): AdminPromp
   return {
     user_id: row.user_id,
     background: row.background ?? '',
+    welcome_message: row.welcome_message ?? '',
     calendar_preference: row.calendar_preference ?? '',
     default_footer: row.default_footer ?? '',
     promotions: row.promotions ?? '',
     payment_links: row.payment_links ?? '',
+    response_preferences: row.response_preferences ?? '',
+    whatsapp_response_preferences: row.whatsapp_response_preferences ?? '',
     response_tone: row.response_tone ?? '',
     whatsapp_response_tone: row.whatsapp_response_tone,
   }

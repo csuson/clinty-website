@@ -1,55 +1,56 @@
 import { supabase } from '../supabase'
-import { getFunctionErrorMessage } from '../supabaseFunctions'
-import type { FluentBookingConnection } from '../../types/database'
+import type { WixConnection } from '../../types/database'
 
-export type { FluentBookingConnection }
+export type { WixConnection }
 
 function requireSupabase() {
   if (!supabase) throw new Error('Supabase is not configured.')
   return supabase
 }
 
-export async function fetchFluentBookingConnection(
-  userId: string,
-): Promise<FluentBookingConnection | null> {
+export async function fetchWixConnection(userId: string): Promise<WixConnection | null> {
   const client = requireSupabase()
   const { data, error } = await client
-    .from('fluentbooking_connections')
-    .select('user_id, site_url, display_name, calendar_id, event_id, connected_at, status, last_error')
+    .from('wix_connections')
+    .select('user_id, site_id, display_name, service_id, connected_at, status, last_error')
     .eq('user_id', userId)
     .maybeSingle()
   if (error) throw new Error(error.message)
   if (!data || data.status === 'disconnected') return null
-  return data as FluentBookingConnection
+  return data as WixConnection
 }
 
-export async function connectFluentBooking(input: {
-  siteUrl: string
-  username: string
-  appPassword: string
-  calendarId: string
-  eventId?: string
+export async function connectWix(input: {
+  siteId: string
+  apiKey: string
+  serviceId: string
+  appId?: string
+  appSecret?: string
+  instanceId?: string
+  resourceId?: string
+  locationId?: string
   timezone?: string
 }): Promise<{ assistantReloaded: boolean; assistantReloadError?: string }> {
   const client = requireSupabase()
   const { data: sessionData } = await client.auth.getSession()
   if (!sessionData.session?.access_token) {
-    throw new Error('Sign in again to connect FluentBooking.')
+    throw new Error('Sign in again to connect Wix Bookings.')
   }
 
-  const result = await client.functions.invoke('fluentbooking-connect', {
+  const result = await client.functions.invoke('wix-connect', {
     body: {
-      site_url: input.siteUrl,
-      username: input.username,
-      app_password: input.appPassword,
-      calendar_id: input.calendarId,
-      event_id: input.eventId ?? '',
+      site_id: input.siteId,
+      api_key: input.apiKey,
+      service_id: input.serviceId,
+      app_id: input.appId ?? '',
+      app_secret: input.appSecret ?? '',
+      instance_id: input.instanceId ?? '',
+      resource_id: input.resourceId ?? '',
+      location_id: input.locationId ?? '',
       timezone: input.timezone ?? 'America/Los_Angeles',
     },
   })
-  if (result.error) {
-    throw new Error(await getFunctionErrorMessage(result.error, result.data))
-  }
+  if (result.error) throw new Error(result.error.message || 'Failed to connect Wix Bookings')
   const payload = result.data as {
     error?: string
     assistant_reloaded?: boolean
@@ -62,15 +63,13 @@ export async function connectFluentBooking(input: {
   }
 }
 
-export async function disconnectFluentBooking(): Promise<{
+export async function disconnectWix(): Promise<{
   assistantReloaded: boolean
   assistantReloadError?: string
 }> {
   const client = requireSupabase()
-  const result = await client.functions.invoke('fluentbooking-disconnect', { body: {} })
-  if (result.error) {
-    throw new Error(await getFunctionErrorMessage(result.error, result.data))
-  }
+  const result = await client.functions.invoke('wix-disconnect', { body: {} })
+  if (result.error) throw new Error(result.error.message || 'Failed to disconnect Wix Bookings')
   const payload = result.data as {
     error?: string
     assistant_reloaded?: boolean

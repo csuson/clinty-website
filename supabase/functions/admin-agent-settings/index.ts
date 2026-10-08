@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 import { requireAdminMfa } from '../_shared/adminAuth.ts'
+import { syncBookingRecoveryLanggraphUrlFromAgent } from '../_shared/bookingRecoveryInfrastructure.ts'
 import { syncWhatsAppLanggraphUrlFromAgent } from '../_shared/whatsappInfrastructure.ts'
 
 let corsHeaders: Record<string, string> = {}
@@ -303,6 +304,7 @@ Deno.serve(async (req) => {
         }
 
         await syncWhatsAppLanggraphUrlFromAgent(admin, payload.user_id, data?.url ?? payload.url)
+        await syncBookingRecoveryLanggraphUrlFromAgent(admin, payload.user_id, data?.url ?? payload.url)
         return json({ agentSettings: data })
       }
 
@@ -317,6 +319,7 @@ Deno.serve(async (req) => {
       }
 
       await syncWhatsAppLanggraphUrlFromAgent(admin, payload.user_id, data?.url ?? payload.url)
+      await syncBookingRecoveryLanggraphUrlFromAgent(admin, payload.user_id, data?.url ?? payload.url)
       return json({ agentSettings: data })
     }
 
@@ -350,6 +353,7 @@ Deno.serve(async (req) => {
     }
 
     await syncWhatsAppLanggraphUrlFromAgent(admin, payload.user_id, data?.url ?? payload.url)
+    await syncBookingRecoveryLanggraphUrlFromAgent(admin, payload.user_id, data?.url ?? payload.url)
     return json({ agentSettings: data })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)

@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     ] = await Promise.all([
       admin
         .from('user_prompts')
-        .select('background, calendar_preference, default_footer, promotions, payment_links, response_tone, whatsapp_response_tone, response_preferences, whatsapp_response_preferences')
+        .select('background, welcome_message, calendar_preference, default_footer, promotions, payment_links, response_tone, whatsapp_response_tone, response_preferences, whatsapp_response_preferences')
         .eq('user_id', userId)
         .maybeSingle(),
       loadIntegrationRows(admin, userId),
@@ -111,6 +111,7 @@ Deno.serve(async (req) => {
       wetravelToken: integrationRows.wetravelToken,
       fluentbookingToken: integrationRows.fluentbookingToken,
       latepointToken: integrationRows.latepointToken,
+      wixToken: integrationRows.wixToken,
       whatsappConnection: integrationRows.whatsappConnection,
       websiteSettings,
     })
@@ -127,6 +128,7 @@ Deno.serve(async (req) => {
       google_account: gmailGoogleAccount || null,
       prompts,
       prompt_background: prompts.background,
+      prompt_welcome_message: prompts.welcome_message,
       prompt_calendar_preference: prompts.calendar_preference,
       email_footer: prompts.default_footer,
       prompt_promotions: prompts.promotions,
@@ -202,6 +204,7 @@ async function loadIntegrationRows(
     wetravelTokenResult,
     fluentbookingTokenResult,
     latepointTokenResult,
+    wixTokenResult,
     whatsappConnectionResult,
   ] = await Promise.all([
     admin.from('gmail_tokens').select('*').eq('user_id', userId).maybeSingle(),
@@ -213,6 +216,7 @@ async function loadIntegrationRows(
     admin.from('wetravel_tokens').select('*').eq('user_id', userId).maybeSingle(),
     admin.from('fluentbooking_tokens').select('*').eq('user_id', userId).maybeSingle(),
     admin.from('latepoint_tokens').select('*').eq('user_id', userId).maybeSingle(),
+    admin.from('wix_tokens').select('*').eq('user_id', userId).maybeSingle(),
     admin.from('whatsapp_connections').select('*').eq('user_id', userId).maybeSingle(),
   ])
 
@@ -225,6 +229,7 @@ async function loadIntegrationRows(
   if (wetravelTokenResult.error) throw new Error(wetravelTokenResult.error.message)
   if (fluentbookingTokenResult.error) throw new Error(fluentbookingTokenResult.error.message)
   if (latepointTokenResult.error) throw new Error(latepointTokenResult.error.message)
+  if (wixTokenResult.error) throw new Error(wixTokenResult.error.message)
   if (whatsappConnectionResult.error) throw new Error(whatsappConnectionResult.error.message)
 
   return {
@@ -237,6 +242,7 @@ async function loadIntegrationRows(
     wetravelToken: wetravelTokenResult.data,
     fluentbookingToken: fluentbookingTokenResult.data,
     latepointToken: latepointTokenResult.data,
+    wixToken: wixTokenResult.data,
     whatsappConnection: whatsappConnectionResult.data,
   }
 }

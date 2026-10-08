@@ -4,6 +4,7 @@ export const BUSINESS_BACKGROUND_TYPES = [
   'auto',
   'lessons_appointments',
   'fixed_windows_packages',
+  'fixed_dates_and_lessons',
   'general',
 ] as const
 
@@ -33,6 +34,11 @@ export const BUSINESS_BACKGROUND_TYPE_OPTIONS: Array<{
     description: 'Set weeks or packages, lodging, capacity limits',
   },
   {
+    value: 'fixed_dates_and_lessons',
+    label: 'Fixed dates & lessons',
+    description: 'Camps or fixed weeks plus drop-in lessons, clinics, or schedule packages',
+  },
+  {
     value: 'general',
     label: 'General business',
     description: 'Retail, services, or mixed — no strong booking model',
@@ -53,6 +59,8 @@ export function labelForBusinessBackgroundType(type: ResolvedBusinessBackgroundT
       return 'lessons & appointments'
     case 'fixed_windows_packages':
       return 'fixed dates / camps'
+    case 'fixed_dates_and_lessons':
+      return 'fixed dates & lessons'
     case 'general':
       return 'general business'
   }

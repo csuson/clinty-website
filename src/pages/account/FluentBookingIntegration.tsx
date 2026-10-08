@@ -80,7 +80,7 @@ export default function FluentBookingIntegration({ expanded, onToggle }: Props) 
       await loadConnection()
       setSuccess(
         saved.assistantReloaded
-          ? 'FluentBooking connected as your booking calendar. Other booking integrations (Square, WeTravel, LatePoint) were disconnected. Gmail is unchanged.'
+          ? 'FluentBooking connected as your booking calendar. Other booking integrations (Square, WeTravel, LatePoint, Wix) were disconnected. Gmail is unchanged.'
           : `FluentBooking saved. Assistant reload failed: ${saved.assistantReloadError ?? 'unknown error'}`,
       )
     } catch (err) {

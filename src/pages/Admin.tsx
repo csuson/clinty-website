@@ -12,6 +12,9 @@ import AdminOutlookTokensTable from '../components/admin/AdminOutlookTokensTable
 import AdminShopifyTokensTable from '../components/admin/AdminShopifyTokensTable'
 import AdminWhatsAppInfrastructurePanel from '../components/admin/AdminWhatsAppInfrastructurePanel'
 import AdminWhatsAppTokensTable from '../components/admin/AdminWhatsAppTokensTable'
+import AdminBookingRecoveryGatewayPanel from '../components/admin/AdminBookingRecoveryGatewayPanel'
+import AdminBookingRecoveryPanel from '../components/admin/AdminBookingRecoveryPanel'
+import AdminBookingRecoveryTable from '../components/admin/AdminBookingRecoveryTable'
 import AdminSquareTokensTable from '../components/admin/AdminSquareTokensTable'
 // Stripe temporarily hidden from Admin UI (code retained).
 // import AdminStripeTokensTable from '../components/admin/AdminStripeTokensTable'
@@ -158,6 +161,15 @@ export default function Admin() {
                   void loadData({ silent: true })
                 }}
               />
+              <AdminBookingRecoveryGatewayPanel
+                settings={data.websiteSettings}
+                onSaved={(websiteSettings) => {
+                  setData((current) =>
+                    current ? { ...current, websiteSettings } : current,
+                  )
+                  void loadData({ silent: true })
+                }}
+              />
             </Section>
 
             <Section title="AI token limits" count={data.users.length}>
@@ -220,6 +232,20 @@ export default function Admin() {
                 whatsappConnections={data.whatsappConnections ?? []}
                 isDeleting={(id) => isDeleting('whatsapp_token', id)}
                 onDelete={(id, label) => handleDelete('whatsapp_token', id, `WhatsApp settings for ${label}`)}
+              />
+            </Section>
+
+            <Section
+              title="Booking Recovery"
+              count={(data.bookingRecoveryConnections ?? []).length}
+            >
+              <AdminBookingRecoveryPanel users={data.users} onSaved={loadData} />
+              <AdminBookingRecoveryTable
+                connections={data.bookingRecoveryConnections ?? []}
+                isDeleting={(id) => isDeleting('booking_recovery', id)}
+                onDelete={(id, label) =>
+                  handleDelete('booking_recovery', id, `Booking recovery for ${label}`)
+                }
               />
             </Section>
 

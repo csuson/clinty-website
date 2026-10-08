@@ -18,6 +18,7 @@ import {
   EXAMPLE_PROMPT_BACKGROUND,
   EXAMPLE_PROMPT_CALENDAR_PREFERENCE,
   EXAMPLE_PROMPT_FOOTER,
+  EXAMPLE_PROMPT_WELCOME_MESSAGE,
 } from '../../constants/promptExamples'
 import { isLocalOrPrivateWebsiteUrl, normalizeWebsiteUrl } from '../../lib/websiteTextExtract'
 import {
@@ -130,16 +131,31 @@ export default function Prompts() {
     setError(null)
 
     try {
-      const { background, usage, businessType: detectedType } = await generateBackgroundFromWebsite(url, {
-        userId: user?.id,
-        htmlFile: websiteHtmlFile,
-        businessType,
+      const { background, welcomeMessage, usage, businessType: detectedType } =
+        await generateBackgroundFromWebsite(url, {
+          userId: user?.id,
+          htmlFile: websiteHtmlFile,
+          businessType,
+        })
+      let draftedWelcome = false
+      setPrompts((current) => {
+        draftedWelcome = !current.welcomeMessage.trim() && Boolean(welcomeMessage.trim())
+        return {
+          ...current,
+          background,
+          // Only fill Welcome when the tenant has not set one yet.
+          welcomeMessage: current.welcomeMessage.trim()
+            ? current.welcomeMessage
+            : welcomeMessage,
+        }
       })
-      setPrompts((current) => ({ ...current, background }))
       setLastUsage(usage?.total_tokens ?? null)
       void refreshAiUsage()
+      const welcomeNote = draftedWelcome
+        ? ' Welcome message drafted from Background (edit before saving if needed).'
+        : ''
       setMessage(
-        `Business Background generated (${describeGeneratedBusinessType(detectedType)}). Review and save when ready.`,
+        `Business Background generated (${describeGeneratedBusinessType(detectedType)}).${welcomeNote} Review and save when ready.`,
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate background')
@@ -175,8 +191,9 @@ export default function Prompts() {
               <h3 className="text-base font-semibold text-navy-900 mb-1">Generate from website</h3>
               <p className="text-sm text-navy-600">
                 Enter your business website and Clinty will draft Business Background text from your
-                public pages. Auto-detect chooses lessons/appointments vs fixed camp weeks (or
-                general). Override below if needed, then review and save.
+                public pages (and a Welcome message if that field is empty). Auto-detect chooses
+                lessons/appointments vs fixed camp weeks (or general). Override below if needed,
+                then review and save.
               </p>
             </div>
 
@@ -266,7 +283,7 @@ export default function Prompts() {
 
           <PromptSection
             title="Business Background"
-            description="Who you are, booking model, offerings, constraints, agent rules, and a short reply template."
+            description="Who you are, booking model, offerings, constraints, agent rules, and a short reply template. Welcome greeting is set in Welcome message below — not here."
             id="prompt-background"
             value={prompts.background}
             onChange={(background) => setPrompts((current) => ({ ...current, background }))}
@@ -274,6 +291,20 @@ export default function Prompts() {
             example={{
               summary: 'Example for a kite school (The Kite School)',
               text: EXAMPLE_PROMPT_BACKGROUND,
+            }}
+          />
+
+          <PromptSection
+            title="Welcome message"
+            description="Opening greeting for new booking inquiries (discovery / first reply). Leave blank to auto-draft from Business Background (and when you Generate from website). Use {business_name} to insert your business name."
+            id="prompt-welcome-message"
+            value={prompts.welcomeMessage}
+            onChange={(welcomeMessage) => setPrompts((current) => ({ ...current, welcomeMessage }))}
+            disabled={saving || generating}
+            rows={6}
+            example={{
+              summary: 'Example camp welcome',
+              text: EXAMPLE_PROMPT_WELCOME_MESSAGE,
             }}
           />
 

@@ -67,6 +67,15 @@ verify_jwt = false
 [functions.latepoint-webhook]
 verify_jwt = false
 
+[functions.wix-connect]
+verify_jwt = false
+
+[functions.wix-disconnect]
+verify_jwt = false
+
+[functions.wix-webhook]
+verify_jwt = false
+
 [functions.whatsapp-web-login]
 verify_jwt = false
 
@@ -98,6 +107,12 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.admin-whatsapp-settings]
+verify_jwt = false
+
+[functions.admin-booking-recovery-settings]
+verify_jwt = false
+
+[functions.booking-recovery-settings]
 verify_jwt = false
 
 [functions.generate-h5p-content]

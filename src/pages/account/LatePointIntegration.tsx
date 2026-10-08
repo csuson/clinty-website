@@ -79,7 +79,7 @@ export default function LatePointIntegration({ expanded, onToggle }: Props) {
       await loadConnection()
       setSuccess(
         saved.assistantReloaded
-          ? 'LatePoint connected as your booking calendar. Other booking integrations (Square, WeTravel, FluentBooking) were disconnected. Gmail is unchanged.'
+          ? 'LatePoint connected as your booking calendar. Other booking integrations (Square, WeTravel, FluentBooking, Wix) were disconnected. Gmail is unchanged.'
           : `LatePoint saved. Assistant reload failed: ${saved.assistantReloadError ?? 'unknown error'}`,
       )
     } catch (err) {

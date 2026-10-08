@@ -25,6 +25,7 @@ import {
 
 export type PromptFields = {
   background: string
+  welcomeMessage: string
   calendarPreference: string
   defaultFooter: string
   promotions: string
@@ -38,6 +39,7 @@ export type PromptFields = {
 export function defaultPromptFields(): PromptFields {
   return {
     background: '',
+    welcomeMessage: '',
     calendarPreference: '',
     defaultFooter: '',
     promotions: '',
@@ -56,11 +58,12 @@ export function promptTextToDb(value: string): string | null {
 }
 
 const USER_PROMPTS_WRITE_SELECT =
-  'background, calendar_preference, default_footer, promotions, payment_links, response_preferences, whatsapp_response_preferences, response_tone, whatsapp_response_tone'
+  'background, welcome_message, calendar_preference, default_footer, promotions, payment_links, response_preferences, whatsapp_response_preferences, response_tone, whatsapp_response_tone'
 
 type UserPromptsWriteRow = {
   user_id: string
   background: string | null
+  welcome_message: string | null
   calendar_preference: string | null
   default_footer: string | null
   promotions: string | null
@@ -74,6 +77,7 @@ type UserPromptsWriteRow = {
 type SavedUserPromptsRow = Pick<
   UserPrompts,
   | 'background'
+  | 'welcome_message'
   | 'calendar_preference'
   | 'default_footer'
   | 'promotions'
@@ -95,6 +99,7 @@ function savedUserPromptsMatch(saved: SavedUserPromptsRow | null, expected: User
 
   return (
     normalizeDbText(saved.background) === expected.background &&
+    normalizeDbText(saved.welcome_message) === expected.welcome_message &&
     normalizeDbText(saved.calendar_preference) === expected.calendar_preference &&
     normalizeDbText(saved.default_footer) === expected.default_footer &&
     normalizeDbText(saved.promotions) === expected.promotions &&
@@ -110,6 +115,7 @@ export function buildUserPromptsWriteRow(userId: string, prompts: PromptFields):
   return {
     user_id: userId,
     background: promptTextToDb(prompts.background),
+    welcome_message: promptTextToDb(prompts.welcomeMessage),
     calendar_preference: promptTextToDb(prompts.calendarPreference),
     default_footer: promptTextToDb(prompts.defaultFooter),
     promotions: promptTextToDb(prompts.promotions),
@@ -129,6 +135,7 @@ function toPromptFields(row: UserPrompts | null): PromptFields {
 
   return {
     background: row.background?.trim() ?? '',
+    welcomeMessage: row.welcome_message?.trim() ?? '',
     calendarPreference: row.calendar_preference?.trim() ?? '',
     defaultFooter: row.default_footer?.trim() ?? '',
     promotions: row.promotions?.trim() ?? '',
@@ -187,7 +194,7 @@ export async function fetchUserPrompts(userId: string): Promise<PromptFields> {
   const { data, error } = await supabase
     .from('user_prompts')
     .select(
-      'user_id, background, calendar_preference, default_footer, promotions, payment_links, response_preferences, whatsapp_response_preferences, response_tone, whatsapp_response_tone',
+      'user_id, background, welcome_message, calendar_preference, default_footer, promotions, payment_links, response_preferences, whatsapp_response_preferences, response_tone, whatsapp_response_tone',
     )
     .eq('user_id', userId)
     .maybeSingle()
@@ -212,6 +219,7 @@ export async function saveUserPrompts(userId: string, prompts: PromptFields): Pr
     .from('user_prompts')
     .update({
       background: row.background,
+      welcome_message: row.welcome_message,
       calendar_preference: row.calendar_preference,
       default_footer: row.default_footer,
       promotions: row.promotions,
@@ -260,6 +268,7 @@ export type GenerateBackgroundOptions = {
 
 export type GenerateBackgroundResult = {
   background: string
+  welcomeMessage: string
   businessType: ResolvedBusinessBackgroundType
   usage?: AiTokenUsage
 }
@@ -299,12 +308,15 @@ export async function generateBackgroundFromWebsite(
   const data = result.data && typeof result.data === 'object'
     ? (result.data as {
       background?: unknown
+      welcome_message?: unknown
       business_type?: unknown
       usage?: AiTokenUsage
     })
     : null
 
   const background = data?.background
+  const welcomeMessage =
+    typeof data?.welcome_message === 'string' ? data.welcome_message.trim() : ''
   const usage = data?.usage
   const resolvedType = parseBusinessBackgroundType(data?.business_type)
   const resolved: ResolvedBusinessBackgroundType =
@@ -316,6 +328,7 @@ export async function generateBackgroundFromWebsite(
 
   return {
     background: background.trim(),
+    welcomeMessage,
     businessType: resolved,
     usage,
   }

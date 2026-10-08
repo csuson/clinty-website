@@ -15,6 +15,7 @@ import {
   ShopifyIcon,
   SquareIcon,
   WhatsAppIcon,
+  WixIcon,
 } from './IntegrationIcons'
 
 function YelpIcon({ className = 'w-7 h-7' }: { className?: string }) {
@@ -71,6 +72,13 @@ const integrations = [
     description: 'Sync Square Appointments for availability and bookings.',
     icon: SquareIcon,
     iconBg: 'bg-neutral-100',
+  },
+  {
+    name: 'Wix Bookings',
+    category: 'Bookings',
+    description: 'Check Wix Bookings availability and create appointments from email or WhatsApp.',
+    icon: WixIcon,
+    iconBg: 'bg-violet-50',
   },
   {
     name: 'Microsoft Excel',

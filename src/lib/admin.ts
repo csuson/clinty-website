@@ -1,6 +1,7 @@
 import type {
   AgentSettings,
   ApiKey,
+  BookingRecoveryConnection,
   GmailToken,
   OutlookConnection,
   OutlookToken,
@@ -90,6 +91,37 @@ export type AdminWhatsAppInfrastructure = {
   resolved: AdminWhatsAppInfrastructureResolved
 }
 
+export type AdminBookingRecoveryConnection = Omit<BookingRecoveryConnection, 'langgraph_api_key' | 'webhook_secret'> & {
+  user_email: string | null
+  has_langgraph_api_key: boolean
+  has_webhook_secret: boolean
+}
+
+export type AdminBookingRecoverySettings = {
+  user_id: string
+  langgraph_url: string
+  has_langgraph_api_key: boolean
+  square_merchant_id: string | null
+  webhook_token: string | null
+  has_webhook_secret: boolean
+  enabled: boolean
+  updated_at: string | null
+  agent_langgraph_url?: string | null
+  gateway_base_url: string | null
+  square_webhook_url: string | null
+  google_webhook_url: string | null
+}
+
+export type UpdateAdminBookingRecoveryInput = {
+  user_id: string
+  langgraph_url?: string
+  langgraph_api_key?: string
+  square_merchant_id?: string
+  webhook_secret?: string
+  enabled?: boolean
+  rotate_token?: boolean
+}
+
 export type UpdateAdminWhatsAppInfrastructureInput = {
   user_id: string
   gateway_url?: string
@@ -106,6 +138,7 @@ export type AdminAgentSettings = AgentSettings & {
   clinty_api_key_name: string | null
   clinty_api_key_secret: string | null
   prompt_background?: string | null
+  prompt_welcome_message?: string | null
   prompt_calendar_preference?: string | null
   prompt_default_footer?: string | null
   prompt_promotions?: string | null
@@ -129,6 +162,7 @@ export type AdminWebsiteSettings = {
   whatsapp_web_auth_storage_prefix: string
   whatsapp_web_auth_dir: string
   whatsapp_web_langgraph_url: string
+  booking_recovery_gateway_url: string
   google_client_id: string
   google_client_secret: string
 }
@@ -142,6 +176,7 @@ export type AdminData = {
   shopifyTokens: AdminShopifyToken[]
   outlookTokens: AdminOutlookToken[]
   whatsappConnections: AdminWhatsAppConnection[]
+  bookingRecoveryConnections: AdminBookingRecoveryConnection[]
   agentSettings: AdminAgentSettings[]
   userPrompts: AdminUserPrompts[]
   websiteSettings?: AdminWebsiteSettings
@@ -155,6 +190,8 @@ export type UpdateWebsiteInfrastructureInput = {
   whatsapp_web_auth_bucket?: string
   whatsapp_web_auth_storage_prefix?: string
   whatsapp_web_auth_dir?: string
+  whatsapp_web_langgraph_url?: string
+  booking_recovery_gateway_url?: string
   google_client_id?: string
   google_client_secret?: string
 }
@@ -193,6 +230,42 @@ export async function updateAdminWhatsAppInfrastructure(
   return result.data as AdminWhatsAppInfrastructure
 }
 
+export async function fetchAdminBookingRecoverySettings(
+  userId: string,
+): Promise<AdminBookingRecoverySettings> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const result = await supabase.functions.invoke('admin-booking-recovery-settings', {
+    body: { action: 'get', user_id: userId },
+  })
+
+  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
+
+  return result.data as AdminBookingRecoverySettings
+}
+
+export async function updateAdminBookingRecoverySettings(
+  input: UpdateAdminBookingRecoveryInput,
+): Promise<AdminBookingRecoverySettings> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const result = await supabase.functions.invoke('admin-booking-recovery-settings', {
+    body: { action: 'update', ...input },
+  })
+
+  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
+
+  return result.data as AdminBookingRecoverySettings
+}
+
 export async function updateWebsiteInfrastructure(
   input: UpdateWebsiteInfrastructureInput,
 ): Promise<AdminWebsiteSettings> {
@@ -222,7 +295,11 @@ export async function fetchAdminData(): Promise<AdminData> {
     throw new Error(await getFunctionErrorMessage(result.error, result.data))
   }
 
-  return result.data as AdminData
+  const data = result.data as AdminData
+  return {
+    ...data,
+    bookingRecoveryConnections: data.bookingRecoveryConnections ?? [],
+  }
 }
 
 export type CreateAgentSettingsInput = {
@@ -281,16 +358,20 @@ export type AdminDeleteResource =
   | 'shopify_token'
   | 'outlook_token'
   | 'whatsapp_token'
+  | 'booking_recovery'
   | 'agent_settings'
   | 'user_prompts'
 
 export type AdminPromptsInput = {
   user_id: string
   background: string
+  welcome_message: string
   calendar_preference: string
   default_footer: string
   promotions: string
   payment_links: string
+  response_preferences: string
+  whatsapp_response_preferences: string
   response_tone: string
   whatsapp_response_tone: string | null
 }
@@ -353,10 +434,13 @@ export async function saveAdminUserPrompts(input: AdminPromptsInput): Promise<Us
     body: {
       user_id: input.user_id,
       background: promptTextToDb(input.background),
+      welcome_message: promptTextToDb(input.welcome_message),
       calendar_preference: promptTextToDb(input.calendar_preference),
       default_footer: promptTextToDb(input.default_footer),
       promotions: promptTextToDb(input.promotions),
       payment_links: promptTextToDb(input.payment_links),
+      response_preferences: promptTextToDb(input.response_preferences),
+      whatsapp_response_preferences: promptTextToDb(input.whatsapp_response_preferences),
       response_tone: promptTextToDb(input.response_tone) ?? DEFAULT_RESPONSE_TONE,
       whatsapp_response_tone:
         input.whatsapp_response_tone === null

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { clearBookingRecoverySquareMerchant } from '../_shared/bookingRecoveryInfrastructure.ts'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 
 let corsHeaders: Record<string, string> = {}
@@ -48,6 +49,8 @@ Deno.serve(async (req) => {
       scopes: [],
       token_expiry: null,
     })
+
+    await clearBookingRecoverySquareMerchant(admin, user.id)
 
     await admin
       .from('agent_settings')

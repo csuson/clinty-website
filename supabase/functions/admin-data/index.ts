@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       return json({ error: mfaGate.error }, mfaGate.status)
     }
 
-    const [profilesRes, apiKeysRes, gmailTokensRes, outlookTokensRes, outlookConnectionsRes, squareTokensRes, squareConnectionsRes, stripeTokensRes, stripeConnectionsRes, shopifyTokensRes, shopifyConnectionsRes, whatsappConnectionsRes, agentSettingsRes, userPromptsRes] =
+    const [profilesRes, apiKeysRes, gmailTokensRes, outlookTokensRes, outlookConnectionsRes, squareTokensRes, squareConnectionsRes, stripeTokensRes, stripeConnectionsRes, shopifyTokensRes, shopifyConnectionsRes, whatsappConnectionsRes, bookingRecoveryRes, agentSettingsRes, userPromptsRes] =
       await Promise.all([
       admin.from('profiles').select('*').order('created_at', { ascending: false }),
       admin.from('api_keys').select('*').order('created_at', { ascending: false }),
@@ -78,6 +78,7 @@ Deno.serve(async (req) => {
       admin.from('shopify_tokens').select('*').order('updated_at', { ascending: false }),
       admin.from('shopify_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('whatsapp_connections').select('*').order('connected_at', { ascending: false }),
+      admin.from('booking_recovery_connections').select('*').order('updated_at', { ascending: false }),
       admin.from('agent_settings').select('*').order('created_at', { ascending: false }),
       admin.from('user_prompts').select('*'),
     ])
@@ -117,6 +118,9 @@ Deno.serve(async (req) => {
     }
     if (whatsappConnectionsRes.error) {
       return json({ error: whatsappConnectionsRes.error.message }, 500)
+    }
+    if (bookingRecoveryRes.error) {
+      return json({ error: bookingRecoveryRes.error.message }, 500)
     }
     if (agentSettingsRes.error) {
       return json({ error: agentSettingsRes.error.message }, 500)
@@ -234,6 +238,16 @@ Deno.serve(async (req) => {
         effective_langgraph_url: resolved.langgraphUrl || null,
       }
     })
+    const bookingRecoveryConnections = (bookingRecoveryRes.data ?? []).map((connection) => ({
+      ...connection,
+      user_email: emailByUserId.get(connection.user_id) ?? null,
+      has_langgraph_api_key: Boolean(
+        typeof connection.langgraph_api_key === 'string' && connection.langgraph_api_key.trim(),
+      ),
+      has_webhook_secret: Boolean(
+        typeof connection.webhook_secret === 'string' && connection.webhook_secret.trim(),
+      ),
+    }))
     const agentSettings = (agentSettingsRes.data ?? []).map((settings) => {
       const linkedApiKey = settings.clinty_api_key_id
         ? apiKeyById.get(settings.clinty_api_key_id) ?? null
@@ -246,6 +260,7 @@ Deno.serve(async (req) => {
         clinty_api_key_name: linkedApiKey?.name ?? null,
         clinty_api_key_secret: linkedApiKey?.key_secret ?? null,
         prompt_background: prompts.background,
+        prompt_welcome_message: prompts.welcome_message,
         prompt_calendar_preference: prompts.calendar_preference,
         prompt_default_footer: prompts.default_footer,
         prompt_promotions: prompts.promotions,
@@ -268,6 +283,7 @@ Deno.serve(async (req) => {
       stripeTokens,
       shopifyTokens,
       whatsappConnections,
+      bookingRecoveryConnections,
       agentSettings,
       userPrompts,
       websiteSettings,

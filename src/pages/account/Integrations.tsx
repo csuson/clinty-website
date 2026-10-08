@@ -10,7 +10,9 @@ import SquareIntegration from './SquareIntegration'
 import WeTravelIntegration from './WeTravelIntegration'
 import FluentBookingIntegration from './FluentBookingIntegration'
 import LatePointIntegration from './LatePointIntegration'
+import WixIntegration from './WixIntegration'
 import WhatsAppIntegration from './WhatsAppIntegration'
+import BookingRecoveryIntegration from './BookingRecoveryIntegration'
 
 export type IntegrationId =
   | 'gmail'
@@ -21,8 +23,10 @@ export type IntegrationId =
   | 'wetravel'
   | 'fluentbooking'
   | 'latepoint'
+  | 'wix'
   | 'shopify'
   | 'whatsapp'
+  | 'booking-recovery'
   | 'ad-campaigns'
 
 function integrationFromSearchParams(params: URLSearchParams): IntegrationId | null {
@@ -96,6 +100,10 @@ export default function Integrations() {
         expanded={expandedId === 'latepoint'}
         onToggle={() => toggle('latepoint')}
       />
+      <WixIntegration
+        expanded={expandedId === 'wix'}
+        onToggle={() => toggle('wix')}
+      />
       <ShopifyIntegration
         expanded={expandedId === 'shopify'}
         onToggle={() => toggle('shopify')}
@@ -103,6 +111,10 @@ export default function Integrations() {
       <WhatsAppIntegration
         expanded={expandedId === 'whatsapp'}
         onToggle={() => toggle('whatsapp')}
+      />
+      <BookingRecoveryIntegration
+        expanded={expandedId === 'booking-recovery'}
+        onToggle={() => toggle('booking-recovery')}
       />
       <GoogleAdsIntegration
         expanded={expandedId === 'ad-campaigns'}

@@ -198,6 +198,18 @@ export function LatePointIcon({ className = 'w-7 h-7' }: IconProps) {
   )
 }
 
+export function WixIcon({ className = 'w-7 h-7' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <rect width="24" height="24" rx="6" fill="#0C6EFC" />
+      <path
+        fill="#fff"
+        d="M4.6 7.2h2.15l1.55 5.55L10.1 7.2h2.05l1.75 5.55L15.5 7.2h2.1l-2.85 9.6h-2.15L10.9 11.1l-1.7 5.7H7.05L4.6 7.2Zm13.55 0H20.4v9.6h-2.25V7.2Z"
+      />
+    </svg>
+  )
+}
+
 export function QuickBooksIcon({ className = 'w-7 h-7' }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true">

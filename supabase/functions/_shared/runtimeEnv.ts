@@ -73,6 +73,15 @@ export const RUNTIME_ENV_KEYS = [
   'LATEPOINT_AGENT_ID',
   'LATEPOINT_LOCATION_ID',
   'LATEPOINT_TIMEZONE',
+  'WIX_API_KEY',
+  'WIX_SITE_ID',
+  'WIX_SERVICE_ID',
+  'WIX_APP_ID',
+  'WIX_APP_SECRET',
+  'WIX_INSTANCE_ID',
+  'WIX_TIMEZONE',
+  'WIX_RESOURCE_ID',
+  'WIX_LOCATION_ID',
   'WHATSAPP_BUSINESS_PHONE',
   'WHATSAPP_IGNORE_PERSONAL',
   'WHATSAPP_PROVIDER',
@@ -101,6 +110,7 @@ type ShopifyTokenRow = Record<string, unknown>
 type WeTravelTokenRow = Record<string, unknown>
 type FluentBookingTokenRow = Record<string, unknown>
 type LatePointTokenRow = Record<string, unknown>
+type WixTokenRow = Record<string, unknown>
 type WhatsAppConnectionRow = Record<string, unknown>
 
 function trim(value: unknown): string {
@@ -359,6 +369,21 @@ export function latepointTokenToRuntimeEnv(row: LatePointTokenRow | null | undef
   return env
 }
 
+export function wixTokenToRuntimeEnv(row: WixTokenRow | null | undefined): RuntimeEnv {
+  if (!row) return {}
+  const env: RuntimeEnv = {}
+  setIfPresent(env, 'WIX_API_KEY', row.api_key)
+  setIfPresent(env, 'WIX_SITE_ID', row.site_id)
+  setIfPresent(env, 'WIX_SERVICE_ID', row.service_id)
+  setIfPresent(env, 'WIX_APP_ID', row.app_id)
+  setIfPresent(env, 'WIX_APP_SECRET', row.app_secret)
+  setIfPresent(env, 'WIX_INSTANCE_ID', row.instance_id)
+  setIfPresent(env, 'WIX_TIMEZONE', row.timezone)
+  setIfPresent(env, 'WIX_RESOURCE_ID', row.resource_id)
+  setIfPresent(env, 'WIX_LOCATION_ID', row.location_id)
+  return env
+}
+
 export function websiteSettingsToRuntimeEnv(settings: WebsiteSettings): RuntimeEnv {
   const env: RuntimeEnv = {}
   setIfPresent(env, 'SUPABASE_URL', settings.supabase_url)
@@ -470,6 +495,7 @@ export type BuildRuntimeEnvInput = {
   wetravelToken?: WeTravelTokenRow | null
   fluentbookingToken?: FluentBookingTokenRow | null
   latepointToken?: LatePointTokenRow | null
+  wixToken?: WixTokenRow | null
   whatsappConnection?: WhatsAppConnectionRow | null
   websiteSettings?: WebsiteSettings
 }
@@ -485,6 +511,7 @@ export function buildRuntimeEnv(input: BuildRuntimeEnvInput): RuntimeEnv {
     ...wetravelTokenToRuntimeEnv(input.wetravelToken),
     ...fluentbookingTokenToRuntimeEnv(input.fluentbookingToken),
     ...latepointTokenToRuntimeEnv(input.latepointToken),
+    ...wixTokenToRuntimeEnv(input.wixToken),
     ...squareIntegrationToRuntimeEnv(
       input.squareToken,
       input.squareConnection,

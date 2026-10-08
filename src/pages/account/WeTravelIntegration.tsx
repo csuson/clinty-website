@@ -69,7 +69,7 @@ export default function WeTravelIntegration({ expanded, onToggle }: WeTravelInte
       await loadConnection()
       setSuccess(
         saved.assistantReloaded
-          ? 'WeTravel connected. CALENDAR_PROVIDER set to WeTravel; other booking integrations (Square, FluentBooking, LatePoint) were disconnected. Gmail is unchanged.'
+          ? 'WeTravel connected. CALENDAR_PROVIDER set to WeTravel; other booking integrations (Square, FluentBooking, LatePoint, Wix) were disconnected. Gmail is unchanged.'
           : `WeTravel saved. Assistant reload failed: ${saved.assistantReloadError ?? 'unknown error'}`,
       )
     } catch (err) {

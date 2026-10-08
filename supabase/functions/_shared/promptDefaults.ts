@@ -4,6 +4,7 @@ export const DEFAULT_RESPONSE_TONE = 'warm_informal'
 
 export type ResolvedUserPrompts = {
   background: string
+  welcome_message: string
   calendar_preference: string
   default_footer: string
   promotions: string
@@ -17,6 +18,7 @@ export type ResolvedUserPrompts = {
 export function resolveUserPrompts(
   row: {
     background?: string | null
+    welcome_message?: string | null
     calendar_preference?: string | null
     default_footer?: string | null
     promotions?: string | null
@@ -32,6 +34,7 @@ export function resolveUserPrompts(
 
   return {
     background: row?.background?.trim() ?? '',
+    welcome_message: row?.welcome_message?.trim() ?? '',
     calendar_preference: row?.calendar_preference?.trim() ?? '',
     default_footer: row?.default_footer?.trim() ?? '',
     promotions: row?.promotions?.trim() ?? '',

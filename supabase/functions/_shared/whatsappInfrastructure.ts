@@ -72,10 +72,15 @@ export function resolveWhatsAppInfrastructure(
       ? sharedGatewayUrl
       : rowGatewayUrl || sharedGatewayUrl
   const storedGatewayKey = trim(row?.gateway_api_key)
-  const gatewayApiKey =
-    storedGatewayKey ||
-    trim(options?.defaultApiKey) ||
-    trim(websiteSettings.whatsapp_web_login_api_key)
+  const sharedLoginKey = trim(websiteSettings.whatsapp_web_login_api_key)
+  const userApiKey = trim(options?.defaultApiKey)
+  // Shared multitenant gateway auth uses the website login key (WHATSAPP_WEB_LOGIN_API_KEY).
+  // Prefer that over a per-user Clinty API key, which will 401 against the shared gateway.
+  const gatewayApiKey = storedGatewayKey
+    || (options?.preferSharedGateway && sharedGatewayUrl
+      ? (sharedLoginKey || userApiKey)
+      : (userApiKey || sharedLoginKey))
+
   const authStoragePrefix =
     trim(row?.gateway_auth_storage_prefix) ||
     trim(options?.postgresSchema) ||

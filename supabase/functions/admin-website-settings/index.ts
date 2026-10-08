@@ -102,6 +102,8 @@ Deno.serve(async (req) => {
           whatsapp_web_auth_storage_prefix:
             emptyToNull(body.whatsapp_web_auth_storage_prefix) ?? undefined,
           whatsapp_web_auth_dir: emptyToNull(body.whatsapp_web_auth_dir) ?? undefined,
+          whatsapp_web_langgraph_url: emptyToNull(body.whatsapp_web_langgraph_url) ?? undefined,
+          booking_recovery_gateway_url: emptyToNull(body.booking_recovery_gateway_url) ?? undefined,
           google_client_id:
             body.google_client_id !== undefined ? String(body.google_client_id).trim() : undefined,
           google_client_secret: googleSecretInput ?? undefined,

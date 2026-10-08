@@ -8,6 +8,7 @@ import type { AdminDeleteResource, AdminUserPrompts } from '../../lib/admin'
 type ColumnId =
   | 'user'
   | 'background'
+  | 'welcome_message'
   | 'promotions'
   | 'responseTone'
   | 'whatsappTone'
@@ -17,6 +18,7 @@ type ColumnId =
 const COLUMNS: AdminTableColumn<ColumnId>[] = [
   { id: 'user', label: 'User', defaultWidth: 180, minWidth: 120 },
   { id: 'background', label: 'Background', defaultWidth: 260, minWidth: 160 },
+  { id: 'welcome_message', label: 'Welcome', defaultWidth: 200, minWidth: 120 },
   { id: 'promotions', label: 'Promotions', defaultWidth: 180, minWidth: 120 },
   { id: 'responseTone', label: 'Email tone', defaultWidth: 120, minWidth: 90 },
   { id: 'whatsappTone', label: 'WhatsApp tone', defaultWidth: 130, minWidth: 90 },
@@ -66,6 +68,8 @@ export default function AdminUserPromptsTable({
             )
           case 'background':
             return <ExpandableText value={formatCellValue(row.background)} expanded={expanded} />
+          case 'welcome_message':
+            return <ExpandableText value={formatCellValue(row.welcome_message)} expanded={expanded} />
           case 'promotions':
             return <ExpandableText value={formatCellValue(row.promotions)} expanded={expanded} />
           case 'responseTone':

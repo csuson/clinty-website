@@ -5,8 +5,8 @@ create table if not exists public.fluentbooking_tokens (
   site_url text not null,
   username text not null,
   app_password text not null,
-  calendar_id text not null,
-  event_id text,
+  calendar_id text,
+  event_id text not null,
   timezone text not null default 'America/Los_Angeles',
   updated_at timestamptz not null default now()
 );
@@ -17,7 +17,6 @@ create table if not exists public.fluentbooking_connections (
   user_id uuid primary key references auth.users (id) on delete cascade,
   site_url text,
   display_name text,
-  calendar_id text,
   event_id text,
   connected_at timestamptz not null default now(),
   status text not null default 'connected'

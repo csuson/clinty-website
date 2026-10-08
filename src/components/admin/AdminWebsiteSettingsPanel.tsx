@@ -107,6 +107,11 @@ export function countConfiguredWebsiteSettings(settings?: AdminWebsiteSettings |
     ...buildSupabaseRows(settings),
     ...buildAssistantRuntimeRows(settings),
     ...buildGmailOAuthRows(settings),
+    {
+      label: 'Booking recovery gateway',
+      envKey: 'BOOKING_RECOVERY_GATEWAY_URL',
+      value: settings?.booking_recovery_gateway_url ?? '',
+    },
   ]
   return rows.filter((row) => row.value.trim()).length
 }

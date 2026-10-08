@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
       resolvedSite,
       resolvedUser,
       resolvedPassword,
+      resolvedCalendar,
     )
     if (!validated.ok) {
       await admin.from('fluentbooking_connections').upsert({
@@ -146,37 +147,101 @@ async function validateFluentBooking(
   siteUrl: string,
   username: string,
   appPassword: string,
+  calendarId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const token = btoa(`${username}:${appPassword}`)
+  const auth = basicAuthHeader(username, appPassword)
+  const headers = {
+    Authorization: auth,
+    Accept: 'application/json',
+  }
+
   try {
-    const response = await fetch(
-      `${siteUrl}/wp-json/fluent-booking/v2/bookings?per_page=1`,
-      {
-        headers: {
-          Authorization: `Basic ${token}`,
-          Accept: 'application/json',
-        },
-        signal: AbortSignal.timeout(20_000),
-      },
+    const calendarRes = await fetch(
+      `${siteUrl}/wp-json/fluent-booking/v2/calendars/${encodeURIComponent(calendarId)}`,
+      { headers, signal: AbortSignal.timeout(20_000) },
     )
-    if (response.ok) return { ok: true }
-    if (response.status === 401 || response.status === 403) {
-      return { ok: false, error: 'FluentBooking auth failed. Check username and application password.' }
+    if (calendarRes.ok) return { ok: true }
+    if (calendarRes.status === 401 || calendarRes.status === 403) {
+      return {
+        ok: false,
+        error: 'FluentBooking auth failed. Check username and application password.',
+      }
     }
-    // Some sites restrict /bookings but still have FluentBooking installed.
-    if (response.status === 404) {
+
+    const listRes = await fetch(
+      `${siteUrl}/wp-json/fluent-booking/v2/calendars?per_page=100`,
+      { headers, signal: AbortSignal.timeout(20_000) },
+    )
+    if (listRes.status === 401 || listRes.status === 403) {
+      return {
+        ok: false,
+        error: 'FluentBooking auth failed. Check username and application password.',
+      }
+    }
+    if (listRes.ok) {
+      const listBody = await listRes.json().catch(() => null)
+      if (calendarListIncludesId(listBody, calendarId)) return { ok: true }
+      return {
+        ok: false,
+        error: `FluentBooking calendar ID "${calendarId}" was not found. Check the Calendar ID in FluentBooking.`,
+      }
+    }
+
+    // Older sites / restricted calendar routes: fall back to bookings auth probe.
+    const bookingsRes = await fetch(
+      `${siteUrl}/wp-json/fluent-booking/v2/bookings?per_page=1`,
+      { headers, signal: AbortSignal.timeout(20_000) },
+    )
+    if (bookingsRes.ok) {
+      // API reachable; accept calendar ID as provided (show route may differ by version).
+      return { ok: true }
+    }
+    if (bookingsRes.status === 401 || bookingsRes.status === 403) {
+      return {
+        ok: false,
+        error: 'FluentBooking auth failed. Check username and application password.',
+      }
+    }
+    if (bookingsRes.status === 404 && listRes.status === 404) {
       return {
         ok: false,
         error: 'FluentBooking REST API not found. Confirm the plugin is active and permalinks are set.',
       }
     }
-    return { ok: false, error: `FluentBooking returned HTTP ${response.status}` }
+    return {
+      ok: false,
+      error: `FluentBooking returned HTTP ${calendarRes.status || listRes.status || bookingsRes.status}`,
+    }
   } catch (err) {
     return {
       ok: false,
       error: err instanceof Error ? err.message : 'Could not reach WordPress site',
     }
   }
+}
+
+function calendarListIncludesId(body: unknown, calendarId: string): boolean {
+  if (!body || typeof body !== 'object') return false
+  const record = body as Record<string, unknown>
+  const candidates = [record.calendars, record.data, body]
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate)) continue
+    for (const item of candidate) {
+      if (!item || typeof item !== 'object') continue
+      const row = item as Record<string, unknown>
+      if (String(row.id ?? '') === calendarId) return true
+      if (typeof row.hash === 'string' && row.hash === calendarId) return true
+      if (typeof row.slug === 'string' && row.slug === calendarId) return true
+    }
+  }
+  return false
+}
+
+function basicAuthHeader(username: string, password: string): string {
+  const bytes = new TextEncoder().encode(`${username}:${password}`)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return `Basic ${btoa(binary)}`
 }
 
 function json(body: Record<string, unknown>, status = 200) {

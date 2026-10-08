@@ -47,6 +47,15 @@ export type AssistantReloadPayload = {
   latepoint_agent_id?: string
   latepoint_location_id?: string
   latepoint_timezone?: string
+  wix_api_key?: string
+  wix_site_id?: string
+  wix_service_id?: string
+  wix_app_id?: string
+  wix_app_secret?: string
+  wix_instance_id?: string
+  wix_timezone?: string
+  wix_resource_id?: string
+  wix_location_id?: string
 }
 
 export type AssistantReloadResult = {

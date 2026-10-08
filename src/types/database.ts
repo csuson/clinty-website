@@ -189,6 +189,7 @@ export type StripeToken = {
 export type UserPrompts = {
   user_id: string
   background: string | null
+  welcome_message: string | null
   calendar_preference: string | null
   default_footer: string | null
   promotions: string | null
@@ -265,6 +266,17 @@ export type WhatsAppConnection = {
   gateway_langgraph_url?: string | null
 }
 
+export type BookingRecoveryConnection = {
+  user_id: string
+  langgraph_url: string
+  langgraph_api_key: string | null
+  square_merchant_id: string | null
+  webhook_token: string | null
+  webhook_secret: string | null
+  enabled: boolean
+  updated_at: string
+}
+
 export type WeTravelConnection = {
   user_id: string
   display_name: string | null
@@ -291,6 +303,16 @@ export type LatePointConnection = {
   display_name: string | null
   service_id: string | null
   agent_id: string | null
+  connected_at: string
+  status: 'connected' | 'disconnected' | 'error'
+  last_error: string | null
+}
+
+export type WixConnection = {
+  user_id: string
+  site_id: string | null
+  display_name: string | null
+  service_id: string | null
   connected_at: string
   status: 'connected' | 'disconnected' | 'error'
   last_error: string | null
@@ -691,6 +713,7 @@ export type Database = {
         Insert: {
           user_id: string
           background?: string | null
+          welcome_message?: string | null
           calendar_preference?: string | null
           default_footer?: string | null
           promotions?: string | null
@@ -704,6 +727,7 @@ export type Database = {
         }
         Update: {
           background?: string | null
+          welcome_message?: string | null
           calendar_preference?: string | null
           default_footer?: string | null
           promotions?: string | null
@@ -824,6 +848,67 @@ export type Database = {
         }
         Relationships: []
       }
+      wix_connections: {
+        Row: WixConnection
+        Insert: {
+          user_id: string
+          site_id?: string | null
+          display_name?: string | null
+          service_id?: string | null
+          connected_at?: string
+          status?: 'connected' | 'disconnected' | 'error'
+          last_error?: string | null
+        }
+        Update: {
+          site_id?: string | null
+          display_name?: string | null
+          service_id?: string | null
+          status?: 'connected' | 'disconnected' | 'error'
+          last_error?: string | null
+        }
+        Relationships: []
+      }
+      wix_tokens: {
+        Row: {
+          user_id: string
+          api_key: string | null
+          site_id: string | null
+          service_id: string
+          app_id: string | null
+          app_secret: string | null
+          instance_id: string | null
+          timezone: string
+          resource_id: string | null
+          location_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          api_key?: string | null
+          site_id?: string | null
+          service_id: string
+          app_id?: string | null
+          app_secret?: string | null
+          instance_id?: string | null
+          timezone?: string
+          resource_id?: string | null
+          location_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string | null
+          site_id?: string | null
+          service_id?: string
+          app_id?: string | null
+          app_secret?: string | null
+          instance_id?: string | null
+          timezone?: string
+          resource_id?: string | null
+          location_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_connections: {
         Row: WhatsAppConnection & { gateway_api_key: string | null }
         Insert: {
@@ -848,6 +933,29 @@ export type Database = {
           gateway_auth_storage_prefix?: string | null
           gateway_auth_dir?: string | null
           gateway_langgraph_url?: string | null
+        }
+        Relationships: []
+      }
+      booking_recovery_connections: {
+        Row: BookingRecoveryConnection
+        Insert: {
+          user_id: string
+          langgraph_url?: string
+          langgraph_api_key?: string | null
+          square_merchant_id?: string | null
+          webhook_token?: string | null
+          webhook_secret?: string | null
+          enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          langgraph_url?: string
+          langgraph_api_key?: string | null
+          square_merchant_id?: string | null
+          webhook_token?: string | null
+          webhook_secret?: string | null
+          enabled?: boolean
+          updated_at?: string
         }
         Relationships: []
       }

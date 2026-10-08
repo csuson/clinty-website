@@ -9,6 +9,7 @@ export type WebsiteInfrastructure = {
   whatsapp_web_auth_storage_prefix: string
   whatsapp_web_auth_dir: string
   whatsapp_web_langgraph_url: string
+  booking_recovery_gateway_url: string
   google_client_id: string
   google_client_secret: string
 }
@@ -29,6 +30,7 @@ type WebsiteInfrastructureRow = {
   whatsapp_web_auth_storage_prefix?: string | null
   whatsapp_web_auth_dir?: string | null
   whatsapp_web_langgraph_url?: string | null
+  booking_recovery_gateway_url?: string | null
   google_client_id?: string | null
   google_client_secret?: string | null
 }
@@ -54,6 +56,7 @@ export function loadWebsiteSettingsFromEdgeEnv(): WebsiteSettings {
     whatsapp_web_auth_storage_prefix: Deno.env.get('WHATSAPP_WEB_AUTH_STORAGE_PREFIX') ?? 'default',
     whatsapp_web_auth_dir: Deno.env.get('WHATSAPP_WEB_AUTH_DIR') ?? '/tmp/whatsapp-web-auth',
     whatsapp_web_langgraph_url: (Deno.env.get('WHATSAPP_WEB_LANGGRAPH_URL') ?? '').replace(/\/$/, ''),
+    booking_recovery_gateway_url: (Deno.env.get('BOOKING_RECOVERY_GATEWAY_URL') ?? '').replace(/\/$/, ''),
     google_client_id: Deno.env.get('GOOGLE_CLIENT_ID') ?? '',
     google_client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '',
   }
@@ -78,6 +81,8 @@ function mergeInfrastructure(
     whatsapp_web_auth_dir: trim(row.whatsapp_web_auth_dir) || fromEnv.whatsapp_web_auth_dir,
     whatsapp_web_langgraph_url:
       trim(row.whatsapp_web_langgraph_url).replace(/\/$/, '') || fromEnv.whatsapp_web_langgraph_url,
+    booking_recovery_gateway_url:
+      trim(row.booking_recovery_gateway_url).replace(/\/$/, '') || fromEnv.booking_recovery_gateway_url,
     google_client_id: trim(row.google_client_id) || fromEnv.google_client_id,
     google_client_secret: trim(row.google_client_secret) || fromEnv.google_client_secret,
   }
@@ -90,7 +95,7 @@ export async function loadWebsiteSettings(
   const { data } = await admin
     .from('website_infrastructure')
     .select(
-      'whatsapp_web_gateway_url, whatsapp_web_login_api_key, whatsapp_web_debug, whatsapp_web_auth_backend, whatsapp_web_auth_bucket, whatsapp_web_auth_storage_prefix, whatsapp_web_auth_dir, whatsapp_web_langgraph_url, google_client_id, google_client_secret',
+      'whatsapp_web_gateway_url, whatsapp_web_login_api_key, whatsapp_web_debug, whatsapp_web_auth_backend, whatsapp_web_auth_bucket, whatsapp_web_auth_storage_prefix, whatsapp_web_auth_dir, whatsapp_web_langgraph_url, booking_recovery_gateway_url, google_client_id, google_client_secret',
     )
     .eq('id', 1)
     .maybeSingle()
@@ -144,6 +149,10 @@ export async function saveWebsiteInfrastructure(
       input.whatsapp_web_langgraph_url !== undefined
         ? trim(input.whatsapp_web_langgraph_url).replace(/\/$/, '')
         : current.whatsapp_web_langgraph_url,
+    booking_recovery_gateway_url:
+      input.booking_recovery_gateway_url !== undefined
+        ? trim(input.booking_recovery_gateway_url).replace(/\/$/, '')
+        : current.booking_recovery_gateway_url,
     google_client_id:
       input.google_client_id !== undefined
         ? trim(input.google_client_id)

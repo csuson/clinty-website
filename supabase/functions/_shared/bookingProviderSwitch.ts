@@ -5,7 +5,12 @@
 
 import type { AssistantReloadPayload } from './emailAssistant.ts'
 
-export type BookingProvider = 'square' | 'wetravel' | 'fluentbooking' | 'latepoint'
+export type BookingProvider =
+  | 'square'
+  | 'wetravel'
+  | 'fluentbooking'
+  | 'latepoint'
+  | 'wix'
 
 type AdminClient = {
   from: (table: string) => Record<string, any>
@@ -16,6 +21,7 @@ const BOOKING_PROVIDERS: BookingProvider[] = [
   'wetravel',
   'fluentbooking',
   'latepoint',
+  'wix',
 ]
 
 /** Clear runtime keys for a provider that is no longer active. */
@@ -54,6 +60,18 @@ export function clearBookingProviderReloadPayload(
         latepoint_agent_id: '',
         latepoint_location_id: '',
         latepoint_timezone: '',
+      }
+    case 'wix':
+      return {
+        wix_api_key: '',
+        wix_site_id: '',
+        wix_service_id: '',
+        wix_app_id: '',
+        wix_app_secret: '',
+        wix_instance_id: '',
+        wix_timezone: '',
+        wix_resource_id: '',
+        wix_location_id: '',
       }
   }
 }
@@ -185,6 +203,15 @@ async function disconnectBookingProvider(
     case 'latepoint':
       await admin.from('latepoint_tokens').delete().eq('user_id', userId)
       await admin.from('latepoint_connections').upsert({
+        user_id: userId,
+        status: 'disconnected',
+        last_error: null,
+        connected_at: now,
+      })
+      break
+    case 'wix':
+      await admin.from('wix_tokens').delete().eq('user_id', userId)
+      await admin.from('wix_connections').upsert({
         user_id: userId,
         status: 'disconnected',
         last_error: null,

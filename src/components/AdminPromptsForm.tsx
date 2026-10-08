@@ -12,10 +12,13 @@ export function emptyAdminPromptsForm(userId = ''): AdminPromptsInput {
   return {
     user_id: userId,
     background: '',
+    welcome_message: '',
     calendar_preference: '',
     default_footer: '',
     promotions: '',
     payment_links: '',
+    response_preferences: '',
+    whatsapp_response_preferences: '',
     response_tone: DEFAULT_RESPONSE_TONE,
     whatsapp_response_tone: null,
   }
@@ -92,6 +95,15 @@ export default function AdminPromptsForm({
       />
 
       <PromptField
+        label="Welcome message"
+        id="admin-prompt-welcome-message"
+        value={form.welcome_message}
+        onChange={(welcome_message) => setForm((current) => ({ ...current, welcome_message }))}
+        disabled={saving}
+        rows={6}
+      />
+
+      <PromptField
         label="Promotions"
         id="admin-prompt-promotions"
         value={form.promotions}
@@ -107,6 +119,30 @@ export default function AdminPromptsForm({
         onChange={(payment_links) => setForm((current) => ({ ...current, payment_links }))}
         disabled={saving}
         rows={5}
+      />
+
+      <PromptField
+        label="Custom response preferences"
+        id="admin-prompt-response-preferences"
+        value={form.response_preferences}
+        onChange={(response_preferences) =>
+          setForm((current) => ({ ...current, response_preferences }))
+        }
+        disabled={saving}
+        rows={6}
+        hint="Optional extra rules for the response agent. Appended to Clinty’s built-in response preferences."
+      />
+
+      <PromptField
+        label="WhatsApp custom response preferences"
+        id="admin-prompt-whatsapp-response-preferences"
+        value={form.whatsapp_response_preferences}
+        onChange={(whatsapp_response_preferences) =>
+          setForm((current) => ({ ...current, whatsapp_response_preferences }))
+        }
+        disabled={saving}
+        rows={5}
+        hint="Optional WhatsApp-only override. Leave blank to reuse the custom response preferences above."
       />
 
       <ToneField
@@ -166,6 +202,7 @@ function PromptField({
   onChange,
   disabled,
   rows = 12,
+  hint,
 }: {
   label: string
   id: string
@@ -173,9 +210,10 @@ function PromptField({
   onChange: (value: string) => void
   disabled: boolean
   rows?: number
+  hint?: string
 }) {
   return (
-    <FormField label={label} id={id}>
+    <FormField label={label} id={id} hint={hint}>
       <textarea
         id={id}
         value={value}

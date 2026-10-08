@@ -14,6 +14,7 @@ const allowedResources = new Set([
   'wetravel_token',
   'outlook_token',
   'whatsapp_token',
+  'booking_recovery',
   'agent_settings',
   'user_prompts',
 ])
@@ -230,6 +231,15 @@ Deno.serve(async (req) => {
 
     if (resource === 'whatsapp_token') {
       const { error: deleteError } = await admin.from('whatsapp_connections').delete().eq('user_id', id)
+      if (deleteError) {
+        return json({ error: deleteError.message }, 500)
+      }
+
+      return json({ ok: true })
+    }
+
+    if (resource === 'booking_recovery') {
+      const { error: deleteError } = await admin.from('booking_recovery_connections').delete().eq('user_id', id)
       if (deleteError) {
         return json({ error: deleteError.message }, 500)
       }

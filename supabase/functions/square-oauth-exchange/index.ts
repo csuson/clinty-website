@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { activateBookingProvider } from '../_shared/bookingProviderSwitch.ts'
+import { ensureBookingRecoveryRow } from '../_shared/bookingRecoveryInfrastructure.ts'
 import { notifyEmailAssistantRuntimeReload } from '../_shared/emailAssistant.ts'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 
@@ -325,6 +326,8 @@ Deno.serve(async (req) => {
     if (connError) {
       return json({ error: connError.message }, 500)
     }
+
+    await ensureBookingRecoveryRow(admin, user.id, { squareMerchantId: merchantId })
 
     await syncAgentSettings(
       admin,

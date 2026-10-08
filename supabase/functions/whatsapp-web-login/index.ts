@@ -482,8 +482,11 @@ async function callGateway(
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error(
-            'WhatsApp gateway rejected the API key. Use the same Clinty API key on the gateway (Account → API Keys), or enter a matching gateway key in Integrations.',
+            'WhatsApp gateway rejected the API key. For the shared multitenant gateway, Clinty must send the website WhatsApp login API key (Admin → Website Settings), not a personal Account → API Keys value. If you use a per-user gateway, set a matching gateway API key in Admin → WhatsApp Settings.',
           )
+        }
+        if (response.status === 404) {
+          throw new Error(formatGatewayNotFoundError(baseUrl, path, rawBody))
         }
         if (response.status === 502 || response.status === 503 || response.status === 504) {
           throw new Error(formatGatewayUpstreamError(baseUrl, response.status, data, path))
@@ -523,6 +526,16 @@ async function callGateway(
     )
   }
   throw lastError
+}
+
+function formatGatewayNotFoundError(baseUrl: string, path: string, rawBody: string): string {
+  const detail = rawBody.trim().slice(0, 120)
+  return (
+    `WhatsApp gateway returned 404 for ${baseUrl}${path}` +
+    (detail ? ` ("${detail}")` : '') +
+    '. The configured gateway URL is wrong or the Render service is not running. ' +
+    'Update Admin → Website Settings → WhatsApp gateway URL to a live gateway (for example the multitenant Render service), then try linking again.'
+  )
 }
 
 function formatGatewayUpstreamError(

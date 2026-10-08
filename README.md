@@ -82,6 +82,32 @@ The Vite dev/build tooling also loads this certificate for any Node-side HTTPS c
 | API Keys | `/account/api-keys` |
 | Integrations (Gmail) | `/account/integrations` |
 | Integrations (Stripe) | `/account/integrations` (Stripe panel) |
+| Integrations (Cancel recovery) | `/account/integrations` (Square/Google recovery panel) |
+
+## Booking cancel recovery gateway
+
+Multi-tenant cancel recovery routes Square and Google Calendar cancellations through a shared
+**booking-recovery-gateway** service to each operator’s email-assistant.
+
+### Admin
+
+1. Apply migration `supabase/migrations/20260926120000_booking_recovery_connections.sql` (`npm run supabase -- db push`).
+2. Deploy edge functions: `admin-booking-recovery-settings`, `booking-recovery-settings`, plus updated
+   `admin-data`, `admin-delete`, `admin-agent-settings`, `admin-website-settings`,
+   `square-oauth-exchange`, `square-oauth-disconnect`.
+3. On **Admin → Infrastructure**, set **Booking recovery gateway** base URL
+   (`website_infrastructure.booking_recovery_gateway_url`), or set Edge secret
+   `BOOKING_RECOVERY_GATEWAY_URL`.
+4. On **Admin → Booking Recovery**, edit per-user `langgraph_url`, Square merchant id, webhook token,
+   secrets. Saving Agent Settings URL also syncs `langgraph_url`.
+
+### Operator
+
+1. Connect Square (merchant id is written to `booking_recovery_connections` automatically).
+2. Open **Integrations → Cancel recovery**, enable recovery, copy:
+   - Square webhook → `{gateway}/v1/square`
+   - Apps Script `RECOVERY_WEBHOOK_URL` → `{gateway}/v1/google/{webhook_token}`
+3. Keep customer phone/email on Square profiles or in Google event description / attendees.
 
 ## Gmail Integration Setup
 
