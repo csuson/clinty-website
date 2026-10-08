@@ -8,11 +8,14 @@ import {  assertWithinTokenLimit,
 let corsHeaders: Record<string, string> = {}
 
 const MAX_PAGE_BYTES = 2_500_000
-const MAX_HTML_PROCESS_CHARS = 900_000
-const MAX_PAGES = 20
-const MAX_TEXT_CHARS = 48_000
-const MAX_PAGE_TEXT_CHARS = 14_000
+const MAX_HTML_PROCESS_CHARS = 1_800_000
+const MAX_PAGES = 28
+const MAX_TEXT_CHARS = 72_000
+const MAX_PAGE_TEXT_CHARS = 18_000
 const MIN_USEFUL_TEXT_CHARS = 40
+const MAX_JSON_LD_BLOCKS = 3
+const MAX_JSON_LD_CHARS = 2_000
+const MIN_PAGE_BUDGET_CHARS = 5_500
 
 const EXTRA_PATH_PATTERNS = [
   /about/i,
@@ -125,8 +128,8 @@ function buildGenerationSystemPrompt(businessType: ResolvedBusinessBackgroundTyp
     lessons_appointments: `Detected / selected booking model: LESSONS & APPOINTMENTS.
 Emphasize open scheduling, lesson or session packages, durations, pricing, and how to book a time.
 Include agent rules for offering 2–3 concrete time options when possible and clarifying skill level before recommending a package.
-When the website text includes a Lessons / Packages / Rentals catalog (often under /lessons), you MUST include a dedicated "Lesson & rental packages" bullet list with every distinct package name, duration, private vs semi-private, and price found — do not summarize them away as "lessons available".
-Also include Clinics and Camps offerings when those pages appear in the website text.
+When the website text includes a Lessons / Packages / Rentals catalog (often under /lessons), you MUST include a dedicated "Lesson & rental packages" bullet list with every distinct package name, duration, private vs semi-private, and price found — do not summarize them away as "lessons available". Prefer any "Parsed lesson packages" block when present and include every line.
+Also include Clinics and Camps offerings when those pages appear in the website text, with concrete inclusions (hours, equipment, transport, meals) when listed.
 Omit fixed camp-week / lodging capacity sections unless the site clearly has them.
 Do NOT write a Welcome message or Camp welcome section — the tenant sets welcome copy in a separate Prompts field.`,
     fixed_windows_packages: `Detected / selected booking model: FIXED DATES / CAMPS / PACKAGES.
@@ -139,20 +142,27 @@ Do NOT write a Welcome message or Camp welcome section — the tenant sets welco
 LODGING / ACCOMMODATION (required when the site mentions lodging, rooms, casa, villa, hotel, or stay options):
 Always include a dedicated "Lodging / accommodation types" section. Model it after camp sites like Baja Grande (bajagrandelv.com/stay): list each bookable room or lodging type as a bullet with the facts available — name/label, who it fits (private couple, shared crew, dorm, suite), guest capacity / sleeps N, price or rate basis, beds, bathroom (private/shared), views, kitchen access, amenities, and house rules (e.g. kids under X stay free).
 Also note the lodging venue name (e.g. Casa Palmar), location relative to the activity venue, shared house amenities (kitchen, terrace, hot tub), and overall guest capacity when stated.
-If the site has a /stay, /rooms, /lodging, or similar page, treat those room types as primary booking facts — do not collapse them into a vague "beachfront lodging" line.
-If lodging is mentioned but room types are sparse, still include what is known (venue name, shared amenities, capacity) rather than omitting the section.`,
+If the site has a /stay, /rooms, /lodging, /contact-9 (camps), or similar page, treat those room types as primary booking facts — do not collapse them into a vague "beachfront lodging" line.
+CRITICAL: When the source lists multiple numbered Options (e.g. "Option 1 - Glamping $2170" and "Option 2 - Casita $2395"), output ONE bullet per option with that option's own name, price, and amenities. Never merge two lodging options into one bullet. The number of lodging bullets must match the number of distinct options in the source (or in any "Parsed lodging options" block).
+If lodging is mentioned but room types are sparse, still include what is known (venue name, shared amenities, capacity) rather than omitting the section.
+
+CAMP / PACKAGE INCLUSIONS:
+When camp pages list what is included (instruction hours, jet-ski tow, shuttle/transport, equipment, meals, lodging, dinners), copy those as concrete bullets under What we offer / inclusions — keep durations, counts, and specifics (e.g. "10+ hours coaching over 5 days", "daily breakfast and lunch"). Do not summarize as "camp includes lessons and lodging".`,
     fixed_dates_and_lessons: `Detected / selected booking model: FIXED DATES & LESSONS / SCHEDULE (hybrid).
 This business sells BOTH fixed camp/retreat date windows AND open lesson, clinic, or schedule packages (example pattern: bajawing.com — camps + /lessons packages + clinics).
 You MUST cover both booking paths clearly:
-1) Fixed dates / camps — listed camp weeks or packages, lodging/accommodation when present, capacity, multi-step camp booking.
-2) Lessons & schedule — every distinct lesson/rental/clinic package with name, duration, private vs semi-private, and price from Lessons / Clinics pages.
+1) Fixed dates / camps — listed camp weeks or packages, lodging/accommodation when present, capacity, multi-step camp booking, and every stated camp inclusion (coaching hours, transport, gear, meals).
+2) Lessons & schedule — every distinct lesson/rental/clinic package with name, duration, private vs semi-private, and price from Lessons / Clinics pages (or any "Parsed lesson packages" block). Do not omit packages or round prices.
 Do not drop the lesson catalog just because camps exist, and do not invent open-calendar camp dates outside listed windows.
 Include agent rules that ask whether the guest wants a camp week vs a drop-in lesson/clinic, then follow the matching flow.
 Include weather or contingency fallbacks when the site describes them.
 Do NOT write a Welcome message or Camp welcome section — the tenant sets welcome copy in a separate Prompts field.
 
 LODGING / ACCOMMODATION (required when lodging/rooms/stay exist):
-Same rules as fixed-date camps — list each room/lodging type with capacity, price, beds, bathroom, amenities, and kid policies when stated.`,
+Same rules as fixed-date camps — list EACH room/lodging option on its own bullet with capacity, price, beds, bathroom, amenities, and kid policies when stated. If the source has Option 1 and Option 2 (e.g. Glamping and Casita), both must appear separately with their own prices.
+
+CAMP / PACKAGE INCLUSIONS:
+Copy concrete inclusion bullets from camp pages (instruction hours, jet-ski tow, shuttle, equipment, meals/dinners, lodging) — do not collapse into a vague "all-inclusive camp" line.`,
     general: `Detected / selected booking model: GENERAL BUSINESS.
 Cover identity, offerings, pricing if present, policies, and a short response template.
 Only include booking-window or lesson-package detail when clearly present on the site.
@@ -571,11 +581,11 @@ function pagePriorityScore(href: string): number {
     let score = 0
     if (/lesson|rental/.test(path)) score += 100
     if (/clinic/.test(path)) score += 90
-    if (/camp|contact-9/.test(path)) score += 85
-    if (/faq/.test(path)) score += 80
+    if (/camp|contact-9/.test(path)) score += 95
+    if (/faq/.test(path)) score += 92
     if (/price|package|rate/.test(path)) score += 75
     if (/schedule|dates?|book/.test(path)) score += 60
-    if (/stay|lodg|room|accommodat/.test(path)) score += 55
+    if (/stay|lodg|room|accommodat|contact-9/.test(path)) score += 55
     if (/about/.test(path)) score += 20
     if (/blog|post|cart|checkout|thank|popup|search/.test(path)) score -= 40
     if (path === '/' || path === '') score += 10
@@ -633,20 +643,198 @@ function formatWebsiteTextForGeneration(
   const faqBlock = faqs.length
     ? formatFaqSection(
         faqs,
-        'All parsed FAQs (include every question and answer in the business background)',
+        'All parsed FAQs (include every question and answer in the business background FAQ section)',
       )
     : ''
-  const maxPageChars = faqBlock
-    ? Math.max(8_000, MAX_TEXT_CHARS - faqBlock.length - 80)
-    : MAX_TEXT_CHARS
+  const structuredBlock = buildStructuredFactsBlock(pages)
+  const reserved = (faqBlock?.length ?? 0) + (structuredBlock?.length ?? 0) + 120
+  const maxPageChars = Math.max(12_000, MAX_TEXT_CHARS - reserved)
   const prioritized = [...pages].sort(
     (a, b) => pagePriorityScore(b.url) - pagePriorityScore(a.url),
   )
-  const pageBlock = prioritized
-    .map((page) => `=== ${page.url} ===\n${page.text}`)
-    .join('\n\n')
-    .slice(0, maxPageChars)
-  return [pageBlock, faqBlock].filter(Boolean).join('\n\n')
+  const pageBlock = allocatePageTextBudget(prioritized, maxPageChars)
+  return [structuredBlock, pageBlock, faqBlock].filter(Boolean).join('\n\n')
+}
+
+/** Prefer keeping high-priority pages intact instead of truncating mid-catalog. */
+function allocatePageTextBudget(
+  pages: Array<{ url: string; text: string }>,
+  maxChars: number,
+): string {
+  if (!pages.length || maxChars <= 0) return ''
+
+  const targetPages = Math.min(pages.length, 10)
+  const perPageFloor = Math.min(
+    MIN_PAGE_BUDGET_CHARS,
+    Math.max(2_500, Math.floor(maxChars / Math.max(1, targetPages))),
+  )
+
+  const slices: string[] = []
+  let used = 0
+  for (let i = 0; i < pages.length; i++) {
+    const remainingPages = Math.max(1, Math.min(targetPages, pages.length - i))
+    const remainingBudget = maxChars - used
+    if (remainingBudget < 800) break
+
+    const softCap =
+      i < targetPages
+        ? Math.max(perPageFloor, Math.floor(remainingBudget / remainingPages))
+        : Math.min(3_000, remainingBudget)
+    const chunk = pages[i].text.slice(0, Math.min(pages[i].text.length, softCap, remainingBudget - 40))
+    const block = `=== ${pages[i].url} ===\n${chunk}`
+    if (used + block.length + 2 > maxChars) {
+      const room = maxChars - used - `=== ${pages[i].url} ===\n`.length - 2
+      if (room < 400) break
+      slices.push(`=== ${pages[i].url} ===\n${pages[i].text.slice(0, room)}`)
+      break
+    }
+    slices.push(block)
+    used += block.length + 2
+  }
+
+  return slices.join('\n\n')
+}
+
+function buildStructuredFactsBlock(pages: Array<{ url: string; text: string }>): string {
+  const lodging: string[] = []
+  const lessons: string[] = []
+  const inclusions: string[] = []
+  const seenLodging = new Set<string>()
+  const seenLessons = new Set<string>()
+  const seenInclusions = new Set<string>()
+
+  for (const page of pages) {
+    for (const option of extractLodgingOptionsFromText(page.text)) {
+      const key = option.toLowerCase()
+      if (seenLodging.has(key)) continue
+      seenLodging.add(key)
+      lodging.push(option)
+    }
+    for (const pkg of extractLessonPackagesFromText(page.text)) {
+      const key = pkg.toLowerCase()
+      if (seenLessons.has(key)) continue
+      seenLessons.add(key)
+      lessons.push(pkg)
+    }
+    for (const inclusion of extractCampInclusionsFromText(page.text)) {
+      const key = inclusion.toLowerCase()
+      if (seenInclusions.has(key)) continue
+      seenInclusions.add(key)
+      inclusions.push(inclusion)
+    }
+  }
+
+  const sections: string[] = []
+  if (lodging.length) {
+    sections.push(
+      [
+        'Parsed lodging options (list EVERY option below as its own lodging bullet — do not merge):',
+        ...lodging.map((line) => `- ${line}`),
+      ].join('\n'),
+    )
+  }
+  if (lessons.length) {
+    sections.push(
+      [
+        'Parsed lesson packages (include every package with duration and price):',
+        ...lessons.map((line) => `- ${line}`),
+      ].join('\n'),
+    )
+  }
+  if (inclusions.length) {
+    sections.push(
+      [
+        'Parsed camp / package inclusions (copy as concrete What we offer bullets):',
+        ...inclusions.map((line) => `- ${line}`),
+      ].join('\n'),
+    )
+  }
+  return sections.join('\n\n')
+}
+
+function extractLodgingOptionsFromText(text: string): string[] {
+  const options: string[] = []
+  const optionPattern =
+    /Option\s*(\d+)\s*[-–—:]\s*([A-Za-z][A-Za-z0-9 &'/.-]{1,60}?)\s*\$\s*([\d,]+)\s*([\s\S]{0,420}?)(?=Option\s*\d+\s*[-–—:]|Book Your|Frequently Asked|$)/gi
+  let match: RegExpExecArray | null
+  while ((match = optionPattern.exec(text)) !== null) {
+    const detail = decodeHtmlEntities(match[4].replace(/\s+/g, ' ').trim()).slice(0, 320)
+    const line = [
+      `Option ${match[1]} — ${match[2].trim()}`,
+      `$${match[3].replace(/,/g, '')}`,
+      detail,
+    ]
+      .filter(Boolean)
+      .join(' — ')
+    options.push(line)
+  }
+
+  // Fallback: named stay styles with nearby prices (Glamping $2170 / Casita $2395).
+  if (!options.length) {
+    const namedPattern =
+      /\b((?:Private\s+)?(?:Glamping|Casita|Casa|Villa|Suite|Cabin|Tent|Room|Studio|Bungalow|Dorm)[A-Za-z0-9 &'/.-]{0,40})\s*\$\s*([\d,]{3,6})\b([\s\S]{0,280}?)(?=\b(?:Option|Glamping|Casita|Casa|Villa|Suite|Cabin|Book Your|Frequently Asked)\b|$)/gi
+    while ((match = namedPattern.exec(text)) !== null) {
+      const detail = decodeHtmlEntities(match[3].replace(/\s+/g, ' ').trim()).slice(0, 240)
+      options.push(
+        [`${match[1].trim()} — $${match[2].replace(/,/g, '')}`, detail].filter(Boolean).join(' — '),
+      )
+    }
+  }
+
+  return options
+}
+
+function extractLessonPackagesFromText(text: string): string[] {
+  const packages: string[] = []
+  const seen = new Set<string>()
+
+  const catalogPattern =
+    /\b((?:Semi-?Private\s+)?(?:\d+\s*[Dd]ay\s+)?(?:Advanced\s+)?(?:Wingfoil\s+)?(?:Lesson|Course|Clinic|Rental|Session)(?:\s*\([^)]{0,50}\))?|(?:Semi-?Private|Private)\s+[A-Za-z][A-Za-z0-9 &'()/-]{2,40}?(?:Lesson|Course|Clinic|Rental|Session)(?:\s*\([^)]{0,50}\))?|\d+\s*[Dd]ay\s+[A-Za-z][A-Za-z0-9 &'()/-]{2,40}?(?:Lesson|Course|Clinic)(?:\s*\([^)]{0,50}\))?)\s*(?:Private|Semi-?Private)?\s*(?:\( )?(\d+\s*(?:Students?|hr|hours?|Hrs?))[^$]{0,80}?\$\s*([\d,]{2,5})/gi
+  let match: RegExpExecArray | null
+  while ((match = catalogPattern.exec(text)) !== null) {
+    const name = match[1].replace(/\s+/g, ' ').trim()
+    const detail = match[2].replace(/\s+/g, ' ').trim()
+    const price = match[3].replace(/,/g, '')
+    if (
+      name.length < 8 ||
+      /home|services? packages?|service information|menu|cookie|privacy/i.test(name)
+    ) {
+      continue
+    }
+    const line = `${name} — ${detail} — $${price}`
+    const key = line.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    packages.push(line)
+  }
+
+  // Compact Wix bookables: "Private 2 hr 250 US dollars $250"
+  const compactPattern =
+    /\b(Private|Semi-?Private)\s+(\d+)\s*hr\s+(\d{2,4})\s*(?:US\s*dollars)?\s*\$?\s*\3\b/gi
+  while ((match = compactPattern.exec(text)) !== null) {
+    const line = `${match[1]} lesson — ${match[2]} hr — $${match[3]}`
+    const key = line.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    packages.push(line)
+  }
+
+  return packages.slice(0, 40)
+}
+
+function extractCampInclusionsFromText(text: string): string[] {
+  const inclusions: string[] = []
+  // Case-sensitive labels so mid-sentence "wingfoil equipment" does not truncate the section.
+  const labeledPattern =
+    /\b(Wingfoil Instruction|Daily Transport|WIngfoil Equipment|Wingfoil Equipment|Meals\s*(?:&|and)\s*Accomodation|Meals\s*(?:&|and)\s*Accommodation|What's included|Whats included)\b\s*[:\s]*([\s\S]{15,500}?)(?=\b(?:Wingfoil Instruction|Daily Transport|WIngfoil Equipment|Wingfoil Equipment|Meals\s*(?:&|and)\s*Accomodation|Meals\s*(?:&|and)\s*Accommodation|Accommodations?\s+Option|Option\s*\d+|Book Your|Frequently Asked)\b|$)/g
+  let match: RegExpExecArray | null
+  while ((match = labeledPattern.exec(text)) !== null) {
+    const label = match[1].replace(/\s+/g, ' ').trim().replace(/^WIngfoil/i, 'Wingfoil')
+    const detail = decodeHtmlEntities(match[2].replace(/\s+/g, ' ').trim()).slice(0, 400)
+    if (detail.length < 12) continue
+    inclusions.push(`${label}: ${detail}`)
+  }
+  return inclusions.slice(0, 20)
 }
 
 function parseFormattedFaqsFromCombinedText(text: string): FaqPair[] {
@@ -680,7 +868,7 @@ async function fetchHtml(url: string, redirectDepth = 0): Promise<string | null>
 
     const response = await fetch(url, {
       headers: FETCH_HEADERS,
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(20_000),
       redirect: 'manual',
     })
 
@@ -876,11 +1064,16 @@ function extractPageText(html: string, pageUrl = ''): string {
     if (match?.[1]) parts.push(`${prop}: ${decodeHtmlEntities(match[1])}`)
   }
 
+  let jsonLdCount = 0
   for (const block of extractJsonLdBlocks(html)) {
-    parts.push(`Structured data: ${block}`)
+    if (jsonLdCount >= MAX_JSON_LD_BLOCKS) break
+    parts.push(`Structured data: ${block.slice(0, MAX_JSON_LD_CHARS)}`)
+    jsonLdCount += 1
   }
 
-  const faqSection = formatFaqSection(extractFaqsFromHtml(html, pageUrl))
+  // Keep a short FAQ preview in page text; full FAQ set is merged separately for the end section.
+  const pageFaqs = extractFaqsFromHtml(html, pageUrl).slice(0, 30)
+  const faqSection = formatFaqSection(pageFaqs)
   if (faqSection) parts.push(faqSection)
 
   const bodyText = htmlToText(html)
@@ -1010,6 +1203,10 @@ function extractFaqsFromHtml(html: string, pageUrl = ''): FaqPair[] {
     const q = decodeHtmlEntities(stripTags(question)).replace(/\s+/g, ' ').trim()
     const a = decodeHtmlEntities(stripTags(answer)).replace(/\s+/g, ' ').trim().slice(0, MAX_FAQ_ANSWER_CHARS)
     if (q.length < 3 || a.length < 3) return
+    // Skip section labels that are not real questions.
+    if (!/\?/.test(q) && !/^(what|when|where|who|why|how|do|does|is|are|can|will|should)\b/i.test(q)) {
+      return
+    }
     const key = q.toLowerCase()
     if (seen.has(key)) return
     seen.add(key)
@@ -1028,6 +1225,9 @@ function extractFaqsFromHtml(html: string, pageUrl = ''): FaqPair[] {
     }
   }
 
+  // Wix Accordion / collapsible FAQ (e.g. bajawing.com/faq-s) — extract before region heuristics.
+  extractWixCollapsibleFaqPairs(html, add)
+
   const detailsPattern = /<details[^>]*>([\s\S]*?)<\/details>/gi
   let detailsMatch: RegExpExecArray | null
   while ((detailsMatch = detailsPattern.exec(html)) !== null) {
@@ -1039,7 +1239,7 @@ function extractFaqsFromHtml(html: string, pageUrl = ''): FaqPair[] {
   }
 
   for (const region of extractFaqRegions(html)) {
-    extractHeadingAnswerPairs(region, add)
+    extractHeadingAnswerPairs(region, add, { requireQuestionMark: true, maxChars: 120_000 })
     extractDtDdPairs(region, add)
     extractStrongQuestionParagraphs(region, add)
     extractArticleFaqPairs(region, add)
@@ -1051,20 +1251,35 @@ function extractFaqsFromHtml(html: string, pageUrl = ''): FaqPair[] {
     /<(?:div|section|main)[^>]*(?:class|id|data-hook)=["'][^"']*faq[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|section|main)>/gi
   let blockMatch: RegExpExecArray | null
   while ((blockMatch = faqBlockPattern.exec(html)) !== null) {
-    extractHeadingAnswerPairs(blockMatch[1], add)
-    extractDtDdPairs(blockMatch[1], add)
-    extractStrongQuestionParagraphs(blockMatch[1], add)
-    extractArticleFaqPairs(blockMatch[1], add)
+    const fragment = blockMatch[1].slice(0, 120_000)
+    extractHeadingAnswerPairs(fragment, add, { requireQuestionMark: true, maxChars: 120_000 })
+    extractDtDdPairs(fragment, add)
+    extractStrongQuestionParagraphs(fragment, add)
+    extractArticleFaqPairs(fragment, add)
   }
 
   if (isFaqListingPage(pageUrl)) {
     const bodyHtml = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1] ?? html
-    extractHeadingAnswerPairs(bodyHtml, add)
-    extractDtDdPairs(bodyHtml, add)
-    extractStrongQuestionParagraphs(bodyHtml, add)
+    // Prefer bounded, question-shaped headings — avoid scanning huge Wix shells with open-ended regex.
+    extractHeadingAnswerPairs(bodyHtml, add, { requireQuestionMark: true, maxChars: 200_000 })
+    extractDtDdPairs(bodyHtml.slice(0, 200_000), add)
+    extractStrongQuestionParagraphs(bodyHtml.slice(0, 200_000), add)
   }
 
   return pairs
+}
+
+/** Wix collapsible FAQ: heading (h1–h6) followed by .wixui-collapsible-text__text answer. */
+function extractWixCollapsibleFaqPairs(
+  html: string,
+  add: (question: string, answer: string) => void,
+): void {
+  const pattern =
+    /<h([1-6])[^>]*>\s*([\s\S]{3,400}?)\s*<\/h\1>[\s\S]{0,2500}?class=["'][^"']*collapsible-text__text[^"']*["'][^>]*>\s*([\s\S]*?)<\/(?:div|p|span)>/gi
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(html)) !== null) {
+    add(match[2], match[3])
+  }
 }
 
 function isFaqListingPage(pageUrl: string): boolean {
@@ -1161,14 +1376,24 @@ function collectFaqFromJsonLd(
 function extractHeadingAnswerPairs(
   htmlFragment: string,
   add: (question: string, answer: string) => void,
+  options: { requireQuestionMark?: boolean; maxChars?: number } = {},
 ): void {
-  const headingPattern = /<h[2-4][^>]*>([\s\S]*?)<\/h[2-4]>\s*([\s\S]*?)(?=<h[2-4][^>]*>|$)/gi
+  const maxChars = options.maxChars ?? 80_000
+  const fragment = htmlFragment.length > maxChars ? htmlFragment.slice(0, maxChars) : htmlFragment
+  // Bound answer windows so large Wix pages cannot trigger pathological backtracking.
+  const headingPattern =
+    /<h([2-6])[^>]*>([\s\S]{1,500}?)<\/h\1>\s*([\s\S]{0,2500}?)(?=<h[2-6][^>]*>|$)/gi
   let match: RegExpExecArray | null
-  while ((match = headingPattern.exec(htmlFragment)) !== null) {
-    const question = match[1]
-    const answerBlock = match[2].replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  while ((match = headingPattern.exec(fragment)) !== null) {
+    const questionHtml = match[2]
+    if (options.requireQuestionMark && !/\?/.test(questionHtml) && !/\?/.test(stripTags(questionHtml))) {
+      continue
+    }
+    const answerBlock = match[3]
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     const answer = stripTags(answerBlock)
-    if (answer.length >= 10) add(question, answer)
+    if (answer.length >= 10) add(questionHtml, answer)
   }
 }
 
@@ -1208,6 +1433,12 @@ function decodeHtmlEntities(value: string): string {
     .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
+    .replace(/&mdash;/gi, '—')
+    .replace(/&ndash;/gi, '–')
+    .replace(/&rsquo;/gi, "'")
+    .replace(/&lsquo;/gi, "'")
+    .replace(/&rdquo;/gi, '"')
+    .replace(/&ldquo;/gi, '"')
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
     .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
 }
