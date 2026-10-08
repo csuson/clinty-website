@@ -14,6 +14,7 @@ import type {
   StripeToken,
   UserPrompts,
   WhatsAppConnection,
+  WixConnection,
 } from '../types/database'
 import { promptTextToDb } from './prompts'
 import { supabase } from './supabase'
@@ -49,6 +50,24 @@ export type AdminOutlookToken = OutlookToken & {
   outlook_email: string | null
   connected_at: string | null
   connection_status: OutlookConnection['status'] | null
+}
+export type AdminWixToken = {
+  user_id: string
+  api_key: string | null
+  site_id: string | null
+  service_id: string
+  app_id: string | null
+  app_secret: string | null
+  instance_id: string | null
+  timezone: string
+  resource_id: string | null
+  location_id: string | null
+  updated_at: string
+  user_email: string | null
+  display_name: string | null
+  connection_status: WixConnection['status'] | null
+  connected_at: string | null
+  last_error: string | null
 }
 export type AdminWhatsAppConnection = WhatsAppConnection & {
   gateway_api_key: string | null
@@ -175,6 +194,7 @@ export type AdminData = {
   stripeTokens: AdminStripeToken[]
   shopifyTokens: AdminShopifyToken[]
   outlookTokens: AdminOutlookToken[]
+  wixTokens: AdminWixToken[]
   whatsappConnections: AdminWhatsAppConnection[]
   bookingRecoveryConnections: AdminBookingRecoveryConnection[]
   agentSettings: AdminAgentSettings[]
@@ -228,6 +248,51 @@ export async function updateAdminWhatsAppInfrastructure(
   }
 
   return result.data as AdminWhatsAppInfrastructure
+}
+
+export type AdminWhatsAppLoginStatus = {
+  status: string | null
+  qrDataUrl: string | null
+  phone: string | null
+  error: string | null
+}
+
+async function invokeAdminWhatsAppLogin(
+  action: 'login_start' | 'login_status' | 'login_disconnect',
+  userId: string,
+): Promise<AdminWhatsAppLoginStatus & { success?: boolean }> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const result = await supabase.functions.invoke('admin-whatsapp-settings', {
+    body: { action, user_id: userId },
+  })
+
+  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
+
+  const data = (result.data ?? {}) as Record<string, unknown>
+  return {
+    status: typeof data.status === 'string' ? data.status : null,
+    qrDataUrl: typeof data.qrDataUrl === 'string' ? data.qrDataUrl : null,
+    phone: typeof data.phone === 'string' ? data.phone : null,
+    error: typeof data.error === 'string' ? data.error : null,
+    success: data.success === true,
+  }
+}
+
+export function adminWhatsAppLoginStart(userId: string) {
+  return invokeAdminWhatsAppLogin('login_start', userId)
+}
+
+export function adminWhatsAppLoginStatus(userId: string) {
+  return invokeAdminWhatsAppLogin('login_status', userId)
+}
+
+export function adminWhatsAppLoginDisconnect(userId: string) {
+  return invokeAdminWhatsAppLogin('login_disconnect', userId)
 }
 
 export async function fetchAdminBookingRecoverySettings(
@@ -298,6 +363,7 @@ export async function fetchAdminData(): Promise<AdminData> {
   const data = result.data as AdminData
   return {
     ...data,
+    wixTokens: data.wixTokens ?? [],
     bookingRecoveryConnections: data.bookingRecoveryConnections ?? [],
   }
 }
@@ -357,6 +423,7 @@ export type AdminDeleteResource =
   | 'stripe_token'
   | 'shopify_token'
   | 'outlook_token'
+  | 'wix_token'
   | 'whatsapp_token'
   | 'booking_recovery'
   | 'agent_settings'

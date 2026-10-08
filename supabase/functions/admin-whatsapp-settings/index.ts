@@ -214,11 +214,212 @@ Deno.serve(async (req) => {
       })
     }
 
+    if (
+      action === 'login_start'
+      || action === 'login_status'
+      || action === 'login_disconnect'
+    ) {
+      const gateway = await resolveUserGateway(admin, userId, websiteSettings)
+      if (!gateway.gatewayUrl) {
+        return json({
+          error: 'WhatsApp gateway not configured for this user. Set gateway URL in WhatsApp Infrastructure first.',
+        }, 400)
+      }
+      if (!gateway.gatewayKey) {
+        return json({
+          error: 'WhatsApp gateway API key not configured for this user.',
+        }, 400)
+      }
+
+      if (action === 'login_status') {
+        const status = await callGateway(
+          gateway.gatewayUrl,
+          gateway.gatewayKey,
+          'GET',
+          `/v1/login/status?user_id=${encodeURIComponent(userId)}`,
+        )
+        await patchConnectionFromLoginStatus(admin, userId, status, gateway)
+        return json(loginStatusPayload(status))
+      }
+
+      if (action === 'login_disconnect') {
+        const { data: existing } = await admin
+          .from('whatsapp_connections')
+          .select(WHATSAPP_INFRA_SELECT)
+          .eq('user_id', userId)
+          .maybeSingle()
+
+        await admin.from('whatsapp_connections').upsert({
+          user_id: userId,
+          gateway_url: existing?.gateway_url ?? gateway.gatewayUrl ?? null,
+          gateway_api_key: existing?.gateway_api_key ?? null,
+          gateway_debug: existing?.gateway_debug ?? null,
+          gateway_auth_backend: existing?.gateway_auth_backend ?? null,
+          gateway_auth_bucket: existing?.gateway_auth_bucket ?? null,
+          gateway_auth_storage_prefix: existing?.gateway_auth_storage_prefix ?? null,
+          gateway_auth_dir: existing?.gateway_auth_dir ?? null,
+          gateway_langgraph_url: existing?.gateway_langgraph_url ?? gateway.langgraphUrl ?? null,
+          status: 'disconnected',
+          phone: null,
+          last_error: null,
+          connected_at: existing?.connected_at ?? new Date().toISOString(),
+        })
+        try {
+          await callGateway(gateway.gatewayUrl, gateway.gatewayKey, 'POST', '/v1/login/disconnect', {
+            user_id: userId,
+          })
+        } catch (gatewayErr) {
+          console.warn('Admin WhatsApp gateway disconnect failed:', gatewayErr)
+        }
+        return json({ success: true, status: 'disconnected' })
+      }
+
+      // login_start
+      await callGateway(gateway.gatewayUrl, gateway.gatewayKey, 'POST', '/v1/login/stop', {
+        user_id: userId,
+      }, 4_000).catch(() => {})
+
+      let status: Record<string, unknown>
+      try {
+        status = await callGateway(
+          gateway.gatewayUrl,
+          gateway.gatewayKey,
+          'POST',
+          '/v1/login/start',
+          { user_id: userId, force: true },
+          45_000,
+        )
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        if (/timed out|TimeoutError|operation was aborted/i.test(message)) {
+          await patchConnectionFromLoginStatus(admin, userId, { status: 'pairing' }, gateway)
+          return json({ status: 'pairing', qrDataUrl: null, phone: null, error: null })
+        }
+        throw err
+      }
+
+      await patchConnectionFromLoginStatus(admin, userId, status, gateway)
+      return json(loginStatusPayload(status))
+    }
+
     return json({ error: 'Unknown action' }, 400)
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }
 })
+
+async function resolveUserGateway(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  websiteSettings: Awaited<ReturnType<typeof loadWebsiteSettings>>,
+) {
+  const [{ data: connection }, defaultApiKey, agentSettingsRes] = await Promise.all([
+    admin.from('whatsapp_connections').select(WHATSAPP_INFRA_SELECT).eq('user_id', userId).maybeSingle(),
+    fetchUserDefaultApiKey(admin, userId),
+    admin.from('agent_settings').select('postgres_schema, url').eq('user_id', userId)
+      .order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+  ])
+
+  const resolved = resolveWhatsAppInfrastructure(connection, websiteSettings, {
+    defaultApiKey,
+    postgresSchema: agentSettingsRes.data?.postgres_schema ?? null,
+    agentLanggraphUrl: agentSettingsRes.data?.url ?? null,
+    preferSharedGateway: true,
+  })
+
+  return {
+    gatewayUrl: resolved.gatewayUrl,
+    gatewayKey: resolved.gatewayApiKey,
+    langgraphUrl: (typeof agentSettingsRes.data?.url === 'string' && agentSettingsRes.data.url.trim())
+      ? agentSettingsRes.data.url.trim()
+      : resolved.langgraphUrl || '',
+  }
+}
+
+async function patchConnectionFromLoginStatus(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  status: Record<string, unknown>,
+  gateway: { gatewayUrl: string; langgraphUrl: string },
+) {
+  const { data: existing } = await admin
+    .from('whatsapp_connections')
+    .select(WHATSAPP_INFRA_SELECT)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  const connectionStatus =
+    status.status === 'connected' ? 'connected'
+    : status.status === 'error' ? 'error'
+    : status.status === 'pairing' ? 'pairing'
+    : (typeof existing?.status === 'string' ? existing.status : 'disconnected')
+
+  const phone =
+    typeof status.phone === 'string' && status.phone.trim()
+      ? status.phone.trim()
+      : existing?.phone ?? null
+
+  await admin.from('whatsapp_connections').upsert({
+    user_id: userId,
+    gateway_url: gateway.gatewayUrl || existing?.gateway_url || null,
+    gateway_api_key: existing?.gateway_api_key ?? null,
+    gateway_debug: existing?.gateway_debug ?? null,
+    gateway_auth_backend: existing?.gateway_auth_backend ?? null,
+    gateway_auth_bucket: existing?.gateway_auth_bucket ?? null,
+    gateway_auth_storage_prefix: existing?.gateway_auth_storage_prefix ?? null,
+    gateway_auth_dir: existing?.gateway_auth_dir ?? null,
+    gateway_langgraph_url: gateway.langgraphUrl || existing?.gateway_langgraph_url || null,
+    phone,
+    status: connectionStatus,
+    connected_at: status.status === 'connected'
+      ? new Date().toISOString()
+      : (existing?.connected_at ?? new Date().toISOString()),
+    last_error: status.status === 'error' || status.error
+      ? (typeof status.error === 'string' ? status.error : 'Link failed')
+      : null,
+  })
+}
+
+function loginStatusPayload(status: Record<string, unknown>) {
+  return {
+    status: status.status ?? null,
+    qrDataUrl: status.qr_data_url ?? status.qrDataUrl ?? null,
+    phone: status.phone ?? null,
+    error: status.error ?? null,
+  }
+}
+
+async function callGateway(
+  baseUrl: string,
+  apiKey: string,
+  method: string,
+  path: string,
+  body?: Record<string, unknown>,
+  timeoutMs = 20_000,
+): Promise<Record<string, unknown>> {
+  const url = `${baseUrl.replace(/\/$/, '')}${path}`
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'X-Api-Key': apiKey,
+      Accept: 'application/json',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(timeoutMs),
+  })
+  const data = await response.json().catch(() => ({})) as Record<string, unknown>
+  if (!response.ok) {
+    const detail = typeof data.detail === 'string'
+      ? data.detail
+      : typeof data.error === 'string'
+        ? data.error
+        : `Gateway request failed (${response.status})`
+    throw new Error(detail)
+  }
+  return data
+}
 
 function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {

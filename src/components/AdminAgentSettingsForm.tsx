@@ -352,15 +352,30 @@ export default function AdminAgentSettingsForm({
               disabled={saving}
             />
           </FormField>
-          <FormField label="Calendar Provider" id="agent-calendar-provider" copyValue={form.calendar_provider}>
+          <FormField
+            label="Calendar Provider"
+            id="agent-calendar-provider"
+            hint="square | wix | wetravel | fluentbooking | latepoint | google"
+            copyValue={form.calendar_provider}
+          >
             <input
               id="agent-calendar-provider"
               type="text"
+              list="agent-calendar-provider-options"
               value={form.calendar_provider ?? ''}
               onChange={(e) => updateField('calendar_provider', e.target.value)}
               className={inputClass}
               disabled={saving}
+              placeholder="wix"
             />
+            <datalist id="agent-calendar-provider-options">
+              <option value="square" />
+              <option value="wix" />
+              <option value="wetravel" />
+              <option value="fluentbooking" />
+              <option value="latepoint" />
+              <option value="google" />
+            </datalist>
           </FormField>
         </div>
       </SectionCard>

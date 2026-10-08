@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       return json({ error: mfaGate.error }, mfaGate.status)
     }
 
-    const [profilesRes, apiKeysRes, gmailTokensRes, outlookTokensRes, outlookConnectionsRes, squareTokensRes, squareConnectionsRes, stripeTokensRes, stripeConnectionsRes, shopifyTokensRes, shopifyConnectionsRes, whatsappConnectionsRes, bookingRecoveryRes, agentSettingsRes, userPromptsRes] =
+    const [profilesRes, apiKeysRes, gmailTokensRes, outlookTokensRes, outlookConnectionsRes, squareTokensRes, squareConnectionsRes, stripeTokensRes, stripeConnectionsRes, shopifyTokensRes, shopifyConnectionsRes, wixTokensRes, wixConnectionsRes, whatsappConnectionsRes, bookingRecoveryRes, agentSettingsRes, userPromptsRes] =
       await Promise.all([
       admin.from('profiles').select('*').order('created_at', { ascending: false }),
       admin.from('api_keys').select('*').order('created_at', { ascending: false }),
@@ -77,6 +77,8 @@ Deno.serve(async (req) => {
       admin.from('stripe_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('shopify_tokens').select('*').order('updated_at', { ascending: false }),
       admin.from('shopify_connections').select('*').order('connected_at', { ascending: false }),
+      admin.from('wix_tokens').select('*').order('updated_at', { ascending: false }),
+      admin.from('wix_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('whatsapp_connections').select('*').order('connected_at', { ascending: false }),
       admin.from('booking_recovery_connections').select('*').order('updated_at', { ascending: false }),
       admin.from('agent_settings').select('*').order('created_at', { ascending: false }),
@@ -116,6 +118,12 @@ Deno.serve(async (req) => {
     if (shopifyConnectionsRes.error) {
       return json({ error: shopifyConnectionsRes.error.message }, 500)
     }
+    if (wixTokensRes.error) {
+      return json({ error: wixTokensRes.error.message }, 500)
+    }
+    if (wixConnectionsRes.error) {
+      return json({ error: wixConnectionsRes.error.message }, 500)
+    }
     if (whatsappConnectionsRes.error) {
       return json({ error: whatsappConnectionsRes.error.message }, 500)
     }
@@ -146,6 +154,9 @@ Deno.serve(async (req) => {
     )
     const shopifyConnectionByUserId = new Map(
       (shopifyConnectionsRes.data ?? []).map((connection) => [connection.user_id, connection]),
+    )
+    const wixConnectionByUserId = new Map(
+      (wixConnectionsRes.data ?? []).map((connection) => [connection.user_id, connection]),
     )
     const promptsByUserId = new Map(
       (userPromptsRes.data ?? []).map((prompts) => [prompts.user_id, prompts]),
@@ -206,6 +217,17 @@ Deno.serve(async (req) => {
         shop_name: connection?.shop_name ?? null,
         connected_at: connection?.connected_at ?? null,
         connection_status: connection?.status ?? null,
+      }
+    })
+    const wixTokens = (wixTokensRes.data ?? []).map((token) => {
+      const connection = wixConnectionByUserId.get(token.user_id) ?? null
+      return {
+        ...token,
+        user_email: emailByUserId.get(token.user_id) ?? null,
+        display_name: connection?.display_name ?? null,
+        connected_at: connection?.connected_at ?? null,
+        connection_status: connection?.status ?? null,
+        last_error: connection?.last_error ?? null,
       }
     })
     const defaultApiKeyByUserId = new Map<string, string>()
@@ -282,6 +304,7 @@ Deno.serve(async (req) => {
       squareTokens,
       stripeTokens,
       shopifyTokens,
+      wixTokens,
       whatsappConnections,
       bookingRecoveryConnections,
       agentSettings,

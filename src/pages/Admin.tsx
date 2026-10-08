@@ -11,11 +11,13 @@ import AdminGmailTokensTable from '../components/admin/AdminGmailTokensTable'
 import AdminOutlookTokensTable from '../components/admin/AdminOutlookTokensTable'
 import AdminShopifyTokensTable from '../components/admin/AdminShopifyTokensTable'
 import AdminWhatsAppInfrastructurePanel from '../components/admin/AdminWhatsAppInfrastructurePanel'
+import AdminWhatsAppLinkDevicePanel from '../components/admin/AdminWhatsAppLinkDevicePanel'
 import AdminWhatsAppTokensTable from '../components/admin/AdminWhatsAppTokensTable'
 import AdminBookingRecoveryGatewayPanel from '../components/admin/AdminBookingRecoveryGatewayPanel'
 import AdminBookingRecoveryPanel from '../components/admin/AdminBookingRecoveryPanel'
 import AdminBookingRecoveryTable from '../components/admin/AdminBookingRecoveryTable'
 import AdminSquareTokensTable from '../components/admin/AdminSquareTokensTable'
+import AdminWixTokensTable from '../components/admin/AdminWixTokensTable'
 // Stripe temporarily hidden from Admin UI (code retained).
 // import AdminStripeTokensTable from '../components/admin/AdminStripeTokensTable'
 import AdminUsersTable from '../components/admin/AdminUsersTable'
@@ -208,6 +210,14 @@ export default function Admin() {
               />
             </Section>
 
+            <Section title="Wix Bookings Tokens" count={(data.wixTokens ?? []).length}>
+              <AdminWixTokensTable
+                wixTokens={data.wixTokens ?? []}
+                isDeleting={(id) => isDeleting('wix_token', id)}
+                onDelete={(id, label) => handleDelete('wix_token', id, `Wix token for ${label}`)}
+              />
+            </Section>
+
             {/* Stripe temporarily hidden — restore by uncommenting import + section.
             <Section title="Stripe Tokens" count={(data.stripeTokens ?? []).length}>
               <AdminStripeTokensTable
@@ -226,12 +236,19 @@ export default function Admin() {
               />
             </Section>
 
-            <Section title="WhatsApp Settings" count={data.users.length}>
+            <Section title="WhatsApp Infrastructure" count={data.users.length}>
               <AdminWhatsAppInfrastructurePanel users={data.users} onSaved={loadData} />
+            </Section>
+
+            <Section
+              title="WhatsApp Tokens / Linked Devices"
+              count={(data.whatsappConnections ?? []).length}
+            >
+              <AdminWhatsAppLinkDevicePanel users={data.users} onChanged={loadData} />
               <AdminWhatsAppTokensTable
                 whatsappConnections={data.whatsappConnections ?? []}
                 isDeleting={(id) => isDeleting('whatsapp_token', id)}
-                onDelete={(id, label) => handleDelete('whatsapp_token', id, `WhatsApp settings for ${label}`)}
+                onDelete={(id, label) => handleDelete('whatsapp_token', id, `WhatsApp device for ${label}`)}
               />
             </Section>
 

@@ -13,6 +13,7 @@ const allowedResources = new Set([
   'shopify_token',
   'wetravel_token',
   'outlook_token',
+  'wix_token',
   'whatsapp_token',
   'booking_recovery',
   'agent_settings',
@@ -224,6 +225,26 @@ Deno.serve(async (req) => {
       }
       if (connectionsRes.error) {
         return json({ error: connectionsRes.error.message }, 500)
+      }
+
+      return json({ ok: true })
+    }
+
+    if (resource === 'wix_token') {
+      const [tokensRes, connectionsRes, bookingsRes] = await Promise.all([
+        admin.from('wix_tokens').delete().eq('user_id', id),
+        admin.from('wix_connections').delete().eq('user_id', id),
+        admin.from('wix_bookings').delete().eq('user_id', id),
+      ])
+
+      if (tokensRes.error) {
+        return json({ error: tokensRes.error.message }, 500)
+      }
+      if (connectionsRes.error) {
+        return json({ error: connectionsRes.error.message }, 500)
+      }
+      if (bookingsRes.error) {
+        return json({ error: bookingsRes.error.message }, 500)
       }
 
       return json({ ok: true })
