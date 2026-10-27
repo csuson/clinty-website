@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { clearBookingRecoveryWixIds } from '../_shared/bookingRecoveryInfrastructure.ts'
 import { notifyEmailAssistantRuntimeReload } from '../_shared/emailAssistant.ts'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 
@@ -32,6 +33,7 @@ Deno.serve(async (req) => {
       last_error: null,
       connected_at: new Date().toISOString(),
     })
+    await clearBookingRecoveryWixIds(admin, user.id)
 
     const { data: settings } = await admin
       .from('agent_settings')

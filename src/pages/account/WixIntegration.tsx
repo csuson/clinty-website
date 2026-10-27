@@ -171,12 +171,17 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
             disabled={working}
           />
         </FormField>
-        <FormField label="Service ID" id="wix-service-id">
+        <FormField
+          label="Service ID"
+          id="wix-service-id"
+          hint="Must be an appointment-type Bookings service (not class/course). Private/intro lessons are usually appointment."
+        >
           <input
             id="wix-service-id"
             className={inputClass}
             value={serviceId}
             onChange={(e) => setServiceId(e.target.value)}
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
             disabled={working}
           />
         </FormField>
@@ -266,12 +271,11 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
           ) : null}
         </div>
 
-        {connected && user ? (
+        {connected ? (
           <p className="text-xs text-navy-500 pt-2">
-            Optional webhook URL:{' '}
-            <code className="break-all">
-              {`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wix-webhook?user_id=${user.id}`}
-            </code>
+            Cancel recovery: open <strong>Cancel recovery</strong> under Integrations for the shared
+            gateway Wix webhook URL (<code className="text-[11px]">/v1/wix</code>). Connecting Wix
+            syncs site/instance IDs for routing. Appointment-type Service ID required for rebooking.
           </p>
         ) : null}
       </div>

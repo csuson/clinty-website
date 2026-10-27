@@ -620,6 +620,8 @@ create table if not exists public.booking_recovery_connections (
   square_merchant_id text,
   webhook_token text,
   webhook_secret text,
+  wix_instance_id text,
+  wix_site_id text,
   enabled boolean not null default true,
   updated_at timestamptz not null default now()
 );
@@ -631,6 +633,14 @@ create unique index if not exists booking_recovery_connections_square_merchant_i
 create unique index if not exists booking_recovery_connections_webhook_token_uidx
   on public.booking_recovery_connections (webhook_token)
   where webhook_token is not null and btrim(webhook_token) <> '';
+
+create unique index if not exists booking_recovery_connections_wix_instance_id_uidx
+  on public.booking_recovery_connections (wix_instance_id)
+  where wix_instance_id is not null and btrim(wix_instance_id) <> '';
+
+create unique index if not exists booking_recovery_connections_wix_site_id_uidx
+  on public.booking_recovery_connections (wix_site_id)
+  where wix_site_id is not null and btrim(wix_site_id) <> '';
 
 alter table public.booking_recovery_connections enable row level security;
 

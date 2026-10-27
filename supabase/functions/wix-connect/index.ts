@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { activateBookingProvider } from '../_shared/bookingProviderSwitch.ts'
+import { ensureBookingRecoveryRow } from '../_shared/bookingRecoveryInfrastructure.ts'
 import { notifyEmailAssistantRuntimeReload } from '../_shared/emailAssistant.ts'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 
@@ -84,6 +85,7 @@ Deno.serve(async (req) => {
       appId: resolvedAppId,
       appSecret: resolvedAppSecret,
       instanceId: resolvedInstance,
+      serviceId: resolvedService,
     })
     if (!validated.ok) {
       await admin.from('wix_connections').upsert({
@@ -127,6 +129,12 @@ Deno.serve(async (req) => {
 
     const exclusive = await activateBookingProvider(admin, user.id, 'wix')
 
+    // W2/W4: keep cancel-recovery gateway routing keys in sync with Wix connect.
+    await ensureBookingRecoveryRow(admin, user.id, {
+      wixInstanceId: resolvedInstance || null,
+      wixSiteId: resolvedSite || null,
+    })
+
     const assistantReload = await notifyEmailAssistantRuntimeReload(admin, user.id, {
       ...exclusive,
       calendar_provider: 'wix',
@@ -154,12 +162,39 @@ Deno.serve(async (req) => {
   }
 })
 
+type WixServiceRow = {
+  id?: string
+  serviceId?: string
+  type?: string
+  serviceType?: string
+}
+
+function servicesFromPayload(payload: unknown): WixServiceRow[] {
+  if (!payload || typeof payload !== 'object') return []
+  const obj = payload as { services?: unknown; items?: unknown }
+  if (Array.isArray(obj.services)) return obj.services as WixServiceRow[]
+  if (Array.isArray(obj.items)) return obj.items as WixServiceRow[]
+  return []
+}
+
+function findService(rows: WixServiceRow[], serviceId: string): WixServiceRow | undefined {
+  return rows.find((svc) => String(svc?.id ?? svc?.serviceId ?? '').trim() === serviceId)
+}
+
+function appointmentTypeError(serviceId: string, typ: string): string {
+  return (
+    `Service ${serviceId} is type ${typ}. ` +
+    'Clinty calendar tools only support APPOINTMENT services (not CLASS/COURSE).'
+  )
+}
+
 async function validateWix(input: {
   siteId: string
   apiKey: string
   appId: string
   appSecret: string
   instanceId: string
+  serviceId: string
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     let authHeader = input.apiKey
@@ -207,7 +242,6 @@ async function validateWix(input: {
       headers,
       signal: AbortSignal.timeout(20_000),
     })
-    if (props.ok) return { ok: true }
     if (props.status === 401 || props.status === 403) {
       return { ok: false, error: 'Wix API credentials rejected.' }
     }
@@ -215,13 +249,37 @@ async function validateWix(input: {
     const services = await fetch('https://www.wixapis.com/bookings/v2/services/query', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ query: { paging: { limit: 1 } } }),
+      body: JSON.stringify({ query: { paging: { limit: 100 } } }),
       signal: AbortSignal.timeout(20_000),
     })
-    if (services.ok) return { ok: true }
     if (services.status === 401 || services.status === 403) {
       return { ok: false, error: 'Wix Bookings API credentials rejected.' }
     }
+    if (!services.ok && !props.ok) {
+      return {
+        ok: false,
+        error: `Wix returned HTTP ${services.status || props.status}. Check site ID, API key permissions, and Bookings app access.`,
+      }
+    }
+
+    if (services.ok) {
+      const payload = await services.json().catch(() => ({}))
+      const match = findService(servicesFromPayload(payload), input.serviceId)
+      if (!match) {
+        return {
+          ok: false,
+          error: `Wix service ID ${input.serviceId} was not found on this site.`,
+        }
+      }
+      const typ = String(match.type ?? match.serviceType ?? '').trim().toUpperCase()
+      if (typ && typ !== 'APPOINTMENT') {
+        return { ok: false, error: appointmentTypeError(input.serviceId, typ) }
+      }
+      return { ok: true }
+    }
+
+    // Credentials work via site properties but services list failed — allow connect.
+    if (props.ok) return { ok: true }
     return {
       ok: false,
       error: `Wix returned HTTP ${services.status || props.status}. Check site ID, API key permissions, and Bookings app access.`,

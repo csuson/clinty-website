@@ -84,7 +84,7 @@ export default function BookingRecoveryIntegration({
 
   return (
     <IntegrationPanel
-      title="Cancel recovery (Square / Google)"
+      title="Cancel recovery (Square / Google / Wix)"
       icon={<GoogleCalendarIcon />}
       iconWrapperClassName="bg-neutral-100"
       status={status}
@@ -93,9 +93,9 @@ export default function BookingRecoveryIntegration({
       onToggle={onToggle}
     >
       <p className="text-sm text-navy-600 mb-4">
-        When you cancel a lesson in Square or Google Calendar, Clinty can text and email the customer
-        with rebooking options. Point Square and Apps Script at the shared recovery gateway URLs below
-        (not your assistant URL directly).
+        When you cancel a lesson in Square, Google Calendar, or Wix Bookings, Clinty can email and
+        optionally text the customer with rebooking options. Point those systems at the shared
+        recovery gateway URLs below (not your assistant URL directly).
       </p>
 
       {error ? (
@@ -133,6 +133,18 @@ export default function BookingRecoveryIntegration({
                 <dt className="text-navy-600 mb-1">Assistant URL</dt>
                 <dd className="font-mono text-xs text-navy-900 break-all">
                   {connection?.langgraph_url?.trim() || '— (set by admin / Agent Settings)'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-navy-600 mb-1">Wix instance ID</dt>
+                <dd className="font-mono text-xs text-navy-900 break-all">
+                  {connection?.wix_instance_id ?? '— (connect Wix OAuth app to auto-fill)'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-navy-600 mb-1">Wix site ID</dt>
+                <dd className="font-mono text-xs text-navy-900 break-all">
+                  {connection?.wix_site_id ?? '— (connect Wix API key to auto-fill)'}
                 </dd>
               </div>
             </dl>
@@ -181,6 +193,31 @@ export default function BookingRecoveryIntegration({
               </div>
               <p className="text-xs text-navy-600">
                 Put the customer phone in the event description (e.g. Phone: +1 …). Keep email on attendees.
+              </p>
+            </div>
+          ) : null}
+
+          {data?.wix_webhook_url ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-navy-900">Wix Bookings cancel webhook URL</p>
+              <div className="flex flex-wrap items-start gap-2">
+                <code className="text-xs break-all text-navy-800 bg-navy-900/5 px-2 py-1 rounded">
+                  {data.wix_webhook_url}
+                </code>
+                <button
+                  type="button"
+                  className="text-sm font-medium text-teal-700 hover:text-teal-800"
+                  onClick={() =>
+                    void copyText(data.wix_webhook_url!).then(() => setSuccess('Wix URL copied.'))
+                  }
+                >
+                  Copy
+                </button>
+              </div>
+              <p className="text-xs text-navy-600">
+                Subscribe your Wix app to <code className="text-xs">booking/canceled</code> and point it
+                here. Routing uses Wix instance ID (preferred) or site ID from your Wix connection.
+                Appointment services only; guest email required on the booking.
               </p>
             </div>
           ) : null}

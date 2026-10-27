@@ -11,6 +11,8 @@ export type BookingRecoveryConnectionRow = {
   square_merchant_id?: string | null
   webhook_token?: string | null
   webhook_secret?: string | null
+  wix_instance_id?: string | null
+  wix_site_id?: string | null
   enabled?: boolean | null
   updated_at?: string | null
 }
@@ -18,10 +20,11 @@ export type BookingRecoveryConnectionRow = {
 export type BookingRecoveryUrls = {
   squareWebhookUrl: string
   googleWebhookUrl: string
+  wixWebhookUrl: string
 }
 
 export const BOOKING_RECOVERY_SELECT =
-  'user_id, langgraph_url, langgraph_api_key, square_merchant_id, webhook_token, webhook_secret, enabled, updated_at'
+  'user_id, langgraph_url, langgraph_api_key, square_merchant_id, webhook_token, webhook_secret, wix_instance_id, wix_site_id, enabled, updated_at'
 
 function trim(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -66,6 +69,7 @@ export function buildRecoveryUrls(
   return {
     squareWebhookUrl: base ? `${base}/v1/square` : '',
     googleWebhookUrl: base && token ? `${base}/v1/google/${token}` : '',
+    wixWebhookUrl: base ? `${base}/v1/wix` : '',
   }
 }
 
@@ -120,6 +124,8 @@ export async function ensureBookingRecoveryRow(
   userId: string,
   options?: {
     squareMerchantId?: string | null
+    wixInstanceId?: string | null
+    wixSiteId?: string | null
     langgraphUrl?: string | null
     langgraphApiKey?: string | null
   },
@@ -136,6 +142,12 @@ export async function ensureBookingRecoveryRow(
     const patch: Record<string, unknown> = {}
     if (options?.squareMerchantId !== undefined) {
       patch.square_merchant_id = emptyToNull(options.squareMerchantId)
+    }
+    if (options?.wixInstanceId !== undefined) {
+      patch.wix_instance_id = emptyToNull(options.wixInstanceId)
+    }
+    if (options?.wixSiteId !== undefined) {
+      patch.wix_site_id = emptyToNull(options.wixSiteId)
     }
     if (options?.langgraphUrl !== undefined && normalizeLanggraphUrl(options.langgraphUrl)) {
       patch.langgraph_url = normalizeLanggraphUrl(options.langgraphUrl)
@@ -177,6 +189,8 @@ export async function ensureBookingRecoveryRow(
     langgraph_url: langgraphUrl,
     langgraph_api_key: emptyToNull(options?.langgraphApiKey) ?? null,
     square_merchant_id: emptyToNull(options?.squareMerchantId) ?? null,
+    wix_instance_id: emptyToNull(options?.wixInstanceId) ?? null,
+    wix_site_id: emptyToNull(options?.wixSiteId) ?? null,
     webhook_token: generateWebhookToken(),
     enabled: true,
   }
@@ -217,7 +231,23 @@ export function publicBookingRecoveryView(row: BookingRecoveryConnectionRow | nu
     square_merchant_id: row.square_merchant_id ?? null,
     webhook_token: row.webhook_token ?? null,
     has_webhook_secret: Boolean(trim(row.webhook_secret)),
+    wix_instance_id: row.wix_instance_id ?? null,
+    wix_site_id: row.wix_site_id ?? null,
     enabled: row.enabled !== false,
     updated_at: row.updated_at ?? null,
+  }
+}
+
+export async function clearBookingRecoveryWixIds(
+  admin: { from: (table: string) => any },
+  userId: string,
+): Promise<void> {
+  if (!userId) return
+  const { error } = await admin
+    .from('booking_recovery_connections')
+    .update({ wix_instance_id: null, wix_site_id: null })
+    .eq('user_id', userId)
+  if (error) {
+    console.warn(`Failed to clear Wix recovery ids for ${userId}:`, error.message)
   }
 }

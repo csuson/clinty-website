@@ -8,6 +8,8 @@ export type BookingRecoveryConnectionView = {
   square_merchant_id: string | null
   webhook_token: string | null
   has_webhook_secret: boolean
+  wix_instance_id: string | null
+  wix_site_id: string | null
   enabled: boolean
   updated_at: string | null
 }
@@ -17,6 +19,7 @@ export type BookingRecoverySettingsResponse = {
   gateway_base_url: string | null
   square_webhook_url: string | null
   google_webhook_url: string | null
+  wix_webhook_url: string | null
 }
 
 async function invokeBookingRecovery(

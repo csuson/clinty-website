@@ -55,6 +55,7 @@ Deno.serve(async (req) => {
         gateway_base_url: gatewayBase || null,
         square_webhook_url: urls.squareWebhookUrl || null,
         google_webhook_url: urls.googleWebhookUrl || null,
+        wix_webhook_url: urls.wixWebhookUrl || null,
       }
     }
 
