@@ -14,6 +14,8 @@ type RecoveryForm = {
   langgraph_url: string
   langgraph_api_key: string
   square_merchant_id: string
+  wix_instance_id: string
+  wix_site_id: string
   webhook_secret: string
   enabled: boolean
 }
@@ -22,6 +24,8 @@ const DEFAULT_FORM: RecoveryForm = {
   langgraph_url: '',
   langgraph_api_key: '',
   square_merchant_id: '',
+  wix_instance_id: '',
+  wix_site_id: '',
   webhook_secret: '',
   enabled: true,
 }
@@ -32,6 +36,8 @@ function settingsToForm(settings: AdminBookingRecoverySettings | null): Recovery
     langgraph_url: settings.langgraph_url || settings.agent_langgraph_url || '',
     langgraph_api_key: '',
     square_merchant_id: settings.square_merchant_id ?? '',
+    wix_instance_id: settings.wix_instance_id ?? '',
+    wix_site_id: settings.wix_site_id ?? '',
     webhook_secret: '',
     enabled: settings.enabled !== false,
   }
@@ -105,6 +111,8 @@ export default function AdminBookingRecoveryPanel({ users, onSaved }: AdminBooki
         langgraph_url: form.langgraph_url.trim(),
         langgraph_api_key: form.langgraph_api_key,
         square_merchant_id: form.square_merchant_id.trim(),
+        wix_instance_id: form.wix_instance_id.trim(),
+        wix_site_id: form.wix_site_id.trim(),
         webhook_secret: form.webhook_secret,
         enabled: form.enabled,
       })
@@ -123,7 +131,11 @@ export default function AdminBookingRecoveryPanel({ users, onSaved }: AdminBooki
 
   async function handleRotateToken() {
     if (!selectedUserId) return
-    if (!window.confirm('Rotate the Google webhook token? Update Apps Script RECOVERY_WEBHOOK_URL after.')) {
+    if (
+      !window.confirm(
+        'Rotate the Google webhook token? The operator must Connect Google Calendar again with the new token.',
+      )
+    ) {
       return
     }
 
@@ -154,8 +166,8 @@ export default function AdminBookingRecoveryPanel({ users, onSaved }: AdminBooki
       <div>
         <h3 className="text-sm font-semibold text-navy-900">Per-user recovery routing</h3>
         <p className="text-sm text-navy-600 mt-1">
-          Maps Square <code className="text-xs">merchant_id</code> and Google Apps Script path tokens to this
-          user&apos;s email-assistant. LangGraph URL syncs from Agent Settings when you save agent URL.
+          Maps Square merchant, Wix instance/site, and Google webhook tokens to this user&apos;s
+          email-assistant. LangGraph URL syncs from Agent Settings when you save the agent URL.
         </p>
       </div>
 
@@ -249,6 +261,36 @@ export default function AdminBookingRecoveryPanel({ users, onSaved }: AdminBooki
           </FormField>
 
           <FormField
+            label="Wix instance ID"
+            id="admin-booking-recovery-wix-instance"
+            hint="Auto-filled on Wix OAuth connect"
+          >
+            <input
+              id="admin-booking-recovery-wix-instance"
+              type="text"
+              value={form.wix_instance_id}
+              onChange={(event) => updateField('wix_instance_id', event.target.value)}
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+
+          <FormField
+            label="Wix site ID"
+            id="admin-booking-recovery-wix-site"
+            hint="Auto-filled on Wix API-key connect; fallback routing key"
+          >
+            <input
+              id="admin-booking-recovery-wix-site"
+              type="text"
+              value={form.wix_site_id}
+              onChange={(event) => updateField('wix_site_id', event.target.value)}
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+
+          <FormField
             label="Webhook secret"
             id="admin-booking-recovery-secret"
             hint="Optional X-Webhook-Secret for this tenant"
@@ -286,19 +328,50 @@ export default function AdminBookingRecoveryPanel({ users, onSaved }: AdminBooki
             </div>
           ) : (
             <p className="text-xs text-amber-800">
-              Set website <code className="text-xs">booking_recovery_gateway_url</code> to show copyable URLs.
+              Set the full booking recovery gateway URL in Infrastructure to show Square/Wix links.
             </p>
           )}
 
-          {settings?.google_webhook_url ? (
+          {settings?.wix_webhook_url ? (
             <div className="space-y-2 text-sm">
-              <p className="font-medium text-navy-900">Google Apps Script URL</p>
+              <p className="font-medium text-navy-900">Wix webhook URL</p>
               <div className="flex items-start gap-2 flex-wrap">
-                <code className="text-xs break-all text-navy-800">{settings.google_webhook_url}</code>
-                <CopyButton value={settings.google_webhook_url} label="Google URL" />
+                <code className="text-xs break-all text-navy-800">{settings.wix_webhook_url}</code>
+                <CopyButton value={settings.wix_webhook_url} label="Wix URL" />
               </div>
             </div>
           ) : null}
+
+          {settings?.google_webhook_url ? (
+            <div className="space-y-2 text-sm">
+              <p className="font-medium text-navy-900">Google gateway target</p>
+              <div className="flex items-start gap-2 flex-wrap">
+                <code className="text-xs break-all text-navy-800">{settings.google_webhook_url}</code>
+                <CopyButton value={settings.google_webhook_url} label="Google gateway URL" />
+              </div>
+            </div>
+          ) : null}
+
+          {settings?.google_calendar_connect_url ? (
+            <div className="space-y-2 text-sm">
+              <p className="font-medium text-navy-900">Google Calendar connect</p>
+              <div className="flex items-start gap-2 flex-wrap">
+                <a
+                  href={settings.google_calendar_connect_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium text-teal-700 hover:text-teal-800"
+                >
+                  Open connect link
+                </a>
+                <CopyButton value={settings.google_calendar_connect_url} label="connect URL" />
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-amber-800">
+              Configure Apps Script Web App URL + connect secret to show a connect link.
+            </p>
+          )}
 
           <div className="flex flex-wrap gap-3">
             <button

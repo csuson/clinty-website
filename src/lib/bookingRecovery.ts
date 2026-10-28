@@ -17,9 +17,14 @@ export type BookingRecoveryConnectionView = {
 export type BookingRecoverySettingsResponse = {
   connection: BookingRecoveryConnectionView | null
   gateway_base_url: string | null
+  google_gateway_base_url: string | null
   square_webhook_url: string | null
   google_webhook_url: string | null
   wix_webhook_url: string | null
+  google_calendar_connect_url: string | null
+  google_calendar_status_url: string | null
+  google_calendar_disconnect_url: string | null
+  apps_script_configured: boolean
 }
 
 async function invokeBookingRecovery(

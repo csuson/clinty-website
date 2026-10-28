@@ -108,9 +108,24 @@ export function countConfiguredWebsiteSettings(settings?: AdminWebsiteSettings |
     ...buildAssistantRuntimeRows(settings),
     ...buildGmailOAuthRows(settings),
     {
-      label: 'Booking recovery gateway',
+      label: 'Booking recovery gateway (Square/Wix)',
       envKey: 'BOOKING_RECOVERY_GATEWAY_URL',
       value: settings?.booking_recovery_gateway_url ?? '',
+    },
+    {
+      label: 'Booking recovery Google gateway',
+      envKey: 'BOOKING_RECOVERY_GOOGLE_GATEWAY_URL',
+      value: settings?.booking_recovery_google_gateway_url ?? '',
+    },
+    {
+      label: 'Apps Script Web App URL',
+      envKey: 'BOOKING_RECOVERY_APPS_SCRIPT_WEB_APP_URL',
+      value: settings?.booking_recovery_apps_script_web_app_url ?? '',
+    },
+    {
+      label: 'Apps Script connect secret',
+      envKey: 'BOOKING_RECOVERY_APPS_SCRIPT_CONNECT_SECRET',
+      value: settings?.has_booking_recovery_apps_script_connect_secret ? 'configured' : '',
     },
   ]
   return rows.filter((row) => row.value.trim()).length

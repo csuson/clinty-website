@@ -2,11 +2,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 import {
   BOOKING_RECOVERY_SELECT,
+  buildAppsScriptConnectUrls,
   buildRecoveryUrls,
   ensureBookingRecoveryRow,
   generateWebhookToken,
   publicBookingRecoveryView,
+  resolveAppsScriptConnectSecret,
+  resolveAppsScriptWebAppUrl,
   resolveBookingRecoveryGatewayUrl,
+  resolveBookingRecoveryGoogleGatewayUrl,
+  syncBookingRecoveryLanggraphUrlFromAgent,
 } from '../_shared/bookingRecoveryInfrastructure.ts'
 import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
 
@@ -46,46 +51,80 @@ Deno.serve(async (req) => {
     }
 
     const websiteSettings = await loadWebsiteSettings(admin)
-    const gatewayBase = resolveBookingRecoveryGatewayUrl(websiteSettings)
+    const fullGatewayBase = resolveBookingRecoveryGatewayUrl(websiteSettings)
+    const googleGatewayBase = resolveBookingRecoveryGoogleGatewayUrl(websiteSettings)
+    const appsScriptWebAppUrl = resolveAppsScriptWebAppUrl(websiteSettings)
+    const appsScriptConnectSecret = resolveAppsScriptConnectSecret(websiteSettings)
 
-    async function loadPayload(row: Awaited<ReturnType<typeof ensureBookingRecoveryRow>>) {
-      const urls = buildRecoveryUrls(gatewayBase, row?.webhook_token)
-      return {
-        connection: publicBookingRecoveryView(row),
-        gateway_base_url: gatewayBase || null,
-        square_webhook_url: urls.squareWebhookUrl || null,
-        google_webhook_url: urls.googleWebhookUrl || null,
-        wix_webhook_url: urls.wixWebhookUrl || null,
-      }
-    }
-
-    if (req.method === 'GET') {
-      const { data: connection } = await admin
+    async function loadRow() {
+      const { data } = await admin
         .from('booking_recovery_connections')
         .select(BOOKING_RECOVERY_SELECT)
         .eq('user_id', user.id)
         .maybeSingle()
+      return data
+    }
 
-      return json(await loadPayload(connection))
+    async function loadPayload(row: Awaited<ReturnType<typeof ensureBookingRecoveryRow>>) {
+      const urls = buildRecoveryUrls(
+        { fullGatewayBase, googleGatewayBase },
+        row?.webhook_token,
+      )
+      const appsScript = buildAppsScriptConnectUrls(
+        appsScriptWebAppUrl,
+        appsScriptConnectSecret,
+        row?.webhook_token,
+      )
+      return {
+        connection: publicBookingRecoveryView(row),
+        gateway_base_url: fullGatewayBase || null,
+        google_gateway_base_url: googleGatewayBase || null,
+        square_webhook_url: urls.squareWebhookUrl || null,
+        google_webhook_url: urls.googleWebhookUrl || null,
+        wix_webhook_url: urls.wixWebhookUrl || null,
+        google_calendar_connect_url: appsScript.connectUrl || null,
+        google_calendar_status_url: appsScript.statusUrl || null,
+        google_calendar_disconnect_url: appsScript.disconnectUrl || null,
+        apps_script_configured: Boolean(appsScriptWebAppUrl && appsScriptConnectSecret),
+      }
+    }
+
+    /** Ensure row exists and refresh langgraph_url from agent_settings.url. */
+    async function ensureAndSync() {
+      const row = await ensureBookingRecoveryRow(admin, user.id)
+      if (!row) return null
+      const { data: agent } = await admin
+        .from('agent_settings')
+        .select('url')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (agent?.url) {
+        await syncBookingRecoveryLanggraphUrlFromAgent(admin, user.id, agent.url)
+        return await loadRow()
+      }
+      return row
+    }
+
+    if (req.method === 'GET') {
+      return json(await loadPayload(await loadRow()))
     }
 
     const body = await req.json().catch(() => ({}))
     const action = typeof body.action === 'string' ? body.action : 'get'
 
     if (action === 'get') {
-      const { data: connection } = await admin
-        .from('booking_recovery_connections')
-        .select(BOOKING_RECOVERY_SELECT)
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      return json(await loadPayload(connection))
+      return json(await loadPayload(await loadRow()))
     }
 
     if (action === 'enable' || action === 'disable') {
-      const row = await ensureBookingRecoveryRow(admin, user.id)
+      const row = await ensureAndSync()
       if (!row) {
-        return json({ error: 'Could not create booking recovery connection (set Agent Settings URL first)' }, 400)
+        return json(
+          { error: 'Could not create booking recovery connection (set Agent Settings URL first)' },
+          400,
+        )
       }
       const { data, error } = await admin
         .from('booking_recovery_connections')
@@ -100,7 +139,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'rotate_token') {
-      const row = await ensureBookingRecoveryRow(admin, user.id)
+      const row = await ensureAndSync()
       if (!row) {
         return json({ error: 'Could not create booking recovery connection' }, 400)
       }
@@ -117,9 +156,15 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'ensure') {
-      const row = await ensureBookingRecoveryRow(admin, user.id)
+      const row = await ensureAndSync()
       if (!row) {
-        return json({ error: 'Could not create booking recovery connection' }, 400)
+        return json(
+          {
+            error:
+              'Could not create booking recovery connection. Ask an admin to set your Agent Settings URL first.',
+          },
+          400,
+        )
       }
       return json(await loadPayload(row))
     }

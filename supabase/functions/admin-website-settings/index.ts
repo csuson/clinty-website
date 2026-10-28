@@ -75,7 +75,15 @@ Deno.serve(async (req) => {
 
     if (action === 'get') {
       const websiteSettings = await loadWebsiteSettings(admin)
-      return json({ websiteSettings })
+      return json({
+        websiteSettings: {
+          ...websiteSettings,
+          booking_recovery_apps_script_connect_secret: '',
+          has_booking_recovery_apps_script_connect_secret: Boolean(
+            websiteSettings.booking_recovery_apps_script_connect_secret?.trim(),
+          ),
+        },
+      })
     }
 
     if (action === 'update') {
@@ -91,6 +99,12 @@ Deno.serve(async (req) => {
         (body.google_client_secret === undefined ||
           String(body.google_client_secret).trim() === '')
 
+      const appsScriptSecretInput = emptyToNull(body.booking_recovery_apps_script_connect_secret)
+      const keepExistingAppsScriptConnectSecret =
+        appsScriptSecretInput === null &&
+        (body.booking_recovery_apps_script_connect_secret === undefined ||
+          String(body.booking_recovery_apps_script_connect_secret).trim() === '')
+
       await saveWebsiteInfrastructure(
         admin,
         {
@@ -104,15 +118,29 @@ Deno.serve(async (req) => {
           whatsapp_web_auth_dir: emptyToNull(body.whatsapp_web_auth_dir) ?? undefined,
           whatsapp_web_langgraph_url: emptyToNull(body.whatsapp_web_langgraph_url) ?? undefined,
           booking_recovery_gateway_url: emptyToNull(body.booking_recovery_gateway_url) ?? undefined,
+          booking_recovery_google_gateway_url:
+            emptyToNull(body.booking_recovery_google_gateway_url) ?? undefined,
+          booking_recovery_apps_script_web_app_url:
+            emptyToNull(body.booking_recovery_apps_script_web_app_url) ?? undefined,
+          booking_recovery_apps_script_connect_secret: appsScriptSecretInput ?? undefined,
           google_client_id:
             body.google_client_id !== undefined ? String(body.google_client_id).trim() : undefined,
           google_client_secret: googleSecretInput ?? undefined,
         },
-        { keepExistingApiKey, keepExistingGoogleSecret },
+        { keepExistingApiKey, keepExistingGoogleSecret, keepExistingAppsScriptConnectSecret },
       )
 
       const websiteSettings = await loadWebsiteSettings(admin)
-      return json({ websiteSettings })
+      // Never return the raw Apps Script connect secret to the browser — only a presence flag.
+      return json({
+        websiteSettings: {
+          ...websiteSettings,
+          booking_recovery_apps_script_connect_secret: '',
+          has_booking_recovery_apps_script_connect_secret: Boolean(
+            websiteSettings.booking_recovery_apps_script_connect_secret?.trim(),
+          ),
+        },
+      })
     }
 
     return json({ error: 'Unknown action' }, 400)

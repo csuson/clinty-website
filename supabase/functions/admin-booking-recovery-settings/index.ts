@@ -3,12 +3,16 @@ import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 import { requireAdminMfa } from '../_shared/adminAuth.ts'
 import {
   BOOKING_RECOVERY_SELECT,
+  buildAppsScriptConnectUrls,
   buildRecoveryUrls,
   emptyToNull,
   generateWebhookToken,
   normalizeLanggraphUrl,
   publicBookingRecoveryView,
+  resolveAppsScriptConnectSecret,
+  resolveAppsScriptWebAppUrl,
   resolveBookingRecoveryGatewayUrl,
+  resolveBookingRecoveryGoogleGatewayUrl,
 } from '../_shared/bookingRecoveryInfrastructure.ts'
 import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
 
@@ -79,7 +83,42 @@ Deno.serve(async (req) => {
     }
 
     const websiteSettings = await loadWebsiteSettings(admin)
-    const gatewayBase = resolveBookingRecoveryGatewayUrl(websiteSettings)
+    const fullGatewayBase = resolveBookingRecoveryGatewayUrl(websiteSettings)
+    const googleGatewayBase = resolveBookingRecoveryGoogleGatewayUrl(websiteSettings)
+    const appsScriptWebAppUrl = resolveAppsScriptWebAppUrl(websiteSettings)
+    const appsScriptConnectSecret = resolveAppsScriptConnectSecret(websiteSettings)
+
+    function payloadFor(connection: Record<string, unknown> | null | undefined) {
+      const urls = buildRecoveryUrls(
+        { fullGatewayBase, googleGatewayBase },
+        connection?.webhook_token as string | null | undefined,
+      )
+      const appsScript = buildAppsScriptConnectUrls(
+        appsScriptWebAppUrl,
+        appsScriptConnectSecret,
+        connection?.webhook_token as string | null | undefined,
+      )
+      return {
+        ...publicBookingRecoveryView(connection as any),
+        user_id: userId,
+        gateway_base_url: fullGatewayBase || null,
+        google_gateway_base_url: googleGatewayBase || null,
+        square_webhook_url: urls.squareWebhookUrl || null,
+        google_webhook_url: urls.googleWebhookUrl || null,
+        wix_webhook_url: urls.wixWebhookUrl || null,
+        google_calendar_connect_url: appsScript.connectUrl || null,
+        google_calendar_status_url: appsScript.statusUrl || null,
+        google_calendar_disconnect_url: appsScript.disconnectUrl || null,
+        apps_script_configured: Boolean(appsScriptWebAppUrl && appsScriptConnectSecret),
+        has_langgraph_api_key: Boolean(
+          typeof connection?.langgraph_api_key === 'string' &&
+            connection.langgraph_api_key.trim(),
+        ),
+        has_webhook_secret: Boolean(
+          typeof connection?.webhook_secret === 'string' && connection.webhook_secret.trim(),
+        ),
+      }
+    }
 
     if (action === 'get') {
       const [{ data: connection }, agentRes] = await Promise.all([
@@ -87,16 +126,9 @@ Deno.serve(async (req) => {
         admin.from('agent_settings').select('url').eq('user_id', userId).maybeSingle(),
       ])
 
-      const urls = buildRecoveryUrls(gatewayBase, connection?.webhook_token)
       return json({
-        ...publicBookingRecoveryView(connection),
-        user_id: userId,
+        ...payloadFor(connection),
         agent_langgraph_url: agentRes.data?.url ?? null,
-        gateway_base_url: gatewayBase || null,
-        square_webhook_url: urls.squareWebhookUrl || null,
-        google_webhook_url: urls.googleWebhookUrl || null,
-        has_langgraph_api_key: Boolean(connection?.langgraph_api_key?.trim()),
-        has_webhook_secret: Boolean(connection?.webhook_secret?.trim()),
       })
     }
 
@@ -154,6 +186,14 @@ Deno.serve(async (req) => {
           body.square_merchant_id !== undefined
             ? emptyToNull(body.square_merchant_id)
             : (existing?.square_merchant_id ?? null),
+        wix_instance_id:
+          body.wix_instance_id !== undefined
+            ? emptyToNull(body.wix_instance_id)
+            : (existing?.wix_instance_id ?? null),
+        wix_site_id:
+          body.wix_site_id !== undefined
+            ? emptyToNull(body.wix_site_id)
+            : (existing?.wix_site_id ?? null),
         webhook_token: webhookToken,
         webhook_secret: keepSecret ? (existing?.webhook_secret ?? null) : secretInput,
         enabled:
@@ -182,13 +222,7 @@ Deno.serve(async (req) => {
         return json({ error: error.message }, 500)
       }
 
-      const urls = buildRecoveryUrls(gatewayBase, data.webhook_token)
-      return json({
-        ...publicBookingRecoveryView(data),
-        gateway_base_url: gatewayBase || null,
-        square_webhook_url: urls.squareWebhookUrl || null,
-        google_webhook_url: urls.googleWebhookUrl || null,
-      })
+      return json(payloadFor(data))
     }
 
     if (action === 'rotate_token') {
@@ -214,13 +248,7 @@ Deno.serve(async (req) => {
         return json({ error: error.message }, 500)
       }
 
-      const urls = buildRecoveryUrls(gatewayBase, data.webhook_token)
-      return json({
-        ...publicBookingRecoveryView(data),
-        gateway_base_url: gatewayBase || null,
-        square_webhook_url: urls.squareWebhookUrl || null,
-        google_webhook_url: urls.googleWebhookUrl || null,
-      })
+      return json(payloadFor(data))
     }
 
     return json({ error: 'Unknown action' }, 400)

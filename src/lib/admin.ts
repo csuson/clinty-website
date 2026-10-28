@@ -123,12 +123,20 @@ export type AdminBookingRecoverySettings = {
   square_merchant_id: string | null
   webhook_token: string | null
   has_webhook_secret: boolean
+  wix_instance_id: string | null
+  wix_site_id: string | null
   enabled: boolean
   updated_at: string | null
   agent_langgraph_url?: string | null
   gateway_base_url: string | null
+  google_gateway_base_url: string | null
   square_webhook_url: string | null
   google_webhook_url: string | null
+  wix_webhook_url: string | null
+  google_calendar_connect_url: string | null
+  google_calendar_status_url: string | null
+  google_calendar_disconnect_url: string | null
+  apps_script_configured: boolean
 }
 
 export type UpdateAdminBookingRecoveryInput = {
@@ -136,6 +144,8 @@ export type UpdateAdminBookingRecoveryInput = {
   langgraph_url?: string
   langgraph_api_key?: string
   square_merchant_id?: string
+  wix_instance_id?: string
+  wix_site_id?: string
   webhook_secret?: string
   enabled?: boolean
   rotate_token?: boolean
@@ -182,6 +192,11 @@ export type AdminWebsiteSettings = {
   whatsapp_web_auth_dir: string
   whatsapp_web_langgraph_url: string
   booking_recovery_gateway_url: string
+  booking_recovery_google_gateway_url: string
+  booking_recovery_apps_script_web_app_url: string
+  /** Always empty from API; use has_booking_recovery_apps_script_connect_secret. */
+  booking_recovery_apps_script_connect_secret: string
+  has_booking_recovery_apps_script_connect_secret?: boolean
   google_client_id: string
   google_client_secret: string
 }
@@ -212,6 +227,9 @@ export type UpdateWebsiteInfrastructureInput = {
   whatsapp_web_auth_dir?: string
   whatsapp_web_langgraph_url?: string
   booking_recovery_gateway_url?: string
+  booking_recovery_google_gateway_url?: string
+  booking_recovery_apps_script_web_app_url?: string
+  booking_recovery_apps_script_connect_secret?: string
   google_client_id?: string
   google_client_secret?: string
 }

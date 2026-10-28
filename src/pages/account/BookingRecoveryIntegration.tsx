@@ -4,6 +4,7 @@ import { GoogleCalendarIcon } from '../../components/IntegrationIcons'
 import {
   disableBookingRecovery,
   enableBookingRecovery,
+  ensureBookingRecovery,
   fetchBookingRecoverySettings,
   rotateBookingRecoveryToken,
   type BookingRecoverySettingsResponse,
@@ -32,10 +33,17 @@ export default function BookingRecoveryIntegration({
     setLoading(true)
     setError(null)
     try {
-      setData(await fetchBookingRecoverySettings())
+      // Ensure row exists and sync langgraph_url from agent_settings on every open.
+      setData(await ensureBookingRecovery())
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load booking recovery settings')
-      setData(null)
+      // Fall back to get so the panel still renders when agent URL is missing.
+      try {
+        setData(await fetchBookingRecoverySettings())
+        setError(err instanceof Error ? err.message : 'Could not ensure recovery connection')
+      } catch (getErr) {
+        setError(getErr instanceof Error ? getErr.message : 'Failed to load booking recovery settings')
+        setData(null)
+      }
     } finally {
       setLoading(false)
     }
@@ -47,7 +55,7 @@ export default function BookingRecoveryIntegration({
 
   const connection = data?.connection ?? null
   const enabled = connection?.enabled === true
-  const hasGateway = Boolean(data?.gateway_base_url)
+  const hasGateway = Boolean(data?.gateway_base_url || data?.google_gateway_base_url)
   const hasAssistant = Boolean(connection?.langgraph_url?.trim())
 
   let status: 'loading' | 'connected' | 'partial' | 'disconnected' | 'unavailable' = 'loading'
@@ -94,8 +102,9 @@ export default function BookingRecoveryIntegration({
     >
       <p className="text-sm text-navy-600 mb-4">
         When you cancel a lesson in Square, Google Calendar, or Wix Bookings, Clinty can email and
-        optionally text the customer with rebooking options. Point those systems at the shared
-        recovery gateway URLs below (not your assistant URL directly).
+        optionally text the customer with rebooking options. Point Square and Wix at the shared
+        gateway URLs below. For Google Calendar, connect via the Apps Script link (no project to
+        create).
       </p>
 
       {error ? (
@@ -172,31 +181,6 @@ export default function BookingRecoveryIntegration({
             </p>
           )}
 
-          {data?.google_webhook_url ? (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-navy-900">
-                Google Apps Script <code className="text-xs">RECOVERY_WEBHOOK_URL</code>
-              </p>
-              <div className="flex flex-wrap items-start gap-2">
-                <code className="text-xs break-all text-navy-800 bg-navy-900/5 px-2 py-1 rounded">
-                  {data.google_webhook_url}
-                </code>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-teal-700 hover:text-teal-800"
-                  onClick={() =>
-                    void copyText(data.google_webhook_url!).then(() => setSuccess('Google URL copied.'))
-                  }
-                >
-                  Copy
-                </button>
-              </div>
-              <p className="text-xs text-navy-600">
-                Put the customer phone in the event description (e.g. Phone: +1 …). Keep email on attendees.
-              </p>
-            </div>
-          ) : null}
-
           {data?.wix_webhook_url ? (
             <div className="space-y-2">
               <p className="text-sm font-medium text-navy-900">Wix Bookings cancel webhook URL</p>
@@ -221,6 +205,58 @@ export default function BookingRecoveryIntegration({
               </p>
             </div>
           ) : null}
+
+          <div className="space-y-2 border-t border-navy-900/5 pt-4">
+            <p className="text-sm font-medium text-navy-900">Google Calendar</p>
+            <p className="text-xs text-navy-600">
+              Connect your Google Calendar once (Clinty&apos;s shared Apps Script). Cancels are posted
+              to the Google recovery gateway automatically — you do not create an Apps Script project.
+              Put customer email (required) and optional WhatsApp phone in the event description.
+            </p>
+            {data?.google_calendar_connect_url ? (
+              <div className="flex flex-wrap gap-3 items-center">
+                <a
+                  href={data.google_calendar_connect_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center bg-navy-900 text-cream font-medium px-5 py-2.5 rounded-xl hover:bg-navy-800"
+                >
+                  Connect Google Calendar
+                </a>
+                {data.google_calendar_status_url ? (
+                  <a
+                    href={data.google_calendar_status_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-teal-700 hover:text-teal-800"
+                  >
+                    Check status
+                  </a>
+                ) : null}
+                {data.google_calendar_disconnect_url ? (
+                  <a
+                    href={data.google_calendar_disconnect_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-navy-700 hover:text-navy-900"
+                  >
+                    Disconnect
+                  </a>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-amber-800">
+                {data?.apps_script_configured === false
+                  ? 'An admin must configure the Apps Script Web App URL and connect secret.'
+                  : 'Enable recovery (or ask an admin for an assistant URL) to get a connect link.'}
+              </p>
+            )}
+            {data?.google_webhook_url ? (
+              <p className="text-xs text-navy-500 break-all">
+                Gateway target (reference): <code className="text-xs">{data.google_webhook_url}</code>
+              </p>
+            ) : null}
+          </div>
 
           <div className="flex flex-wrap gap-3">
             {enabled ? (
@@ -248,12 +284,12 @@ export default function BookingRecoveryIntegration({
               onClick={() => {
                 if (
                   !window.confirm(
-                    'Rotate the Google webhook token? Update Apps Script RECOVERY_WEBHOOK_URL afterward.',
+                    'Rotate the Google webhook token? You will need to Connect Google Calendar again (or reconnect) so the new token is registered.',
                   )
                 ) {
                   return
                 }
-                void runAction(rotateBookingRecoveryToken, 'Webhook token rotated.')
+                void runAction(rotateBookingRecoveryToken, 'Webhook token rotated — reconnect Google Calendar.')
               }}
               className="text-sm font-medium text-navy-700 hover:text-navy-900 disabled:opacity-60"
             >

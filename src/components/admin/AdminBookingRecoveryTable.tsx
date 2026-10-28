@@ -7,18 +7,22 @@ type ColumnId =
   | 'user'
   | 'enabled'
   | 'merchant'
+  | 'wixInstance'
+  | 'wixSite'
   | 'token'
   | 'langgraph'
   | 'updated'
   | 'actions'
 
 const COLUMNS: AdminTableColumn<ColumnId>[] = [
-  { id: 'user', label: 'User', defaultWidth: 180, minWidth: 120 },
-  { id: 'enabled', label: 'Enabled', defaultWidth: 90, minWidth: 70 },
-  { id: 'merchant', label: 'Square merchant', defaultWidth: 160, minWidth: 100 },
-  { id: 'token', label: 'Webhook token', defaultWidth: 160, minWidth: 100 },
-  { id: 'langgraph', label: 'LangGraph URL', defaultWidth: 240, minWidth: 140 },
-  { id: 'updated', label: 'Updated', defaultWidth: 160, minWidth: 110 },
+  { id: 'user', label: 'User', defaultWidth: 160, minWidth: 120 },
+  { id: 'enabled', label: 'Enabled', defaultWidth: 80, minWidth: 70 },
+  { id: 'merchant', label: 'Square merchant', defaultWidth: 140, minWidth: 100 },
+  { id: 'wixInstance', label: 'Wix instance', defaultWidth: 140, minWidth: 100 },
+  { id: 'wixSite', label: 'Wix site', defaultWidth: 140, minWidth: 100 },
+  { id: 'token', label: 'Webhook token', defaultWidth: 140, minWidth: 100 },
+  { id: 'langgraph', label: 'LangGraph URL', defaultWidth: 220, minWidth: 140 },
+  { id: 'updated', label: 'Updated', defaultWidth: 140, minWidth: 110 },
   {
     id: 'actions',
     label: 'Actions',
@@ -65,6 +69,14 @@ export default function AdminBookingRecoveryTable({
           case 'merchant':
             return (
               <ExpandableText value={formatCellValue(row.square_merchant_id)} expanded={expanded} monospace />
+            )
+          case 'wixInstance':
+            return (
+              <ExpandableText value={formatCellValue(row.wix_instance_id)} expanded={expanded} monospace />
+            )
+          case 'wixSite':
+            return (
+              <ExpandableText value={formatCellValue(row.wix_site_id)} expanded={expanded} monospace />
             )
           case 'token':
             return (

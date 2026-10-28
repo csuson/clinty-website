@@ -10,6 +10,9 @@ export type WebsiteInfrastructure = {
   whatsapp_web_auth_dir: string
   whatsapp_web_langgraph_url: string
   booking_recovery_gateway_url: string
+  booking_recovery_google_gateway_url: string
+  booking_recovery_apps_script_web_app_url: string
+  booking_recovery_apps_script_connect_secret: string
   google_client_id: string
   google_client_secret: string
 }
@@ -31,9 +34,15 @@ type WebsiteInfrastructureRow = {
   whatsapp_web_auth_dir?: string | null
   whatsapp_web_langgraph_url?: string | null
   booking_recovery_gateway_url?: string | null
+  booking_recovery_google_gateway_url?: string | null
+  booking_recovery_apps_script_web_app_url?: string | null
+  booking_recovery_apps_script_connect_secret?: string | null
   google_client_id?: string | null
   google_client_secret?: string | null
 }
+
+const INFRASTRUCTURE_SELECT =
+  'whatsapp_web_gateway_url, whatsapp_web_login_api_key, whatsapp_web_debug, whatsapp_web_auth_backend, whatsapp_web_auth_bucket, whatsapp_web_auth_storage_prefix, whatsapp_web_auth_dir, whatsapp_web_langgraph_url, booking_recovery_gateway_url, booking_recovery_google_gateway_url, booking_recovery_apps_script_web_app_url, booking_recovery_apps_script_connect_secret, google_client_id, google_client_secret'
 
 function trim(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -57,6 +66,14 @@ export function loadWebsiteSettingsFromEdgeEnv(): WebsiteSettings {
     whatsapp_web_auth_dir: Deno.env.get('WHATSAPP_WEB_AUTH_DIR') ?? '/tmp/whatsapp-web-auth',
     whatsapp_web_langgraph_url: (Deno.env.get('WHATSAPP_WEB_LANGGRAPH_URL') ?? '').replace(/\/$/, ''),
     booking_recovery_gateway_url: (Deno.env.get('BOOKING_RECOVERY_GATEWAY_URL') ?? '').replace(/\/$/, ''),
+    booking_recovery_google_gateway_url: (
+      Deno.env.get('BOOKING_RECOVERY_GOOGLE_GATEWAY_URL') ?? ''
+    ).replace(/\/$/, ''),
+    booking_recovery_apps_script_web_app_url: (
+      Deno.env.get('BOOKING_RECOVERY_APPS_SCRIPT_WEB_APP_URL') ?? ''
+    ).replace(/\/$/, ''),
+    booking_recovery_apps_script_connect_secret:
+      Deno.env.get('BOOKING_RECOVERY_APPS_SCRIPT_CONNECT_SECRET') ?? '',
     google_client_id: Deno.env.get('GOOGLE_CLIENT_ID') ?? '',
     google_client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '',
   }
@@ -83,6 +100,15 @@ function mergeInfrastructure(
       trim(row.whatsapp_web_langgraph_url).replace(/\/$/, '') || fromEnv.whatsapp_web_langgraph_url,
     booking_recovery_gateway_url:
       trim(row.booking_recovery_gateway_url).replace(/\/$/, '') || fromEnv.booking_recovery_gateway_url,
+    booking_recovery_google_gateway_url:
+      trim(row.booking_recovery_google_gateway_url).replace(/\/$/, '') ||
+      fromEnv.booking_recovery_google_gateway_url,
+    booking_recovery_apps_script_web_app_url:
+      trim(row.booking_recovery_apps_script_web_app_url).replace(/\/$/, '') ||
+      fromEnv.booking_recovery_apps_script_web_app_url,
+    booking_recovery_apps_script_connect_secret:
+      trim(row.booking_recovery_apps_script_connect_secret) ||
+      fromEnv.booking_recovery_apps_script_connect_secret,
     google_client_id: trim(row.google_client_id) || fromEnv.google_client_id,
     google_client_secret: trim(row.google_client_secret) || fromEnv.google_client_secret,
   }
@@ -94,9 +120,7 @@ export async function loadWebsiteSettings(
   const fromEnv = loadWebsiteSettingsFromEdgeEnv()
   const { data } = await admin
     .from('website_infrastructure')
-    .select(
-      'whatsapp_web_gateway_url, whatsapp_web_login_api_key, whatsapp_web_debug, whatsapp_web_auth_backend, whatsapp_web_auth_bucket, whatsapp_web_auth_storage_prefix, whatsapp_web_auth_dir, whatsapp_web_langgraph_url, booking_recovery_gateway_url, google_client_id, google_client_secret',
-    )
+    .select(INFRASTRUCTURE_SELECT)
     .eq('id', 1)
     .maybeSingle()
 
@@ -115,8 +139,13 @@ export async function saveWebsiteInfrastructure(
   input: Partial<WebsiteInfrastructure> & {
     whatsapp_web_login_api_key?: string | null
     google_client_secret?: string | null
+    booking_recovery_apps_script_connect_secret?: string | null
   },
-  options?: { keepExistingApiKey?: boolean; keepExistingGoogleSecret?: boolean },
+  options?: {
+    keepExistingApiKey?: boolean
+    keepExistingGoogleSecret?: boolean
+    keepExistingAppsScriptConnectSecret?: boolean
+  },
 ): Promise<WebsiteInfrastructure> {
   const current = await loadWebsiteSettings(admin)
   const next: WebsiteInfrastructure = {
@@ -153,6 +182,15 @@ export async function saveWebsiteInfrastructure(
       input.booking_recovery_gateway_url !== undefined
         ? trim(input.booking_recovery_gateway_url).replace(/\/$/, '')
         : current.booking_recovery_gateway_url,
+    booking_recovery_google_gateway_url:
+      input.booking_recovery_google_gateway_url !== undefined
+        ? trim(input.booking_recovery_google_gateway_url).replace(/\/$/, '')
+        : current.booking_recovery_google_gateway_url,
+    booking_recovery_apps_script_web_app_url:
+      input.booking_recovery_apps_script_web_app_url !== undefined
+        ? trim(input.booking_recovery_apps_script_web_app_url).replace(/\/$/, '')
+        : current.booking_recovery_apps_script_web_app_url,
+    booking_recovery_apps_script_connect_secret: current.booking_recovery_apps_script_connect_secret,
     google_client_id:
       input.google_client_id !== undefined
         ? trim(input.google_client_id)
@@ -166,6 +204,15 @@ export async function saveWebsiteInfrastructure(
 
   if (input.google_client_secret !== undefined && !options?.keepExistingGoogleSecret) {
     next.google_client_secret = trim(input.google_client_secret)
+  }
+
+  if (
+    input.booking_recovery_apps_script_connect_secret !== undefined &&
+    !options?.keepExistingAppsScriptConnectSecret
+  ) {
+    next.booking_recovery_apps_script_connect_secret = trim(
+      input.booking_recovery_apps_script_connect_secret,
+    )
   }
 
   const { error } = await admin.from('website_infrastructure').upsert({

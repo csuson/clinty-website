@@ -86,28 +86,42 @@ The Vite dev/build tooling also loads this certificate for any Node-side HTTPS c
 
 ## Booking cancel recovery gateway
 
-Multi-tenant cancel recovery routes Square and Google Calendar cancellations through a shared
-**booking-recovery-gateway** service to each operator’s email-assistant.
+Multi-tenant cancel recovery routes provider cancellations to each operator’s email-assistant:
+
+| Ingress | Service |
+|---------|---------|
+| Square / Wix webhooks | **booking-recovery-gateway** (`/v1/square`, `/v1/wix`) |
+| Google Calendar cancels | Shared **Apps Script** Web App → **booking-recovery-google-gateway** (`/v1/google/{token}`) |
 
 ### Admin
 
-1. Apply migration `supabase/migrations/20260926120000_booking_recovery_connections.sql` (`npm run supabase -- db push`).
+1. Apply migrations (`npm run supabase -- db push`):
+   - `20260926120000_booking_recovery_connections.sql`
+   - `20261026120000_wix_booking_recovery.sql`
+   - `20261028120000_booking_recovery_dual_gateway.sql`
 2. Deploy edge functions: `admin-booking-recovery-settings`, `booking-recovery-settings`, plus updated
    `admin-data`, `admin-delete`, `admin-agent-settings`, `admin-website-settings`,
-   `square-oauth-exchange`, `square-oauth-disconnect`.
-3. On **Admin → Infrastructure**, set **Booking recovery gateway** base URL
-   (`website_infrastructure.booking_recovery_gateway_url`), or set Edge secret
-   `BOOKING_RECOVERY_GATEWAY_URL`.
-4. On **Admin → Booking Recovery**, edit per-user `langgraph_url`, Square merchant id, webhook token,
-   secrets. Saving Agent Settings URL also syncs `langgraph_url`.
+   `square-oauth-exchange`, `square-oauth-disconnect`, `wix-connect`, `wix-disconnect`.
+3. On **Admin → Booking recovery gateways**, set:
+   - **Full gateway** URL (Square/Wix) — or Edge secret `BOOKING_RECOVERY_GATEWAY_URL`
+   - **Google-only gateway** URL (Apps Script POSTs) — or `BOOKING_RECOVERY_GOOGLE_GATEWAY_URL`
+     (empty falls back to the full gateway)
+   - **Apps Script Web App** `/exec` URL + **connect secret** (must match Script property
+     `BRIDGE_CONNECT_SECRET`)
+4. On **Admin → Booking Recovery**, edit per-user `langgraph_url`, Square/Wix routing ids, webhook
+   token/secrets. Saving Agent Settings URL also syncs `langgraph_url` onto the recovery row.
+   Opening **Integrations → Cancel recovery** ensures the row and refreshes `langgraph_url` from
+   `agent_settings.url`.
 
 ### Operator
 
-1. Connect Square (merchant id is written to `booking_recovery_connections` automatically).
-2. Open **Integrations → Cancel recovery**, enable recovery, copy:
-   - Square webhook → `{gateway}/v1/square`
-   - Apps Script `RECOVERY_WEBHOOK_URL` → `{gateway}/v1/google/{webhook_token}`
-3. Keep customer phone/email on Square profiles or in Google event description / attendees.
+1. Connect Square and/or Wix (routing ids are written to `booking_recovery_connections` automatically).
+2. Open **Integrations → Cancel recovery** (creates the recovery row if needed), enable recovery, then:
+   - Copy **Square** webhook → `{full-gateway}/v1/square`
+   - Copy **Wix** webhook → `{full-gateway}/v1/wix`
+   - Click **Connect Google Calendar** (shared Apps Script; no project to create)
+3. Keep customer email (required) and optional WhatsApp phone on Square/Wix profiles or in the Google
+   event description / attendees.
 
 ## Gmail Integration Setup
 

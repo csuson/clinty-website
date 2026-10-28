@@ -23,6 +23,12 @@ export type BookingRecoveryUrls = {
   wixWebhookUrl: string
 }
 
+export type AppsScriptConnectUrls = {
+  connectUrl: string
+  statusUrl: string
+  disconnectUrl: string
+}
+
 export const BOOKING_RECOVERY_SELECT =
   'user_id, langgraph_url, langgraph_api_key, square_merchant_id, webhook_token, webhook_secret, wix_instance_id, wix_site_id, enabled, updated_at'
 
@@ -51,6 +57,7 @@ export function generateWebhookToken(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
+/** Full gateway (Square + Wix). */
 export function resolveBookingRecoveryGatewayUrl(
   websiteSettings: WebsiteInfrastructure,
 ): string {
@@ -60,16 +67,76 @@ export function resolveBookingRecoveryGatewayUrl(
   )
 }
 
+/**
+ * Google-only gateway for Apps Script POSTs.
+ * Falls back to the full gateway URL when unset (single-host deployments).
+ */
+export function resolveBookingRecoveryGoogleGatewayUrl(
+  websiteSettings: WebsiteInfrastructure,
+): string {
+  return (
+    normalizeBaseUrl(websiteSettings.booking_recovery_google_gateway_url) ||
+    normalizeBaseUrl(Deno.env.get('BOOKING_RECOVERY_GOOGLE_GATEWAY_URL')) ||
+    resolveBookingRecoveryGatewayUrl(websiteSettings)
+  )
+}
+
+export function resolveAppsScriptWebAppUrl(
+  websiteSettings: WebsiteInfrastructure,
+): string {
+  return (
+    normalizeBaseUrl(websiteSettings.booking_recovery_apps_script_web_app_url) ||
+    normalizeBaseUrl(Deno.env.get('BOOKING_RECOVERY_APPS_SCRIPT_WEB_APP_URL'))
+  )
+}
+
+export function resolveAppsScriptConnectSecret(
+  websiteSettings: WebsiteInfrastructure,
+): string {
+  return (
+    trim(websiteSettings.booking_recovery_apps_script_connect_secret) ||
+    trim(Deno.env.get('BOOKING_RECOVERY_APPS_SCRIPT_CONNECT_SECRET'))
+  )
+}
+
 export function buildRecoveryUrls(
-  gatewayBase: string,
+  bases: { fullGatewayBase: string; googleGatewayBase: string } | string,
   webhookToken: string | null | undefined,
 ): BookingRecoveryUrls {
-  const base = normalizeBaseUrl(gatewayBase)
+  // Back-compat: single string = use for Square, Google, and Wix.
+  const full =
+    typeof bases === 'string'
+      ? normalizeBaseUrl(bases)
+      : normalizeBaseUrl(bases.fullGatewayBase)
+  const google =
+    typeof bases === 'string'
+      ? full
+      : normalizeBaseUrl(bases.googleGatewayBase) || full
   const token = trim(webhookToken)
   return {
-    squareWebhookUrl: base ? `${base}/v1/square` : '',
-    googleWebhookUrl: base && token ? `${base}/v1/google/${token}` : '',
-    wixWebhookUrl: base ? `${base}/v1/wix` : '',
+    squareWebhookUrl: full ? `${full}/v1/square` : '',
+    googleWebhookUrl: google && token ? `${google}/v1/google/${token}` : '',
+    wixWebhookUrl: full ? `${full}/v1/wix` : '',
+  }
+}
+
+export function buildAppsScriptConnectUrls(
+  webAppUrl: string,
+  connectSecret: string,
+  webhookToken: string | null | undefined,
+): AppsScriptConnectUrls {
+  const base = normalizeBaseUrl(webAppUrl)
+  const secret = trim(connectSecret)
+  const token = trim(webhookToken)
+  if (!base || !secret || !token) {
+    return { connectUrl: '', statusUrl: '', disconnectUrl: '' }
+  }
+  const q = (action: string) =>
+    `${base}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(token)}&s=${encodeURIComponent(secret)}`
+  return {
+    connectUrl: q('connect'),
+    statusUrl: q('status'),
+    disconnectUrl: q('disconnect'),
   }
 }
 

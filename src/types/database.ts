@@ -273,6 +273,8 @@ export type BookingRecoveryConnection = {
   square_merchant_id: string | null
   webhook_token: string | null
   webhook_secret: string | null
+  wix_instance_id: string | null
+  wix_site_id: string | null
   enabled: boolean
   updated_at: string
 }
