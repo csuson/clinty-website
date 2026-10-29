@@ -214,35 +214,42 @@ export default function BookingRecoveryIntegration({
               Put customer email (required) and optional WhatsApp phone in the event description.
             </p>
             {data?.google_calendar_connect_url ? (
-              <div className="flex flex-wrap gap-3 items-center">
-                <a
-                  href={data.google_calendar_connect_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center bg-navy-900 text-cream font-medium px-5 py-2.5 rounded-xl hover:bg-navy-800"
-                >
-                  Connect Google Calendar
-                </a>
-                {data.google_calendar_status_url ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-3 items-center">
                   <a
-                    href={data.google_calendar_status_url}
+                    href={data.google_calendar_connect_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm font-medium text-teal-700 hover:text-teal-800"
+                    className="inline-flex items-center bg-navy-900 text-cream font-medium px-5 py-2.5 rounded-xl hover:bg-navy-800"
                   >
-                    Check status
+                    Connect Google Calendar
                   </a>
-                ) : null}
-                {data.google_calendar_disconnect_url ? (
-                  <a
-                    href={data.google_calendar_disconnect_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium text-navy-700 hover:text-navy-900"
-                  >
-                    Disconnect
-                  </a>
-                ) : null}
+                  {data.google_calendar_status_url ? (
+                    <a
+                      href={data.google_calendar_status_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-teal-700 hover:text-teal-800"
+                    >
+                      Check status
+                    </a>
+                  ) : null}
+                  {data.google_calendar_disconnect_url ? (
+                    <a
+                      href={data.google_calendar_disconnect_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-navy-700 hover:text-navy-900"
+                    >
+                      Disconnect
+                    </a>
+                  ) : null}
+                </div>
+                <p className="text-xs text-navy-500">
+                  If Google says it can&apos;t open the file, open the link in an incognito window
+                  signed into a single Google account (multiple signed-in accounts break Apps Script
+                  web apps).
+                </p>
               </div>
             ) : (
               <p className="text-sm text-amber-800">

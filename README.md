@@ -107,7 +107,10 @@ Multi-tenant cancel recovery routes provider cancellations to each operator’s 
    - **Google-only gateway** URL (Apps Script POSTs) — or `BOOKING_RECOVERY_GOOGLE_GATEWAY_URL`
      (empty falls back to the full gateway)
    - **Apps Script Web App** `/exec` URL + **connect secret** (must match Script property
-     `BRIDGE_CONNECT_SECRET`)
+     `BRIDGE_CONNECT_SECRET`). URL must look like
+     `https://script.google.com/macros/s/…/exec` (strip `/u/1/` if present). Operators who see
+     Google’s “unable to open the file” error should retry in an incognito window with a single
+     Google account signed in.
 4. On **Admin → Booking Recovery**, edit per-user `langgraph_url`, Square/Wix routing ids, webhook
    token/secrets. Saving Agent Settings URL also syncs `langgraph_url` onto the recovery row.
    Opening **Integrations → Cancel recovery** ensures the row and refreshes `langgraph_url` from

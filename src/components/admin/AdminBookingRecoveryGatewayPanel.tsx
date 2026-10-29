@@ -132,7 +132,7 @@ export default function AdminBookingRecoveryGatewayPanel({
         <FormField
           label="Apps Script Web App URL"
           id="booking-recovery-apps-script-web-app-url"
-          hint="Deployed /exec URL from script.google.com (Execute as: Me, Anyone)"
+          hint="Deploy → Manage deployments → Web app URL ending in /exec. Use …/macros/s/…/exec (not /macros/u/1/s/…, not the script editor /d/…/edit link)."
         >
           <input
             id="booking-recovery-apps-script-web-app-url"

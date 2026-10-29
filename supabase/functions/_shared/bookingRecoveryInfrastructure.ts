@@ -81,12 +81,31 @@ export function resolveBookingRecoveryGoogleGatewayUrl(
   )
 }
 
+/**
+ * Normalize a deployed Apps Script Web App URL.
+ * Strips query/hash, trailing slash, and multi-login `/macros/u/N/` segments that cause
+ * Google's "Sorry, unable to open the file at this time" error.
+ */
+export function normalizeAppsScriptWebAppUrl(value: unknown): string {
+  let url = trim(value)
+  if (!url) return ''
+  // Drop accidental connect/status query strings pasted from a prior link.
+  const q = url.indexOf('?')
+  if (q >= 0) url = url.slice(0, q)
+  const h = url.indexOf('#')
+  if (h >= 0) url = url.slice(0, h)
+  url = url.replace(/\/$/, '')
+  // https://script.google.com/macros/u/1/s/…/exec → …/macros/s/…/exec
+  url = url.replace(/\/macros\/u\/\d+\//i, '/macros/')
+  return url
+}
+
 export function resolveAppsScriptWebAppUrl(
   websiteSettings: WebsiteInfrastructure,
 ): string {
   return (
-    normalizeBaseUrl(websiteSettings.booking_recovery_apps_script_web_app_url) ||
-    normalizeBaseUrl(Deno.env.get('BOOKING_RECOVERY_APPS_SCRIPT_WEB_APP_URL'))
+    normalizeAppsScriptWebAppUrl(websiteSettings.booking_recovery_apps_script_web_app_url) ||
+    normalizeAppsScriptWebAppUrl(Deno.env.get('BOOKING_RECOVERY_APPS_SCRIPT_WEB_APP_URL'))
   )
 }
 
@@ -125,7 +144,7 @@ export function buildAppsScriptConnectUrls(
   connectSecret: string,
   webhookToken: string | null | undefined,
 ): AppsScriptConnectUrls {
-  const base = normalizeBaseUrl(webAppUrl)
+  const base = normalizeAppsScriptWebAppUrl(webAppUrl)
   const secret = trim(connectSecret)
   const token = trim(webhookToken)
   if (!base || !secret || !token) {

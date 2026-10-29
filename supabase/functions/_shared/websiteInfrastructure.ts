@@ -48,6 +48,19 @@ function trim(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+/** Keep Apps Script /exec URLs free of multi-login /u/N/ segments and pasted query strings. */
+function normalizeAppsScriptWebAppUrl(value: unknown): string {
+  let url = trim(value)
+  if (!url) return ''
+  const q = url.indexOf('?')
+  if (q >= 0) url = url.slice(0, q)
+  const h = url.indexOf('#')
+  if (h >= 0) url = url.slice(0, h)
+  url = url.replace(/\/$/, '')
+  url = url.replace(/\/macros\/u\/\d+\//i, '/macros/')
+  return url
+}
+
 export function loadWebsiteSettingsFromEdgeEnv(): WebsiteSettings {
   return {
     supabase_url: Deno.env.get('SUPABASE_URL') ?? '',
@@ -104,8 +117,8 @@ function mergeInfrastructure(
       trim(row.booking_recovery_google_gateway_url).replace(/\/$/, '') ||
       fromEnv.booking_recovery_google_gateway_url,
     booking_recovery_apps_script_web_app_url:
-      trim(row.booking_recovery_apps_script_web_app_url).replace(/\/$/, '') ||
-      fromEnv.booking_recovery_apps_script_web_app_url,
+      normalizeAppsScriptWebAppUrl(row.booking_recovery_apps_script_web_app_url) ||
+      normalizeAppsScriptWebAppUrl(fromEnv.booking_recovery_apps_script_web_app_url),
     booking_recovery_apps_script_connect_secret:
       trim(row.booking_recovery_apps_script_connect_secret) ||
       fromEnv.booking_recovery_apps_script_connect_secret,
@@ -188,7 +201,7 @@ export async function saveWebsiteInfrastructure(
         : current.booking_recovery_google_gateway_url,
     booking_recovery_apps_script_web_app_url:
       input.booking_recovery_apps_script_web_app_url !== undefined
-        ? trim(input.booking_recovery_apps_script_web_app_url).replace(/\/$/, '')
+        ? normalizeAppsScriptWebAppUrl(input.booking_recovery_apps_script_web_app_url)
         : current.booking_recovery_apps_script_web_app_url,
     booking_recovery_apps_script_connect_secret: current.booking_recovery_apps_script_connect_secret,
     google_client_id:
