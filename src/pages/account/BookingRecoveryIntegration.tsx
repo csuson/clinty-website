@@ -216,14 +216,46 @@ export default function BookingRecoveryIntegration({
             {data?.google_calendar_connect_url ? (
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-3 items-center">
-                  <a
-                    href={data.google_calendar_connect_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center bg-navy-900 text-cream font-medium px-5 py-2.5 rounded-xl hover:bg-navy-800"
+                  <button
+                    type="button"
+                    disabled={working}
+                    onClick={() => {
+                      // Open synchronously so the popup is not blocked after ensure().
+                      const popup = window.open('about:blank', '_blank')
+                      void (async () => {
+                        setWorking(true)
+                        setError(null)
+                        setSuccess(null)
+                        try {
+                          // Fill langgraph_api_key from Clinty API key if null, then open OAuth.
+                          const next = await ensureBookingRecovery()
+                          setData(next)
+                          const url = next.google_calendar_connect_url
+                          if (!url) {
+                            popup?.close()
+                            setError('Connect URL unavailable after sync. Try again.')
+                            return
+                          }
+                          if (popup) {
+                            popup.location.href = url
+                          } else {
+                            window.location.assign(url)
+                          }
+                          setSuccess(
+                            'Opened Google Calendar connect. After authorizing, cancels will use your assistant API key.',
+                          )
+                        } catch (err) {
+                          popup?.close()
+                          setError(err instanceof Error ? err.message : 'Could not prepare Google Calendar connect')
+                        } finally {
+                          setWorking(false)
+                        }
+                      })()
+                    }}
+                    className="inline-flex items-center bg-navy-900 text-cream font-medium px-5 py-2.5 rounded-xl hover:bg-navy-800 disabled:opacity-60"
                   >
-                    Connect Google Calendar
-                  </a>
+                    {working ? 'Preparing…' : 'Connect Google Calendar'}
+                  </button>
                   {data.google_calendar_status_url ? (
                     <a
                       href={data.google_calendar_status_url}

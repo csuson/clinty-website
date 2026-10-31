@@ -7,7 +7,7 @@ import {  assertWithinTokenLimit,
 
 let corsHeaders: Record<string, string> = {}
 
-const MODEL = 'gpt-4o-mini'
+const MODEL = 'gpt-6-luna'
 
 const SYSTEM_PROMPT = `You generate structured H5P builder content for Clinty.
 Return ONLY valid JSON (no markdown fences) matching the requested content type.

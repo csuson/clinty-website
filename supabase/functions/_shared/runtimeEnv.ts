@@ -221,10 +221,16 @@ export function gmailTokenToRuntimeEnv(row: GmailTokenRow | null | undefined): R
     },
   }
 
-  return {
+  const env: RuntimeEnv = {
     GMAIL_TOKEN: JSON.stringify(payload),
     GMAIL_SECRET: JSON.stringify(secretPayload),
   }
+  // Booking recovery / outbound mail use GMAIL_ACCOUNT as the From address.
+  const account = trim(row.google_account)
+  if (account) {
+    env.GMAIL_ACCOUNT = account
+  }
+  return env
 }
 
 export function outlookTokenToRuntimeEnv(row: OutlookTokenRow | null | undefined): RuntimeEnv {
@@ -254,10 +260,15 @@ export function outlookTokenToRuntimeEnv(row: OutlookTokenRow | null | undefined
     expiry: formatGmailExpiry(row.expiry),
   }
 
-  return {
+  const env: RuntimeEnv = {
     OUTLOOK_SECRET: JSON.stringify(secretPayload),
     OUTLOOK_TOKEN: JSON.stringify(tokenPayload),
   }
+  const account = trim(row.outlook_account)
+  if (account) {
+    env.OUTLOOK_ACCOUNT = account
+  }
+  return env
 }
 
 export function shopifyTokenToRuntimeEnv(row: ShopifyTokenRow | null | undefined): RuntimeEnv {

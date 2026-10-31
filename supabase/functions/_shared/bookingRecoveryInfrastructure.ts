@@ -2,6 +2,7 @@
  * Booking recovery gateway infrastructure helpers (multi-tenant routing).
  */
 
+import { resolveAssistantApiKey } from './emailAssistant.ts'
 import type { WebsiteInfrastructure } from './websiteInfrastructure.ts'
 
 export type BookingRecoveryConnectionRow = {
@@ -203,6 +204,43 @@ export async function syncBookingRecoveryLanggraphUrlFromAgent(
       error.message ?? error,
     )
   }
+}
+
+/**
+ * If booking_recovery_connections.langgraph_api_key is null/empty, copy the user's
+ * Clinty API key (agent_settings.clinty_api_key_id → api_keys.key_secret).
+ * Used so the recovery gateway can forward to the assistant after Google Calendar connect.
+ */
+export async function syncBookingRecoveryApiKeyFromAgentIfNull(
+  admin: { from: (table: string) => any },
+  userId: string,
+): Promise<boolean> {
+  if (!userId) return false
+
+  const { data: existing } = await admin
+    .from('booking_recovery_connections')
+    .select('user_id, langgraph_api_key')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (!existing) return false
+  if (trim(existing.langgraph_api_key)) return false
+
+  const apiKey = await resolveAssistantApiKey(admin as any, userId)
+  if (!apiKey) return false
+
+  const { error } = await admin
+    .from('booking_recovery_connections')
+    .update({ langgraph_api_key: apiKey })
+    .eq('user_id', userId)
+  if (error) {
+    console.warn(
+      `Failed to sync booking recovery langgraph_api_key for user ${userId}:`,
+      error.message ?? error,
+    )
+    return false
+  }
+  return true
 }
 
 export async function ensureBookingRecoveryRow(

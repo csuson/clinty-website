@@ -322,7 +322,7 @@ Deno.serve(async (req) => {
       await recordAiUsageWithAlerts(admin, {
         user_id: user.id,
         feature: 'prompt_background',
-        model: 'gpt-4o-mini',
+        model: 'gpt-6-luna',
         usage: generated.usage,
       })
       return json({
@@ -355,7 +355,7 @@ Deno.serve(async (req) => {
     await recordAiUsageWithAlerts(admin, {
       user_id: user.id,
       feature: 'prompt_background',
-      model: 'gpt-4o-mini',
+      model: 'gpt-6-luna',
       usage: generated.usage,
     })
     return json({
@@ -1590,7 +1590,7 @@ async function classifyBusinessType(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-6-luna',
       temperature: 0,
       max_tokens: 20,
       messages: [
@@ -1636,7 +1636,7 @@ async function generateBackground(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-6-luna',
       temperature: 0.2,
       messages: [
         { role: 'system', content: buildGenerationSystemPrompt(businessType) },
@@ -1689,7 +1689,7 @@ async function generateWelcomeFromBackground(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-6-luna',
       temperature: 0.4,
       messages: [
         { role: 'system', content: WELCOME_SYSTEM_PROMPT },

@@ -11,6 +11,7 @@ import {
   resolveAppsScriptWebAppUrl,
   resolveBookingRecoveryGatewayUrl,
   resolveBookingRecoveryGoogleGatewayUrl,
+  syncBookingRecoveryApiKeyFromAgentIfNull,
   syncBookingRecoveryLanggraphUrlFromAgent,
 } from '../_shared/bookingRecoveryInfrastructure.ts'
 import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
@@ -89,7 +90,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    /** Ensure row exists and refresh langgraph_url from agent_settings.url. */
+    /** Ensure row exists; refresh langgraph_url; fill langgraph_api_key if null. */
     async function ensureAndSync() {
       const row = await ensureBookingRecoveryRow(admin, user.id)
       if (!row) return null
@@ -102,9 +103,10 @@ Deno.serve(async (req) => {
         .maybeSingle()
       if (agent?.url) {
         await syncBookingRecoveryLanggraphUrlFromAgent(admin, user.id, agent.url)
-        return await loadRow()
       }
-      return row
+      // Gateway forward auth: copy Clinty API key when recovery row has none.
+      await syncBookingRecoveryApiKeyFromAgentIfNull(admin, user.id)
+      return await loadRow()
     }
 
     if (req.method === 'GET') {
