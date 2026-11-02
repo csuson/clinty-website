@@ -1,4 +1,4 @@
-import { useMemo, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import AgentBehaviorFields, {
   agentBehaviorFromRow,
@@ -7,7 +7,12 @@ import AgentBehaviorFields, {
 import FormField from './FormField'
 import { SecretInput, SecretValue } from './SecretField'
 import { inputClass } from '../constants/forms'
-import type { AdminApiKey, CreateAgentSettingsInput } from '../lib/admin'
+import type {
+  AdminApiKey,
+  AdminShopifyToken,
+  AdminWixToken,
+  CreateAgentSettingsInput,
+} from '../lib/admin'
 import { maskApiKey } from '../lib/apiKeys'
 
 export const emptyAgentSettingsForm: CreateAgentSettingsInput = {
@@ -84,7 +89,7 @@ export function toAgentSettingsPayload(form: CreateAgentSettingsInput): CreateAg
   }
 }
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="bg-white rounded-2xl border border-navy-900/5 p-6 shadow-sm space-y-5">
       <h2 className="text-lg font-semibold text-navy-900">{title}</h2>
@@ -93,7 +98,97 @@ function SectionCard({ title, children }: { title: string; children: React.React
   )
 }
 
-function BehaviorSubsection({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+/** Accordion card — opens by default when `hasData` is true; re-syncs when that flips. */
+function AccordionSection({
+  title,
+  hasData,
+  children,
+}: {
+  title: string
+  hasData: boolean
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(hasData)
+
+  useEffect(() => {
+    setOpen(hasData)
+  }, [hasData])
+
+  return (
+    <section className="bg-white rounded-2xl border border-navy-900/5 shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 px-6 py-4 text-left hover:bg-cream/40 transition-colors"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <h2 className="text-lg font-semibold text-navy-900">{title}</h2>
+          <span
+            className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
+              hasData ? 'bg-teal-400/15 text-teal-700' : 'bg-navy-900/5 text-navy-500'
+            }`}
+          >
+            {hasData ? 'Has data' : 'Empty'}
+          </span>
+        </div>
+        <svg
+          className={`w-5 h-5 text-navy-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          aria-hidden
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open ? <div className="px-6 pb-6 space-y-5 border-t border-navy-900/5 pt-5">{children}</div> : null}
+    </section>
+  )
+}
+
+function ReadOnlyField({
+  label,
+  value,
+  secret = false,
+}: {
+  label: string
+  value: string | null | undefined
+  secret?: boolean
+}) {
+  const trimmed = typeof value === 'string' ? value.trim() : ''
+  return (
+    <div>
+      <p className="text-sm font-medium text-navy-700 mb-1">{label}</p>
+      {!trimmed ? (
+        <p className="text-sm text-navy-500">—</p>
+      ) : secret ? (
+        <SecretValue value={trimmed} truncateLength={24} />
+      ) : (
+        <p className="text-sm text-navy-900 font-mono break-all">{trimmed}</p>
+      )}
+    </div>
+  )
+}
+
+function hasNonEmpty(value: unknown): boolean {
+  if (value === null || value === undefined) return false
+  if (typeof value === 'number') return true
+  return String(value).trim().length > 0
+}
+
+function hasSquareFormData(form: CreateAgentSettingsInput): boolean {
+  return (
+    hasNonEmpty(form.square_access_token) ||
+    hasNonEmpty(form.square_location_id) ||
+    hasNonEmpty(form.square_service_variation_id) ||
+    form.square_service_variation_version != null ||
+    hasNonEmpty(form.square_team_member_id) ||
+    hasNonEmpty(form.square_timezone)
+  )
+}
+
+function BehaviorSubsection({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
     <div className="space-y-4">
       <div>
@@ -124,6 +219,8 @@ type AdminAgentSettingsFormProps = {
   setForm: React.Dispatch<React.SetStateAction<CreateAgentSettingsInput>>
   users: { id: string; email: string }[]
   apiKeys: AdminApiKey[]
+  wixTokens?: AdminWixToken[]
+  shopifyTokens?: AdminShopifyToken[]
   saving: boolean
   submitLabel: string
   savingLabel: string
@@ -136,6 +233,8 @@ export default function AdminAgentSettingsForm({
   setForm,
   users,
   apiKeys,
+  wixTokens = [],
+  shopifyTokens = [],
   saving,
   submitLabel,
   savingLabel,
@@ -146,6 +245,20 @@ export default function AdminAgentSettingsForm({
     () => getUserApiKeys(apiKeys, form.user_id),
     [apiKeys, form.user_id],
   )
+
+  const wixToken = useMemo(
+    () => wixTokens.find((token) => token.user_id === form.user_id) ?? null,
+    [wixTokens, form.user_id],
+  )
+
+  const shopifyToken = useMemo(
+    () => shopifyTokens.find((token) => token.user_id === form.user_id) ?? null,
+    [shopifyTokens, form.user_id],
+  )
+
+  const squareHasData = hasSquareFormData(form)
+  const wixHasData = Boolean(wixToken)
+  const shopifyHasData = Boolean(shopifyToken)
 
   const selectedApiKey = useMemo(
     () => userApiKeys.find((key) => key.id === form.clinty_api_key_id) ?? null,
@@ -380,7 +493,7 @@ export default function AdminAgentSettingsForm({
         </div>
       </SectionCard>
 
-      <SectionCard title="Square">
+      <AccordionSection title="Square" hasData={squareHasData}>
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <FormField label="Square Access Token" id="agent-square-token">
@@ -463,7 +576,72 @@ export default function AdminAgentSettingsForm({
             />
           </FormField>
         </div>
-      </SectionCard>
+      </AccordionSection>
+
+      <AccordionSection title="Wix" hasData={wixHasData}>
+        {!form.user_id ? (
+          <p className="text-sm text-navy-500">Select a user to see their Wix connection.</p>
+        ) : !wixToken ? (
+          <p className="text-sm text-navy-600">
+            No Wix connection for this user. Operators connect under Integrations → Wix.
+          </p>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2">
+            <ReadOnlyField label="Status" value={wixToken.connection_status} />
+            <ReadOnlyField label="Display name" value={wixToken.display_name} />
+            <ReadOnlyField label="Site ID" value={wixToken.site_id} />
+            <ReadOnlyField label="Instance ID" value={wixToken.instance_id} />
+            <ReadOnlyField label="Service ID" value={wixToken.service_id} />
+            <ReadOnlyField label="Timezone" value={wixToken.timezone} />
+            <ReadOnlyField label="Resource ID" value={wixToken.resource_id} />
+            <ReadOnlyField label="Location ID" value={wixToken.location_id} />
+            <ReadOnlyField label="App ID" value={wixToken.app_id} />
+            <div className="sm:col-span-2">
+              <ReadOnlyField label="API key" value={wixToken.api_key} secret />
+            </div>
+            {wixToken.last_error ? (
+              <div className="sm:col-span-2">
+                <ReadOnlyField label="Last error" value={wixToken.last_error} />
+              </div>
+            ) : null}
+          </div>
+        )}
+      </AccordionSection>
+
+      <AccordionSection title="Shopify" hasData={shopifyHasData}>
+        {!form.user_id ? (
+          <p className="text-sm text-navy-500">Select a user to see their Shopify connection.</p>
+        ) : !shopifyToken ? (
+          <p className="text-sm text-navy-600">
+            No Shopify connection for this user. Operators connect under Integrations → Shopify.
+          </p>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2">
+            <ReadOnlyField label="Status" value={shopifyToken.connection_status} />
+            <ReadOnlyField label="Shop name" value={shopifyToken.shop_name} />
+            <ReadOnlyField label="Shop domain" value={shopifyToken.shop_domain} />
+            <ReadOnlyField label="Client ID" value={shopifyToken.client_id} />
+            <div className="sm:col-span-2">
+              <ReadOnlyField
+                label="Scopes"
+                value={shopifyToken.scopes?.length ? shopifyToken.scopes.join(', ') : null}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <ReadOnlyField label="Access token" value={shopifyToken.access_token} secret />
+            </div>
+            <div className="sm:col-span-2">
+              <ReadOnlyField
+                label="Storefront access token"
+                value={shopifyToken.storefront_access_token}
+                secret
+              />
+            </div>
+            <ReadOnlyField label="Connected at" value={shopifyToken.connected_at} />
+            <ReadOnlyField label="Updated at" value={shopifyToken.updated_at} />
+          </div>
+        )}
+      </AccordionSection>
 
       <SectionCard title="Agent Behavior">
         <div className="space-y-8">

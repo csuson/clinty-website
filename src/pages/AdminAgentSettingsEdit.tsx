@@ -7,6 +7,8 @@ import {
   updateAgentSettings,
   type AdminAgentSettings,
   type AdminApiKey,
+  type AdminShopifyToken,
+  type AdminWixToken,
   type CreateAgentSettingsInput,
 } from '../lib/admin'
 
@@ -43,6 +45,8 @@ export default function AdminAgentSettingsEdit() {
   const navigate = useNavigate()
   const [form, setForm] = useState<CreateAgentSettingsInput>(emptyAgentSettingsForm)
   const [apiKeys, setApiKeys] = useState<AdminApiKey[]>([])
+  const [wixTokens, setWixTokens] = useState<AdminWixToken[]>([])
+  const [shopifyTokens, setShopifyTokens] = useState<AdminShopifyToken[]>([])
   const [users, setUsers] = useState<{ id: string; email: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -76,6 +80,8 @@ export default function AdminAgentSettingsEdit() {
           (key) => !key.revoked_at || key.id === settings.clinty_api_key_id,
         ),
       )
+      setWixTokens(data.wixTokens ?? [])
+      setShopifyTokens(data.shopifyTokens ?? [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load agent settings')
     } finally {
@@ -142,6 +148,8 @@ export default function AdminAgentSettingsEdit() {
             setForm={setForm}
             users={users}
             apiKeys={apiKeys}
+            wixTokens={wixTokens}
+            shopifyTokens={shopifyTokens}
             saving={saving}
             submitLabel="Save Changes"
             savingLabel="Saving…"

@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AdminAgentSettingsForm, { emptyAgentSettingsForm } from '../components/AdminAgentSettingsForm'
-import { createAgentSettings, fetchAdminData, type AdminApiKey, type CreateAgentSettingsInput } from '../lib/admin'
+import {
+  createAgentSettings,
+  fetchAdminData,
+  type AdminApiKey,
+  type AdminShopifyToken,
+  type AdminWixToken,
+  type CreateAgentSettingsInput,
+} from '../lib/admin'
 
 export default function AdminAgentSettingsNew() {
   const navigate = useNavigate()
   const [form, setForm] = useState<CreateAgentSettingsInput>(emptyAgentSettingsForm)
   const [apiKeys, setApiKeys] = useState<AdminApiKey[]>([])
+  const [wixTokens, setWixTokens] = useState<AdminWixToken[]>([])
+  const [shopifyTokens, setShopifyTokens] = useState<AdminShopifyToken[]>([])
   const [users, setUsers] = useState<{ id: string; email: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -20,6 +29,8 @@ export default function AdminAgentSettingsNew() {
       const data = await fetchAdminData()
       setUsers(data.users.map((user) => ({ id: user.id, email: user.email })))
       setApiKeys(data.apiKeys.filter((key) => !key.revoked_at))
+      setWixTokens(data.wixTokens ?? [])
+      setShopifyTokens(data.shopifyTokens ?? [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load admin data')
     } finally {
@@ -77,6 +88,8 @@ export default function AdminAgentSettingsNew() {
             setForm={setForm}
             users={users}
             apiKeys={apiKeys}
+            wixTokens={wixTokens}
+            shopifyTokens={shopifyTokens}
             saving={saving}
             submitLabel="Create Agent Settings"
             savingLabel="Creating…"
