@@ -126,6 +126,12 @@ export default function SquareIntegration({ expanded, onToggle }: SquareIntegrat
                 <dd className="font-medium text-navy-900">{connection.business_name ?? '—'}</dd>
               </div>
               <div>
+                <dt className="text-navy-600 mb-1">Square merchant ID</dt>
+                <dd className="font-medium text-navy-900 font-mono text-xs break-all">
+                  {connection.merchant_id ?? '—'}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-navy-600 mb-1">Location</dt>
                 <dd className="font-medium text-navy-900">{connection.location_name ?? '—'}</dd>
               </div>

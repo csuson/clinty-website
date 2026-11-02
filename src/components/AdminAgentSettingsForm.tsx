@@ -10,6 +10,7 @@ import { inputClass } from '../constants/forms'
 import type {
   AdminApiKey,
   AdminShopifyToken,
+  AdminSquareToken,
   AdminWixToken,
   CreateAgentSettingsInput,
 } from '../lib/admin'
@@ -219,6 +220,7 @@ type AdminAgentSettingsFormProps = {
   setForm: React.Dispatch<React.SetStateAction<CreateAgentSettingsInput>>
   users: { id: string; email: string }[]
   apiKeys: AdminApiKey[]
+  squareTokens?: AdminSquareToken[]
   wixTokens?: AdminWixToken[]
   shopifyTokens?: AdminShopifyToken[]
   saving: boolean
@@ -233,6 +235,7 @@ export default function AdminAgentSettingsForm({
   setForm,
   users,
   apiKeys,
+  squareTokens = [],
   wixTokens = [],
   shopifyTokens = [],
   saving,
@@ -246,6 +249,11 @@ export default function AdminAgentSettingsForm({
     [apiKeys, form.user_id],
   )
 
+  const squareToken = useMemo(
+    () => squareTokens.find((token) => token.user_id === form.user_id) ?? null,
+    [squareTokens, form.user_id],
+  )
+
   const wixToken = useMemo(
     () => wixTokens.find((token) => token.user_id === form.user_id) ?? null,
     [wixTokens, form.user_id],
@@ -256,7 +264,7 @@ export default function AdminAgentSettingsForm({
     [shopifyTokens, form.user_id],
   )
 
-  const squareHasData = hasSquareFormData(form)
+  const squareHasData = hasSquareFormData(form) || Boolean(squareToken)
   const wixHasData = Boolean(wixToken)
   const shopifyHasData = Boolean(shopifyToken)
 
@@ -495,6 +503,18 @@ export default function AdminAgentSettingsForm({
 
       <AccordionSection title="Square" hasData={squareHasData}>
         <div className="grid gap-5 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <ReadOnlyField
+              label="Square merchant ID"
+              value={squareToken?.merchant_id ?? null}
+            />
+            {!squareToken?.merchant_id ? (
+              <p className="text-xs text-navy-500 mt-1">
+                Filled when the operator connects Square under Integrations (used for cancel recovery
+                routing).
+              </p>
+            ) : null}
+          </div>
           <div className="sm:col-span-2">
             <FormField label="Square Access Token" id="agent-square-token">
               <SecretInput

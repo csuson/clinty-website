@@ -39,6 +39,7 @@ type ColumnId =
   | 'logLevel'
   | 'pgoptions'
   | 'postgresSchema'
+  | 'squareMerchant'
   | 'squareToken'
   | 'squareLocation'
   | 'squareVariation'
@@ -68,6 +69,7 @@ const COLUMNS: AdminTableColumn<ColumnId>[] = [
   { id: 'logLevel', label: 'Log Level', defaultWidth: 100, minWidth: 80 },
   { id: 'pgoptions', label: 'PGOPTIONS', defaultWidth: 160, minWidth: 100 },
   { id: 'postgresSchema', label: 'Postgres Schema', defaultWidth: 130, minWidth: 90 },
+  { id: 'squareMerchant', label: 'Square Merchant', defaultWidth: 140, minWidth: 100 },
   { id: 'squareToken', label: 'Square Token', defaultWidth: 140, minWidth: 100 },
   { id: 'squareLocation', label: 'Square Location', defaultWidth: 130, minWidth: 90 },
   { id: 'squareVariation', label: 'Square Variation', defaultWidth: 130, minWidth: 90 },
@@ -275,6 +277,13 @@ export default function AdminAgentSettingsTable({
             return (
               <TextCell value={row.postgres_schema} expanded={expanded} label="Postgres schema" monospace />
             )
+          case 'squareMerchant': {
+            const merchantId =
+              squareTokens.find((token) => token.user_id === row.user_id)?.merchant_id ?? null
+            return (
+              <TextCell value={merchantId} expanded={expanded} label="Square merchant" monospace />
+            )
+          }
           case 'squareToken':
             return <SecretCell value={row.square_access_token} expanded={expanded} />
           case 'squareLocation':

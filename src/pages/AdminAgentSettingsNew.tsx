@@ -6,6 +6,7 @@ import {
   fetchAdminData,
   type AdminApiKey,
   type AdminShopifyToken,
+  type AdminSquareToken,
   type AdminWixToken,
   type CreateAgentSettingsInput,
 } from '../lib/admin'
@@ -14,6 +15,7 @@ export default function AdminAgentSettingsNew() {
   const navigate = useNavigate()
   const [form, setForm] = useState<CreateAgentSettingsInput>(emptyAgentSettingsForm)
   const [apiKeys, setApiKeys] = useState<AdminApiKey[]>([])
+  const [squareTokens, setSquareTokens] = useState<AdminSquareToken[]>([])
   const [wixTokens, setWixTokens] = useState<AdminWixToken[]>([])
   const [shopifyTokens, setShopifyTokens] = useState<AdminShopifyToken[]>([])
   const [users, setUsers] = useState<{ id: string; email: string }[]>([])
@@ -29,6 +31,7 @@ export default function AdminAgentSettingsNew() {
       const data = await fetchAdminData()
       setUsers(data.users.map((user) => ({ id: user.id, email: user.email })))
       setApiKeys(data.apiKeys.filter((key) => !key.revoked_at))
+      setSquareTokens(data.squareTokens ?? [])
       setWixTokens(data.wixTokens ?? [])
       setShopifyTokens(data.shopifyTokens ?? [])
     } catch (err) {
@@ -88,6 +91,7 @@ export default function AdminAgentSettingsNew() {
             setForm={setForm}
             users={users}
             apiKeys={apiKeys}
+            squareTokens={squareTokens}
             wixTokens={wixTokens}
             shopifyTokens={shopifyTokens}
             saving={saving}

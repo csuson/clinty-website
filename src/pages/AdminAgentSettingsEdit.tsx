@@ -8,6 +8,7 @@ import {
   type AdminAgentSettings,
   type AdminApiKey,
   type AdminShopifyToken,
+  type AdminSquareToken,
   type AdminWixToken,
   type CreateAgentSettingsInput,
 } from '../lib/admin'
@@ -45,6 +46,7 @@ export default function AdminAgentSettingsEdit() {
   const navigate = useNavigate()
   const [form, setForm] = useState<CreateAgentSettingsInput>(emptyAgentSettingsForm)
   const [apiKeys, setApiKeys] = useState<AdminApiKey[]>([])
+  const [squareTokens, setSquareTokens] = useState<AdminSquareToken[]>([])
   const [wixTokens, setWixTokens] = useState<AdminWixToken[]>([])
   const [shopifyTokens, setShopifyTokens] = useState<AdminShopifyToken[]>([])
   const [users, setUsers] = useState<{ id: string; email: string }[]>([])
@@ -80,6 +82,7 @@ export default function AdminAgentSettingsEdit() {
           (key) => !key.revoked_at || key.id === settings.clinty_api_key_id,
         ),
       )
+      setSquareTokens(data.squareTokens ?? [])
       setWixTokens(data.wixTokens ?? [])
       setShopifyTokens(data.shopifyTokens ?? [])
     } catch (err) {
@@ -148,6 +151,7 @@ export default function AdminAgentSettingsEdit() {
             setForm={setForm}
             users={users}
             apiKeys={apiKeys}
+            squareTokens={squareTokens}
             wixTokens={wixTokens}
             shopifyTokens={shopifyTokens}
             saving={saving}
