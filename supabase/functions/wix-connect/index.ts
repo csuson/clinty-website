@@ -112,6 +112,20 @@ Deno.serve(async (req) => {
       return json({ error: validated.error }, 400)
     }
 
+    // Claim cancel-recovery routing before writing calendar tokens so a 409
+    // does not leave Wix Bookings "connected" without gateway routing.
+    try {
+      await ensureBookingRecoveryRow(admin, user.id, {
+        wixInstanceId: resolvedInstance || null,
+        wixSiteId: resolvedSite || null,
+      })
+    } catch (err) {
+      if (err instanceof BookingRecoveryRoutingConflictError) {
+        return json({ error: err.message, code: err.code }, 409)
+      }
+      throw err
+    }
+
     const { error: tokenError } = await admin.from('wix_tokens').upsert({
       user_id: user.id,
       api_key: resolvedKey || null,
@@ -140,19 +154,6 @@ Deno.serve(async (req) => {
     if (connError) return json({ error: connError.message }, 500)
 
     const exclusive = await activateBookingProvider(admin, user.id, 'wix')
-
-    // W2/W4: keep cancel-recovery gateway routing keys in sync with Wix connect.
-    try {
-      await ensureBookingRecoveryRow(admin, user.id, {
-        wixInstanceId: resolvedInstance || null,
-        wixSiteId: resolvedSite || null,
-      })
-    } catch (err) {
-      if (err instanceof BookingRecoveryRoutingConflictError) {
-        return json({ error: err.message, code: err.code }, 409)
-      }
-      throw err
-    }
 
     const assistantReload = await notifyEmailAssistantRuntimeReload(admin, user.id, {
       ...exclusive,

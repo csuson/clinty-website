@@ -1,6 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { activateBookingProvider } from '../_shared/bookingProviderSwitch.ts'
-import { ensureBookingRecoveryRow } from '../_shared/bookingRecoveryInfrastructure.ts'
+import {
+  BookingRecoveryRoutingConflictError,
+  ensureBookingRecoveryRow,
+} from '../_shared/bookingRecoveryInfrastructure.ts'
 import { notifyEmailAssistantRuntimeReload } from '../_shared/emailAssistant.ts'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 
@@ -291,6 +294,17 @@ Deno.serve(async (req) => {
 
     const merchantContext = await fetchMerchantContext(useSandbox, accessToken, merchantId)
 
+    // Claim cancel-recovery merchant routing before calendar tokens so a conflict
+    // does not leave Square "connected" without gateway routing.
+    try {
+      await ensureBookingRecoveryRow(admin, user.id, { squareMerchantId: merchantId })
+    } catch (err) {
+      if (err instanceof BookingRecoveryRoutingConflictError) {
+        return json({ error: err.message, code: err.code }, 409)
+      }
+      throw err
+    }
+
     const { error: tokenError } = await admin.from('square_tokens').upsert({
       user_id: user.id,
       access_token: accessToken,
@@ -326,8 +340,6 @@ Deno.serve(async (req) => {
     if (connError) {
       return json({ error: connError.message }, 500)
     }
-
-    await ensureBookingRecoveryRow(admin, user.id, { squareMerchantId: merchantId })
 
     await syncAgentSettings(
       admin,

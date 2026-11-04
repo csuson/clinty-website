@@ -36,12 +36,23 @@ export const BOOKING_RECOVERY_SELECT =
 export const WIX_ROUTING_CONFLICT_MESSAGE =
   'This Wix site/instance is already linked to another Clinty account.'
 
-export class BookingRecoveryRoutingConflictError extends Error {
-  readonly code = 'wix_routing_taken' as const
+export const SQUARE_ROUTING_CONFLICT_MESSAGE =
+  'This Square merchant is already linked to another Clinty account.'
 
-  constructor(message: string = WIX_ROUTING_CONFLICT_MESSAGE) {
+export type BookingRecoveryRoutingConflictCode =
+  | 'wix_routing_taken'
+  | 'square_routing_taken'
+
+export class BookingRecoveryRoutingConflictError extends Error {
+  readonly code: BookingRecoveryRoutingConflictCode
+
+  constructor(
+    message: string = WIX_ROUTING_CONFLICT_MESSAGE,
+    code: BookingRecoveryRoutingConflictCode = 'wix_routing_taken',
+  ) {
     super(message)
     this.name = 'BookingRecoveryRoutingConflictError'
+    this.code = code
   }
 }
 
@@ -292,6 +303,47 @@ async function assertWixRoutingAvailable(
   }
 }
 
+async function assertSquareMerchantAvailable(
+  admin: { from: (table: string) => any },
+  userId: string,
+  squareMerchantId: string | null,
+): Promise<void> {
+  if (!squareMerchantId) return
+  const { data } = await admin
+    .from('booking_recovery_connections')
+    .select('user_id')
+    .eq('square_merchant_id', squareMerchantId)
+    .neq('user_id', userId)
+    .maybeSingle()
+  if (data?.user_id) {
+    throw new BookingRecoveryRoutingConflictError(
+      SQUARE_ROUTING_CONFLICT_MESSAGE,
+      'square_routing_taken',
+    )
+  }
+}
+
+function routingConflictFromDbError(
+  error: { code?: string; message?: string },
+  options?: {
+    squareMerchantId?: string | null
+    wixInstanceId?: string | null
+    wixSiteId?: string | null
+  },
+): BookingRecoveryRoutingConflictError {
+  const msg = String(error.message ?? '').toLowerCase()
+  const squareAsked = options?.squareMerchantId !== undefined
+  const wixAsked =
+    options?.wixInstanceId !== undefined || options?.wixSiteId !== undefined
+  if (squareAsked && (!wixAsked || msg.includes('square_merchant'))) {
+    return new BookingRecoveryRoutingConflictError(
+      SQUARE_ROUTING_CONFLICT_MESSAGE,
+      'square_routing_taken',
+    )
+  }
+  return new BookingRecoveryRoutingConflictError(WIX_ROUTING_CONFLICT_MESSAGE)
+}
+
 export async function ensureBookingRecoveryRow(
   admin: { from: (table: string) => any },
   userId: string,
@@ -308,6 +360,8 @@ export async function ensureBookingRecoveryRow(
   const nextInstance =
     options?.wixInstanceId !== undefined ? emptyToNull(options.wixInstanceId) : undefined
   const nextSite = options?.wixSiteId !== undefined ? emptyToNull(options.wixSiteId) : undefined
+  const nextSquare =
+    options?.squareMerchantId !== undefined ? emptyToNull(options.squareMerchantId) : undefined
   if (nextInstance !== undefined || nextSite !== undefined) {
     await assertWixRoutingAvailable(
       admin,
@@ -316,6 +370,14 @@ export async function ensureBookingRecoveryRow(
       nextSite ?? null,
     )
   }
+  if (nextSquare !== undefined) {
+    await assertSquareMerchantAvailable(admin, userId, nextSquare)
+  }
+
+  const routingWriteRequested =
+    options?.squareMerchantId !== undefined ||
+    options?.wixInstanceId !== undefined ||
+    options?.wixSiteId !== undefined
 
   const { data: existing } = await admin
     .from('booking_recovery_connections')
@@ -351,7 +413,12 @@ export async function ensureBookingRecoveryRow(
       .single()
     if (error) {
       if (isUniqueViolation(error)) {
-        throw new BookingRecoveryRoutingConflictError(WIX_ROUTING_CONFLICT_MESSAGE)
+        throw routingConflictFromDbError(error, options)
+      }
+      if (routingWriteRequested) {
+        throw new Error(
+          `Failed to update booking recovery routing for ${userId}: ${error.message}`,
+        )
       }
       console.warn(`Failed to update booking_recovery_connections for ${userId}:`, error.message)
       return existing as BookingRecoveryConnectionRow
@@ -391,7 +458,12 @@ export async function ensureBookingRecoveryRow(
 
   if (error) {
     if (isUniqueViolation(error)) {
-      throw new BookingRecoveryRoutingConflictError(WIX_ROUTING_CONFLICT_MESSAGE)
+      throw routingConflictFromDbError(error, options)
+    }
+    if (routingWriteRequested) {
+      throw new Error(
+        `Failed to create booking recovery routing for ${userId}: ${error.message}`,
+      )
     }
     console.warn(`Failed to insert booking_recovery_connections for ${userId}:`, error.message)
     return null
