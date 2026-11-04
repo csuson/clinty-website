@@ -1,7 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveUserPrompts } from '../_shared/promptDefaults.ts'
 import { resolveWhatsAppInfrastructure } from '../_shared/whatsappInfrastructure.ts'
-import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
+import {
+  loadWebsiteSettings,
+  sanitizeWebsiteSettingsForAdmin,
+} from '../_shared/websiteInfrastructure.ts'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 import { requireAdminMfa } from '../_shared/adminAuth.ts'
 
@@ -309,7 +312,7 @@ Deno.serve(async (req) => {
       bookingRecoveryConnections,
       agentSettings,
       userPrompts,
-      websiteSettings,
+      websiteSettings: sanitizeWebsiteSettingsForAdmin(websiteSettings),
     })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)

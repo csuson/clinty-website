@@ -62,7 +62,7 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
         setPlatformInstallAvailable(
           Boolean(recovery.wix_install_available || recovery.wix_app_install_url || recovery.wix_app_id),
         )
-        setPlatformInstallUrl(recovery.wix_app_install_url)
+        setPlatformInstallUrl(recovery.wix_app_install_url ?? null)
         setPlatformAppId(recovery.wix_app_id ?? null)
       }
     } catch (err) {

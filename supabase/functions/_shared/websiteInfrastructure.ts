@@ -293,6 +293,21 @@ export async function saveWebsiteInfrastructure(
   return next
 }
 
+/** Strip Wix / Apps Script secrets from admin browser responses; expose presence flags only. */
+export function sanitizeWebsiteSettingsForAdmin(settings: WebsiteSettings) {
+  return {
+    ...settings,
+    booking_recovery_apps_script_connect_secret: '',
+    has_booking_recovery_apps_script_connect_secret: Boolean(
+      trim(settings.booking_recovery_apps_script_connect_secret),
+    ),
+    wix_app_secret: '',
+    has_wix_app_secret: Boolean(trim(settings.wix_app_secret)),
+    wix_webhook_public_key: '',
+    has_wix_webhook_public_key: Boolean(trim(settings.wix_webhook_public_key)),
+  }
+}
+
 /** Public-safe view of website Wix app settings (no secrets). */
 export function publicWixAppView(settings: WebsiteSettings): {
   /** App ID + secret present (OAuth calendar path can use platform credentials). */

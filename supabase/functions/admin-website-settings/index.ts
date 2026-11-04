@@ -1,8 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 import { requireAdminMfa } from '../_shared/adminAuth.ts'
-import {  loadWebsiteSettings,
+import {
+  loadWebsiteSettings,
   loadWebsiteSettingsFromEdgeEnv,
+  sanitizeWebsiteSettingsForAdmin,
   saveWebsiteInfrastructure,
 } from '../_shared/websiteInfrastructure.ts'
 
@@ -155,23 +157,6 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }
 })
-
-function sanitizeWebsiteSettingsForAdmin(
-  websiteSettings: Awaited<ReturnType<typeof loadWebsiteSettings>>,
-) {
-  // Never return raw secrets to the browser — only presence flags.
-  return {
-    ...websiteSettings,
-    booking_recovery_apps_script_connect_secret: '',
-    has_booking_recovery_apps_script_connect_secret: Boolean(
-      websiteSettings.booking_recovery_apps_script_connect_secret?.trim(),
-    ),
-    wix_app_secret: '',
-    has_wix_app_secret: Boolean(websiteSettings.wix_app_secret?.trim()),
-    wix_webhook_public_key: '',
-    has_wix_webhook_public_key: Boolean(websiteSettings.wix_webhook_public_key?.trim()),
-  }
-}
 
 function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {

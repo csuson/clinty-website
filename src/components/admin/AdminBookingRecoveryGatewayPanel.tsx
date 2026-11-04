@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import FormField from '../FormField'
 import { SecretInput } from '../SecretField'
-import { inputClass } from '../../constants/forms'
+import { inputClass, textareaClass } from '../../constants/forms'
 import { getWixRedirectUri } from '../../constants/wix'
 import { updateWebsiteInfrastructure, type AdminWebsiteSettings } from '../../lib/admin'
 
@@ -252,18 +252,24 @@ export default function AdminBookingRecoveryGatewayPanel({
           <FormField
             label="Wix webhook public key"
             id="wix-webhook-public-key"
-            hint="Webhooks → Subscriptions → Get Public Key. The full gateway loads this from Supabase (optional Render WIX_WEBHOOK_PUBLIC_KEY overrides). Leave blank to keep."
+            hint="Webhooks → Subscriptions → Get Public Key (PEM). The full gateway loads this from Supabase (optional Render WIX_WEBHOOK_PUBLIC_KEY overrides). Leave blank to keep."
           >
             {hasWixWebhookKey ? (
               <p className="text-xs text-navy-500 mb-2">A webhook public key is already saved.</p>
             ) : null}
-            <SecretInput
+            <textarea
               id="wix-webhook-public-key"
               value={form.wix_webhook_public_key}
-              onChange={(value) => updateField('wix_webhook_public_key', value)}
-              placeholder={hasWixWebhookKey ? '••••••••••••••••' : '-----BEGIN PUBLIC KEY-----…'}
-              className={inputClass}
+              onChange={(event) => updateField('wix_webhook_public_key', event.target.value)}
+              placeholder={
+                hasWixWebhookKey
+                  ? 'Leave blank to keep the saved key'
+                  : '-----BEGIN PUBLIC KEY-----\n…\n-----END PUBLIC KEY-----'
+              }
+              className={`${textareaClass} min-h-[8rem] font-mono text-xs`}
               disabled={saving}
+              spellCheck={false}
+              autoComplete="off"
             />
           </FormField>
 
