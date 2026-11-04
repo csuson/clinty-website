@@ -199,6 +199,14 @@ export type AdminWebsiteSettings = {
   has_booking_recovery_apps_script_connect_secret?: boolean
   google_client_id: string
   google_client_secret: string
+  wix_app_id: string
+  /** Always empty from API; use has_wix_app_secret. */
+  wix_app_secret: string
+  has_wix_app_secret?: boolean
+  /** Always empty from API; use has_wix_webhook_public_key. */
+  wix_webhook_public_key: string
+  has_wix_webhook_public_key?: boolean
+  wix_app_install_url: string
 }
 
 export type AdminData = {
@@ -232,6 +240,10 @@ export type UpdateWebsiteInfrastructureInput = {
   booking_recovery_apps_script_connect_secret?: string
   google_client_id?: string
   google_client_secret?: string
+  wix_app_id?: string
+  wix_app_secret?: string
+  wix_webhook_public_key?: string
+  wix_app_install_url?: string
 }
 
 export async function fetchAdminWhatsAppInfrastructure(userId: string): Promise<AdminWhatsAppInfrastructure> {

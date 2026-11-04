@@ -1,8 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { activateBookingProvider } from '../_shared/bookingProviderSwitch.ts'
-import { ensureBookingRecoveryRow } from '../_shared/bookingRecoveryInfrastructure.ts'
+import {
+  BookingRecoveryRoutingConflictError,
+  ensureBookingRecoveryRow,
+} from '../_shared/bookingRecoveryInfrastructure.ts'
 import { notifyEmailAssistantRuntimeReload } from '../_shared/emailAssistant.ts'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
+import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
 
 let corsHeaders: Record<string, string> = {}
 
@@ -53,11 +57,18 @@ Deno.serve(async (req) => {
       .eq('user_id', user.id)
       .maybeSingle()
 
+    // Shared Clinty Wix Studio app (admin website_infrastructure) — tenants only need instance_id.
+    const platform = await loadWebsiteSettings(admin)
+    const platformAppId = platform.wix_app_id.trim()
+    const platformAppSecret = platform.wix_app_secret.trim()
+
     const resolvedSite = siteId || String(existing?.site_id ?? '').trim()
     const resolvedKey = apiKeyInput || String(existing?.api_key ?? '').trim()
     const resolvedService = serviceId || String(existing?.service_id ?? '').trim()
-    const resolvedAppId = appId || String(existing?.app_id ?? '').trim()
-    const resolvedAppSecret = appSecretInput || String(existing?.app_secret ?? '').trim()
+    const resolvedAppId =
+      appId || String(existing?.app_id ?? '').trim() || platformAppId
+    const resolvedAppSecret =
+      appSecretInput || String(existing?.app_secret ?? '').trim() || platformAppSecret
     const resolvedInstance = instanceId || String(existing?.instance_id ?? '').trim()
     const resolvedResource = resourceId || String(existing?.resource_id ?? '').trim()
     const resolvedLocation = locationId || String(existing?.location_id ?? '').trim()
@@ -71,8 +82,9 @@ Deno.serve(async (req) => {
     const usesOauth = Boolean(resolvedAppId && resolvedAppSecret && resolvedInstance)
     if (!usesApiKey && !usesOauth) {
       return json({
-        error:
-          'Provide either (API key + site ID) or (App ID + App Secret + Instance ID), plus a service ID.',
+        error: platformAppId
+          ? 'Provide a service ID plus either (API key + site ID) or (Instance ID after installing the Clinty Wix app).'
+          : 'Provide either (API key + site ID) or (App ID + App Secret + Instance ID), plus a service ID.',
       }, 400)
     }
     if (resolvedKey && !resolvedSite) {
@@ -130,10 +142,17 @@ Deno.serve(async (req) => {
     const exclusive = await activateBookingProvider(admin, user.id, 'wix')
 
     // W2/W4: keep cancel-recovery gateway routing keys in sync with Wix connect.
-    await ensureBookingRecoveryRow(admin, user.id, {
-      wixInstanceId: resolvedInstance || null,
-      wixSiteId: resolvedSite || null,
-    })
+    try {
+      await ensureBookingRecoveryRow(admin, user.id, {
+        wixInstanceId: resolvedInstance || null,
+        wixSiteId: resolvedSite || null,
+      })
+    } catch (err) {
+      if (err instanceof BookingRecoveryRoutingConflictError) {
+        return json({ error: err.message, code: err.code }, 409)
+      }
+      throw err
+    }
 
     const assistantReload = await notifyEmailAssistantRuntimeReload(admin, user.id, {
       ...exclusive,

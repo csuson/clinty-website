@@ -15,6 +15,10 @@ export type WebsiteInfrastructure = {
   booking_recovery_apps_script_connect_secret: string
   google_client_id: string
   google_client_secret: string
+  wix_app_id: string
+  wix_app_secret: string
+  wix_webhook_public_key: string
+  wix_app_install_url: string
 }
 
 export type WebsiteSettings = WebsiteInfrastructure & {
@@ -39,10 +43,14 @@ type WebsiteInfrastructureRow = {
   booking_recovery_apps_script_connect_secret?: string | null
   google_client_id?: string | null
   google_client_secret?: string | null
+  wix_app_id?: string | null
+  wix_app_secret?: string | null
+  wix_webhook_public_key?: string | null
+  wix_app_install_url?: string | null
 }
 
 const INFRASTRUCTURE_SELECT =
-  'whatsapp_web_gateway_url, whatsapp_web_login_api_key, whatsapp_web_debug, whatsapp_web_auth_backend, whatsapp_web_auth_bucket, whatsapp_web_auth_storage_prefix, whatsapp_web_auth_dir, whatsapp_web_langgraph_url, booking_recovery_gateway_url, booking_recovery_google_gateway_url, booking_recovery_apps_script_web_app_url, booking_recovery_apps_script_connect_secret, google_client_id, google_client_secret'
+  'whatsapp_web_gateway_url, whatsapp_web_login_api_key, whatsapp_web_debug, whatsapp_web_auth_backend, whatsapp_web_auth_bucket, whatsapp_web_auth_storage_prefix, whatsapp_web_auth_dir, whatsapp_web_langgraph_url, booking_recovery_gateway_url, booking_recovery_google_gateway_url, booking_recovery_apps_script_web_app_url, booking_recovery_apps_script_connect_secret, google_client_id, google_client_secret, wix_app_id, wix_app_secret, wix_webhook_public_key, wix_app_install_url'
 
 function trim(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -59,6 +67,23 @@ function normalizeAppsScriptWebAppUrl(value: unknown): string {
   url = url.replace(/\/$/, '')
   url = url.replace(/\/macros\/u\/\d+\//i, '/macros/')
   return url
+}
+
+/** Default Wix installer base when no custom URL is stored. */
+export function buildDefaultWixInstallUrl(appId: string): string {
+  const id = trim(appId)
+  if (!id) return ''
+  return `https://www.wix.com/installer/install?appId=${encodeURIComponent(id)}`
+}
+
+/** Resolve installer URL: custom override, else default from app id. */
+export function resolveWixAppInstallUrl(settings: {
+  wix_app_id?: string | null
+  wix_app_install_url?: string | null
+}): string {
+  const custom = trim(settings.wix_app_install_url)
+  if (custom) return custom
+  return buildDefaultWixInstallUrl(settings.wix_app_id ?? '')
 }
 
 export function loadWebsiteSettingsFromEdgeEnv(): WebsiteSettings {
@@ -89,6 +114,10 @@ export function loadWebsiteSettingsFromEdgeEnv(): WebsiteSettings {
       Deno.env.get('BOOKING_RECOVERY_APPS_SCRIPT_CONNECT_SECRET') ?? '',
     google_client_id: Deno.env.get('GOOGLE_CLIENT_ID') ?? '',
     google_client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '',
+    wix_app_id: Deno.env.get('WIX_APP_ID') ?? '',
+    wix_app_secret: Deno.env.get('WIX_APP_SECRET') ?? '',
+    wix_webhook_public_key: Deno.env.get('WIX_WEBHOOK_PUBLIC_KEY') ?? '',
+    wix_app_install_url: Deno.env.get('WIX_APP_INSTALL_URL') ?? '',
   }
 }
 
@@ -124,6 +153,10 @@ function mergeInfrastructure(
       fromEnv.booking_recovery_apps_script_connect_secret,
     google_client_id: trim(row.google_client_id) || fromEnv.google_client_id,
     google_client_secret: trim(row.google_client_secret) || fromEnv.google_client_secret,
+    wix_app_id: trim(row.wix_app_id) || fromEnv.wix_app_id,
+    wix_app_secret: trim(row.wix_app_secret) || fromEnv.wix_app_secret,
+    wix_webhook_public_key: trim(row.wix_webhook_public_key) || fromEnv.wix_webhook_public_key,
+    wix_app_install_url: trim(row.wix_app_install_url) || fromEnv.wix_app_install_url,
   }
 }
 
@@ -153,11 +186,15 @@ export async function saveWebsiteInfrastructure(
     whatsapp_web_login_api_key?: string | null
     google_client_secret?: string | null
     booking_recovery_apps_script_connect_secret?: string | null
+    wix_app_secret?: string | null
+    wix_webhook_public_key?: string | null
   },
   options?: {
     keepExistingApiKey?: boolean
     keepExistingGoogleSecret?: boolean
     keepExistingAppsScriptConnectSecret?: boolean
+    keepExistingWixAppSecret?: boolean
+    keepExistingWixWebhookPublicKey?: boolean
   },
 ): Promise<WebsiteInfrastructure> {
   const current = await loadWebsiteSettings(admin)
@@ -209,6 +246,13 @@ export async function saveWebsiteInfrastructure(
         ? trim(input.google_client_id)
         : current.google_client_id,
     google_client_secret: current.google_client_secret,
+    wix_app_id: input.wix_app_id !== undefined ? trim(input.wix_app_id) : current.wix_app_id,
+    wix_app_secret: current.wix_app_secret,
+    wix_webhook_public_key: current.wix_webhook_public_key,
+    wix_app_install_url:
+      input.wix_app_install_url !== undefined
+        ? trim(input.wix_app_install_url)
+        : current.wix_app_install_url,
   }
 
   if (input.whatsapp_web_login_api_key !== undefined && !options?.keepExistingApiKey) {
@@ -228,6 +272,14 @@ export async function saveWebsiteInfrastructure(
     )
   }
 
+  if (input.wix_app_secret !== undefined && !options?.keepExistingWixAppSecret) {
+    next.wix_app_secret = trim(input.wix_app_secret)
+  }
+
+  if (input.wix_webhook_public_key !== undefined && !options?.keepExistingWixWebhookPublicKey) {
+    next.wix_webhook_public_key = trim(input.wix_webhook_public_key)
+  }
+
   const { error } = await admin.from('website_infrastructure').upsert({
     id: 1,
     ...next,
@@ -239,4 +291,21 @@ export async function saveWebsiteInfrastructure(
   }
 
   return next
+}
+
+/** Public-safe view of website Wix app settings (no secrets). */
+export function publicWixAppView(settings: WebsiteSettings): {
+  wix_app_configured: boolean
+  wix_app_id: string | null
+  wix_app_install_url: string | null
+  has_wix_webhook_public_key: boolean
+} {
+  const appId = trim(settings.wix_app_id)
+  const installUrl = resolveWixAppInstallUrl(settings)
+  return {
+    wix_app_configured: Boolean(appId && trim(settings.wix_app_secret)),
+    wix_app_id: appId || null,
+    wix_app_install_url: installUrl || null,
+    has_wix_webhook_public_key: Boolean(trim(settings.wix_webhook_public_key)),
+  }
 }

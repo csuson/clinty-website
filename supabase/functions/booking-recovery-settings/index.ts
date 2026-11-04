@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
 import {
   BOOKING_RECOVERY_SELECT,
+  BookingRecoveryRoutingConflictError,
   buildAppsScriptConnectUrls,
   buildRecoveryUrls,
   ensureBookingRecoveryRow,
@@ -14,7 +15,7 @@ import {
   syncBookingRecoveryApiKeyFromAgentIfNull,
   syncBookingRecoveryLanggraphUrlFromAgent,
 } from '../_shared/bookingRecoveryInfrastructure.ts'
-import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
+import { loadWebsiteSettings, publicWixAppView } from '../_shared/websiteInfrastructure.ts'
 
 let corsHeaders: Record<string, string> = {}
 
@@ -76,6 +77,7 @@ Deno.serve(async (req) => {
         appsScriptConnectSecret,
         row?.webhook_token,
       )
+      const wixApp = publicWixAppView(websiteSettings)
       return {
         connection: publicBookingRecoveryView(row),
         gateway_base_url: fullGatewayBase || null,
@@ -87,6 +89,10 @@ Deno.serve(async (req) => {
         google_calendar_status_url: appsScript.statusUrl || null,
         google_calendar_disconnect_url: appsScript.disconnectUrl || null,
         apps_script_configured: Boolean(appsScriptWebAppUrl && appsScriptConnectSecret),
+        wix_app_configured: wixApp.wix_app_configured,
+        wix_app_id: wixApp.wix_app_id,
+        wix_app_install_url: wixApp.wix_app_install_url,
+        has_wix_webhook_public_key: wixApp.has_wix_webhook_public_key,
       }
     }
 
@@ -171,8 +177,43 @@ Deno.serve(async (req) => {
       return json(await loadPayload(row))
     }
 
+    if (action === 'sync_wix_install') {
+      const instanceId =
+        typeof body.wix_instance_id === 'string' ? body.wix_instance_id.trim() : ''
+      if (!instanceId) {
+        return json({ error: 'wix_instance_id is required' }, 400)
+      }
+      try {
+        const row = await ensureAndSync()
+        if (!row) {
+          return json(
+            {
+              error:
+                'Could not create booking recovery connection. Ask an admin to set your Agent Settings URL first.',
+            },
+            400,
+          )
+        }
+        const synced = await ensureBookingRecoveryRow(admin, user.id, {
+          wixInstanceId: instanceId,
+        })
+        if (!synced) {
+          return json({ error: 'Could not sync Wix instance ID' }, 500)
+        }
+        return json(await loadPayload(synced))
+      } catch (err) {
+        if (err instanceof BookingRecoveryRoutingConflictError) {
+          return json({ error: err.message, code: err.code }, 409)
+        }
+        throw err
+      }
+    }
+
     return json({ error: 'Unknown action' }, 400)
   } catch (err) {
+    if (err instanceof BookingRecoveryRoutingConflictError) {
+      return json({ error: err.message, code: err.code }, 409)
+    }
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }
 })

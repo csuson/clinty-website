@@ -33,8 +33,27 @@ export type AppsScriptConnectUrls = {
 export const BOOKING_RECOVERY_SELECT =
   'user_id, langgraph_url, langgraph_api_key, square_merchant_id, webhook_token, webhook_secret, wix_instance_id, wix_site_id, enabled, updated_at'
 
+export const WIX_ROUTING_CONFLICT_MESSAGE =
+  'This Wix site/instance is already linked to another Clinty account.'
+
+export class BookingRecoveryRoutingConflictError extends Error {
+  readonly code = 'wix_routing_taken' as const
+
+  constructor(message: string = WIX_ROUTING_CONFLICT_MESSAGE) {
+    super(message)
+    this.name = 'BookingRecoveryRoutingConflictError'
+  }
+}
+
 function trim(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function isUniqueViolation(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false
+  if (error.code === '23505') return true
+  const msg = String(error.message ?? '').toLowerCase()
+  return msg.includes('duplicate key') || msg.includes('unique constraint')
 }
 
 function normalizeBaseUrl(value: unknown): string {
@@ -243,6 +262,36 @@ export async function syncBookingRecoveryApiKeyFromAgentIfNull(
   return true
 }
 
+async function assertWixRoutingAvailable(
+  admin: { from: (table: string) => any },
+  userId: string,
+  wixInstanceId: string | null,
+  wixSiteId: string | null,
+): Promise<void> {
+  if (wixInstanceId) {
+    const { data } = await admin
+      .from('booking_recovery_connections')
+      .select('user_id')
+      .eq('wix_instance_id', wixInstanceId)
+      .neq('user_id', userId)
+      .maybeSingle()
+    if (data?.user_id) {
+      throw new BookingRecoveryRoutingConflictError(WIX_ROUTING_CONFLICT_MESSAGE)
+    }
+  }
+  if (wixSiteId) {
+    const { data } = await admin
+      .from('booking_recovery_connections')
+      .select('user_id')
+      .eq('wix_site_id', wixSiteId)
+      .neq('user_id', userId)
+      .maybeSingle()
+    if (data?.user_id) {
+      throw new BookingRecoveryRoutingConflictError(WIX_ROUTING_CONFLICT_MESSAGE)
+    }
+  }
+}
+
 export async function ensureBookingRecoveryRow(
   admin: { from: (table: string) => any },
   userId: string,
@@ -255,6 +304,18 @@ export async function ensureBookingRecoveryRow(
   },
 ): Promise<BookingRecoveryConnectionRow | null> {
   if (!userId) return null
+
+  const nextInstance =
+    options?.wixInstanceId !== undefined ? emptyToNull(options.wixInstanceId) : undefined
+  const nextSite = options?.wixSiteId !== undefined ? emptyToNull(options.wixSiteId) : undefined
+  if (nextInstance !== undefined || nextSite !== undefined) {
+    await assertWixRoutingAvailable(
+      admin,
+      userId,
+      nextInstance ?? null,
+      nextSite ?? null,
+    )
+  }
 
   const { data: existing } = await admin
     .from('booking_recovery_connections')
@@ -289,6 +350,9 @@ export async function ensureBookingRecoveryRow(
       .select(BOOKING_RECOVERY_SELECT)
       .single()
     if (error) {
+      if (isUniqueViolation(error)) {
+        throw new BookingRecoveryRoutingConflictError(WIX_ROUTING_CONFLICT_MESSAGE)
+      }
       console.warn(`Failed to update booking_recovery_connections for ${userId}:`, error.message)
       return existing as BookingRecoveryConnectionRow
     }
@@ -326,6 +390,9 @@ export async function ensureBookingRecoveryRow(
     .single()
 
   if (error) {
+    if (isUniqueViolation(error)) {
+      throw new BookingRecoveryRoutingConflictError(WIX_ROUTING_CONFLICT_MESSAGE)
+    }
     console.warn(`Failed to insert booking_recovery_connections for ${userId}:`, error.message)
     return null
   }

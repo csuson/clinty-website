@@ -99,6 +99,7 @@ Multi-tenant cancel recovery routes provider cancellations to each operator’s 
    - `20260926120000_booking_recovery_connections.sql`
    - `20261026120000_wix_booking_recovery.sql`
    - `20261028120000_booking_recovery_dual_gateway.sql`
+   - `20261103130000_wix_app_website_infrastructure.sql`
 2. Deploy edge functions: `admin-booking-recovery-settings`, `booking-recovery-settings`, plus updated
    `admin-data`, `admin-delete`, `admin-agent-settings`, `admin-website-settings`,
    `square-oauth-exchange`, `square-oauth-disconnect`, `wix-connect`, `wix-disconnect`.
@@ -111,6 +112,9 @@ Multi-tenant cancel recovery routes provider cancellations to each operator’s 
      `https://script.google.com/macros/s/…/exec` (strip `/u/1/` if present). Operators who see
      Google’s “unable to open the file” error should retry in an incognito window with a single
      Google account signed in.
+   - **Clinty Wix Studio app**: App ID, App Secret, webhook public key (also set
+     `WIX_WEBHOOK_PUBLIC_KEY` on the full gateway). Copy the shown OAuth redirect URL into Wix
+     Studio → Develop → OAuth. Subscribe Booking Canceled once on that app → `{full-gateway}/v1/wix`.
 4. On **Admin → Booking Recovery**, edit per-user `langgraph_url`, Square/Wix routing ids, webhook
    token/secrets. Saving Agent Settings URL also syncs `langgraph_url` onto the recovery row.
    Opening **Integrations → Cancel recovery** ensures the row and refreshes `langgraph_url` from
@@ -119,9 +123,11 @@ Multi-tenant cancel recovery routes provider cancellations to each operator’s 
 ### Operator
 
 1. Connect Square and/or Wix (routing ids are written to `booking_recovery_connections` automatically).
+   For Wix: **Install Clinty Wix app** → Connect with appointment Service ID (shared app credentials;
+   API key path still works).
 2. Open **Integrations → Cancel recovery** (creates the recovery row if needed), enable recovery, then:
-   - Copy **Square** webhook → `{full-gateway}/v1/square`
-   - Copy **Wix** webhook → `{full-gateway}/v1/wix`
+   - Copy **Square** webhook → `{full-gateway}/v1/square` (if you manage Square Developer webhooks)
+   - Wix cancels use the shared Studio app webhook (no per-tenant Wix app)
    - Click **Connect Google Calendar** (shared Apps Script; no project to create)
 3. Keep customer email (required) and optional WhatsApp phone on Square/Wix profiles or in the Google
    event description / attendees.

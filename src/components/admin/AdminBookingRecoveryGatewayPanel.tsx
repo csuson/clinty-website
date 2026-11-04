@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import FormField from '../FormField'
 import { SecretInput } from '../SecretField'
 import { inputClass } from '../../constants/forms'
+import { getWixRedirectUri } from '../../constants/wix'
 import { updateWebsiteInfrastructure, type AdminWebsiteSettings } from '../../lib/admin'
 
 type GatewayForm = {
@@ -9,6 +10,10 @@ type GatewayForm = {
   booking_recovery_google_gateway_url: string
   booking_recovery_apps_script_web_app_url: string
   booking_recovery_apps_script_connect_secret: string
+  wix_app_id: string
+  wix_app_secret: string
+  wix_webhook_public_key: string
+  wix_app_install_url: string
 }
 
 function settingsToForm(settings?: AdminWebsiteSettings | null): GatewayForm {
@@ -18,6 +23,10 @@ function settingsToForm(settings?: AdminWebsiteSettings | null): GatewayForm {
     booking_recovery_apps_script_web_app_url:
       settings?.booking_recovery_apps_script_web_app_url?.trim() ?? '',
     booking_recovery_apps_script_connect_secret: '',
+    wix_app_id: settings?.wix_app_id?.trim() ?? '',
+    wix_app_secret: '',
+    wix_webhook_public_key: '',
+    wix_app_install_url: settings?.wix_app_install_url?.trim() ?? '',
   }
 }
 
@@ -34,13 +43,22 @@ export default function AdminBookingRecoveryGatewayPanel({
   const [hasConnectSecret, setHasConnectSecret] = useState(
     () => settings?.has_booking_recovery_apps_script_connect_secret === true,
   )
+  const [hasWixAppSecret, setHasWixAppSecret] = useState(
+    () => settings?.has_wix_app_secret === true,
+  )
+  const [hasWixWebhookKey, setHasWixWebhookKey] = useState(
+    () => settings?.has_wix_webhook_public_key === true,
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [copiedRedirect, setCopiedRedirect] = useState(false)
 
   useEffect(() => {
     setForm(settingsToForm(settings))
     setHasConnectSecret(settings?.has_booking_recovery_apps_script_connect_secret === true)
+    setHasWixAppSecret(settings?.has_wix_app_secret === true)
+    setHasWixWebhookKey(settings?.has_wix_webhook_public_key === true)
   }, [settings])
 
   function updateField<K extends keyof GatewayForm>(key: K, value: GatewayForm[K]) {
@@ -60,10 +78,16 @@ export default function AdminBookingRecoveryGatewayPanel({
         booking_recovery_apps_script_web_app_url: form.booking_recovery_apps_script_web_app_url.trim(),
         booking_recovery_apps_script_connect_secret:
           form.booking_recovery_apps_script_connect_secret,
+        wix_app_id: form.wix_app_id.trim(),
+        wix_app_secret: form.wix_app_secret,
+        wix_webhook_public_key: form.wix_webhook_public_key,
+        wix_app_install_url: form.wix_app_install_url.trim(),
       })
       setForm(settingsToForm(updated))
       setHasConnectSecret(updated.has_booking_recovery_apps_script_connect_secret === true)
-      setSuccess('Booking recovery gateway settings saved.')
+      setHasWixAppSecret(updated.has_wix_app_secret === true)
+      setHasWixWebhookKey(updated.has_wix_webhook_public_key === true)
+      setSuccess('Booking recovery gateway and Wix app settings saved.')
       onSaved?.(updated)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save gateway settings')
@@ -71,6 +95,11 @@ export default function AdminBookingRecoveryGatewayPanel({
       setSaving(false)
     }
   }
+
+  const redirectUri =
+    typeof window !== 'undefined' ? getWixRedirectUri() : '/account/integrations/wix/callback'
+  const gatewayBase = form.booking_recovery_gateway_url.replace(/\/$/, '')
+  const wixWebhookPreview = gatewayBase ? `${gatewayBase}/v1/wix` : ''
 
   return (
     <div className="px-6 py-5 border-t border-navy-900/5">
@@ -166,6 +195,118 @@ export default function AdminBookingRecoveryGatewayPanel({
             disabled={saving}
           />
         </FormField>
+
+        <div className="border-t border-navy-900/10 pt-4 mt-2 space-y-4">
+          <div>
+            <h4 className="text-sm font-semibold text-navy-900">Clinty Wix Studio app</h4>
+            <p className="text-sm text-navy-600 mt-1">
+              One shared Custom App (Develop → OAuth / Webhooks). Subscribe{' '}
+              <code className="text-xs">booking/canceled</code> to the full gateway{' '}
+              <code className="text-xs">/v1/wix</code>, release a version, then paste App ID / Secret /
+              webhook public key here. Tenants install the app; they do not create their own.
+            </p>
+          </div>
+
+          {wixWebhookPreview ? (
+            <p className="text-xs text-navy-600">
+              Wix webhook callback URL:{' '}
+              <code className="text-xs break-all bg-navy-900/5 px-1.5 py-0.5 rounded">
+                {wixWebhookPreview}
+              </code>
+            </p>
+          ) : null}
+
+          <FormField
+            label="Wix App ID"
+            id="wix-app-id"
+            hint="Wix Studio → Custom Apps → Develop → OAuth → App ID"
+          >
+            <input
+              id="wix-app-id"
+              value={form.wix_app_id}
+              onChange={(event) => updateField('wix_app_id', event.target.value)}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+
+          <FormField
+            label="Wix App Secret"
+            id="wix-app-secret"
+            hint="App Secret Key from the same OAuth page. Leave blank to keep the saved secret."
+          >
+            {hasWixAppSecret ? (
+              <p className="text-xs text-navy-500 mb-2">An app secret is already saved.</p>
+            ) : null}
+            <SecretInput
+              id="wix-app-secret"
+              value={form.wix_app_secret}
+              onChange={(value) => updateField('wix_app_secret', value)}
+              placeholder={hasWixAppSecret ? '••••••••••••••••' : 'app secret'}
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+
+          <FormField
+            label="Wix webhook public key"
+            id="wix-webhook-public-key"
+            hint="Webhooks → Subscriptions → Get Public Key. The full gateway loads this from Supabase (optional Render WIX_WEBHOOK_PUBLIC_KEY overrides). Leave blank to keep."
+          >
+            {hasWixWebhookKey ? (
+              <p className="text-xs text-navy-500 mb-2">A webhook public key is already saved.</p>
+            ) : null}
+            <SecretInput
+              id="wix-webhook-public-key"
+              value={form.wix_webhook_public_key}
+              onChange={(value) => updateField('wix_webhook_public_key', value)}
+              placeholder={hasWixWebhookKey ? '••••••••••••••••' : '-----BEGIN PUBLIC KEY-----…'}
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+
+          <FormField
+            label="Wix install URL override (optional)"
+            id="wix-app-install-url"
+            hint="Leave empty to use https://www.wix.com/installer/install?appId=…. Paste a custom Distribute / test-install link if needed."
+          >
+            <input
+              id="wix-app-install-url"
+              type="url"
+              value={form.wix_app_install_url}
+              onChange={(event) => updateField('wix_app_install_url', event.target.value)}
+              placeholder="https://www.wix.com/installer/install?appId=…"
+              className={inputClass}
+              disabled={saving}
+            />
+          </FormField>
+
+          <FormField
+            label="OAuth redirect URL (add in Wix Studio)"
+            id="wix-redirect-uri"
+            hint="Develop → OAuth → Redirect URL. Required so Install returns instanceId to Clinty."
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="text-xs break-all text-navy-800 bg-navy-900/5 px-2 py-1 rounded flex-1">
+                {redirectUri}
+              </code>
+              <button
+                type="button"
+                className="text-sm font-medium text-teal-700 hover:text-teal-800"
+                onClick={() => {
+                  void navigator.clipboard.writeText(redirectUri).then(() => {
+                    setCopiedRedirect(true)
+                    window.setTimeout(() => setCopiedRedirect(false), 2000)
+                  })
+                }}
+              >
+                {copiedRedirect ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </FormField>
+        </div>
 
         <button
           type="submit"

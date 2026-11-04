@@ -127,6 +127,21 @@ export function countConfiguredWebsiteSettings(settings?: AdminWebsiteSettings |
       envKey: 'BOOKING_RECOVERY_APPS_SCRIPT_CONNECT_SECRET',
       value: settings?.has_booking_recovery_apps_script_connect_secret ? 'configured' : '',
     },
+    {
+      label: 'Wix App ID',
+      envKey: 'WIX_APP_ID',
+      value: settings?.wix_app_id ?? '',
+    },
+    {
+      label: 'Wix App Secret',
+      envKey: 'WIX_APP_SECRET',
+      value: settings?.has_wix_app_secret ? 'configured' : '',
+    },
+    {
+      label: 'Wix webhook public key',
+      envKey: 'WIX_WEBHOOK_PUBLIC_KEY',
+      value: settings?.has_wix_webhook_public_key ? 'configured' : '',
+    },
   ]
   return rows.filter((row) => row.value.trim()).length
 }

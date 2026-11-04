@@ -75,15 +75,7 @@ Deno.serve(async (req) => {
 
     if (action === 'get') {
       const websiteSettings = await loadWebsiteSettings(admin)
-      return json({
-        websiteSettings: {
-          ...websiteSettings,
-          booking_recovery_apps_script_connect_secret: '',
-          has_booking_recovery_apps_script_connect_secret: Boolean(
-            websiteSettings.booking_recovery_apps_script_connect_secret?.trim(),
-          ),
-        },
-      })
+      return json({ websiteSettings: sanitizeWebsiteSettingsForAdmin(websiteSettings) })
     }
 
     if (action === 'update') {
@@ -104,6 +96,17 @@ Deno.serve(async (req) => {
         appsScriptSecretInput === null &&
         (body.booking_recovery_apps_script_connect_secret === undefined ||
           String(body.booking_recovery_apps_script_connect_secret).trim() === '')
+
+      const wixAppSecretInput = emptyToNull(body.wix_app_secret)
+      const keepExistingWixAppSecret =
+        wixAppSecretInput === null &&
+        (body.wix_app_secret === undefined || String(body.wix_app_secret).trim() === '')
+
+      const wixWebhookKeyInput = emptyToNull(body.wix_webhook_public_key)
+      const keepExistingWixWebhookPublicKey =
+        wixWebhookKeyInput === null &&
+        (body.wix_webhook_public_key === undefined ||
+          String(body.wix_webhook_public_key).trim() === '')
 
       await saveWebsiteInfrastructure(
         admin,
@@ -126,21 +129,25 @@ Deno.serve(async (req) => {
           google_client_id:
             body.google_client_id !== undefined ? String(body.google_client_id).trim() : undefined,
           google_client_secret: googleSecretInput ?? undefined,
+          wix_app_id: body.wix_app_id !== undefined ? String(body.wix_app_id).trim() : undefined,
+          wix_app_secret: wixAppSecretInput ?? undefined,
+          wix_webhook_public_key: wixWebhookKeyInput ?? undefined,
+          wix_app_install_url:
+            body.wix_app_install_url !== undefined
+              ? String(body.wix_app_install_url).trim()
+              : undefined,
         },
-        { keepExistingApiKey, keepExistingGoogleSecret, keepExistingAppsScriptConnectSecret },
+        {
+          keepExistingApiKey,
+          keepExistingGoogleSecret,
+          keepExistingAppsScriptConnectSecret,
+          keepExistingWixAppSecret,
+          keepExistingWixWebhookPublicKey,
+        },
       )
 
       const websiteSettings = await loadWebsiteSettings(admin)
-      // Never return the raw Apps Script connect secret to the browser — only a presence flag.
-      return json({
-        websiteSettings: {
-          ...websiteSettings,
-          booking_recovery_apps_script_connect_secret: '',
-          has_booking_recovery_apps_script_connect_secret: Boolean(
-            websiteSettings.booking_recovery_apps_script_connect_secret?.trim(),
-          ),
-        },
-      })
+      return json({ websiteSettings: sanitizeWebsiteSettingsForAdmin(websiteSettings) })
     }
 
     return json({ error: 'Unknown action' }, 400)
@@ -148,6 +155,23 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : 'Unexpected error' }, 500)
   }
 })
+
+function sanitizeWebsiteSettingsForAdmin(
+  websiteSettings: Awaited<ReturnType<typeof loadWebsiteSettings>>,
+) {
+  // Never return raw secrets to the browser — only presence flags.
+  return {
+    ...websiteSettings,
+    booking_recovery_apps_script_connect_secret: '',
+    has_booking_recovery_apps_script_connect_secret: Boolean(
+      websiteSettings.booking_recovery_apps_script_connect_secret?.trim(),
+    ),
+    wix_app_secret: '',
+    has_wix_app_secret: Boolean(websiteSettings.wix_app_secret?.trim()),
+    wix_webhook_public_key: '',
+    has_wix_webhook_public_key: Boolean(websiteSettings.wix_webhook_public_key?.trim()),
+  }
+}
 
 function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {

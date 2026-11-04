@@ -25,6 +25,12 @@ export type BookingRecoverySettingsResponse = {
   google_calendar_status_url: string | null
   google_calendar_disconnect_url: string | null
   apps_script_configured: boolean
+  /** Shared Clinty Wix Studio app has App ID + Secret configured. */
+  wix_app_configured?: boolean
+  wix_app_id?: string | null
+  /** Installer URL (custom override or default from app id). */
+  wix_app_install_url?: string | null
+  has_wix_webhook_public_key?: boolean
 }
 
 async function invokeBookingRecovery(
@@ -61,4 +67,14 @@ export async function rotateBookingRecoveryToken(): Promise<BookingRecoverySetti
 
 export async function ensureBookingRecovery(): Promise<BookingRecoverySettingsResponse> {
   return invokeBookingRecovery({ action: 'ensure' })
+}
+
+/** Persist Wix app instance ID for cancel-recovery routing (after Install, before Connect). */
+export async function syncWixInstallInstance(
+  wixInstanceId: string,
+): Promise<BookingRecoverySettingsResponse> {
+  return invokeBookingRecovery({
+    action: 'sync_wix_install',
+    wix_instance_id: wixInstanceId.trim(),
+  })
 }

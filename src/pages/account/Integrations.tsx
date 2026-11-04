@@ -35,6 +35,14 @@ function integrationFromSearchParams(params: URLSearchParams): IntegrationId | n
   if (params.get('yahoo_connected') || params.get('yahoo_error')) return 'yahoo'
   if (params.get('square_connected') || params.get('square_error')) return 'square'
   // if (params.get('stripe_connected') || params.get('stripe_error')) return 'stripe'
+  if (
+    params.get('wix_installed')
+    || params.get('wix_connected')
+    || params.get('wix_error')
+    || params.get('wix_instance_id')
+  ) {
+    return 'wix'
+  }
   if (params.get('shopify_connected') || params.get('shopify_error')) return 'shopify'
   if (params.get('whatsapp_connected')) return 'whatsapp'
   if (
