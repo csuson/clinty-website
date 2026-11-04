@@ -25,8 +25,10 @@ export type BookingRecoverySettingsResponse = {
   google_calendar_status_url: string | null
   google_calendar_disconnect_url: string | null
   apps_script_configured: boolean
-  /** Shared Clinty Wix Studio app has App ID + Secret configured. */
+  /** Shared Clinty Wix Studio app has App ID + Secret configured (OAuth calendar). */
   wix_app_configured?: boolean
+  /** Install link or App ID available for tenant Install button. */
+  wix_install_available?: boolean
   wix_app_id?: string | null
   /** Installer URL (custom override or default from app id). */
   wix_app_install_url?: string | null

@@ -202,19 +202,24 @@ export default function BookingRecoveryIntegration({
                   Copy
                 </button>
               </div>
-              {data.wix_app_configured ? (
+              {data.wix_install_available || data.wix_app_configured || data.wix_app_install_url ? (
                 <div className="space-y-2">
                   <p className="text-xs text-navy-600">
-                    Clinty&apos;s shared Wix Studio app already posts <code className="text-xs">booking/canceled</code>{' '}
-                    here. Install the app on your site, then connect Wix Bookings so instance/site IDs
-                    route cancels to your assistant. Appointment services only; guest email required.
+                    Clinty&apos;s shared Wix Studio app posts <code className="text-xs">booking/canceled</code>{' '}
+                    here once subscribed. Install the app on your site, then connect Wix Bookings so
+                    instance/site IDs route cancels to your assistant. Appointment services only; guest
+                    email required.
                   </p>
-                  {data.wix_app_install_url && user ? (
+                  {(data.wix_app_install_url || data.wix_app_id) && user ? (
                     <button
                       type="button"
                       disabled={working}
                       onClick={() => {
-                        const url = buildWixInstallerUrl(data.wix_app_install_url!, user.id)
+                        const url = buildWixInstallerUrl(
+                          data.wix_app_install_url || '',
+                          user.id,
+                          data.wix_app_id,
+                        )
                         if (!url) {
                           setError('Could not build the Wix install URL.')
                           return

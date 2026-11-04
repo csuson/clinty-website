@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
         google_calendar_disconnect_url: appsScript.disconnectUrl || null,
         apps_script_configured: Boolean(appsScriptWebAppUrl && appsScriptConnectSecret),
         wix_app_configured: wixApp.wix_app_configured,
+        wix_install_available: wixApp.wix_install_available,
         wix_app_id: wixApp.wix_app_id,
         wix_app_install_url: wixApp.wix_app_install_url,
         has_wix_webhook_public_key: wixApp.has_wix_webhook_public_key,

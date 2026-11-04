@@ -295,7 +295,10 @@ export async function saveWebsiteInfrastructure(
 
 /** Public-safe view of website Wix app settings (no secrets). */
 export function publicWixAppView(settings: WebsiteSettings): {
+  /** App ID + secret present (OAuth calendar path can use platform credentials). */
   wix_app_configured: boolean
+  /** Install link or App ID available (tenant can run Install flow). */
+  wix_install_available: boolean
   wix_app_id: string | null
   wix_app_install_url: string | null
   has_wix_webhook_public_key: boolean
@@ -304,6 +307,7 @@ export function publicWixAppView(settings: WebsiteSettings): {
   const installUrl = resolveWixAppInstallUrl(settings)
   return {
     wix_app_configured: Boolean(appId && trim(settings.wix_app_secret)),
+    wix_install_available: Boolean(installUrl || appId),
     wix_app_id: appId || null,
     wix_app_install_url: installUrl || null,
     has_wix_webhook_public_key: Boolean(trim(settings.wix_webhook_public_key)),

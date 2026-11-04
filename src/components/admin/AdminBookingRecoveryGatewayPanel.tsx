@@ -270,7 +270,7 @@ export default function AdminBookingRecoveryGatewayPanel({
           <FormField
             label="Wix install URL override (optional)"
             id="wix-app-install-url"
-            hint="Leave empty to use https://www.wix.com/installer/install?appId=…. Paste a custom Distribute / test-install link if needed."
+            hint="Share install link (e.g. https://wix.to/…) or leave empty to use https://www.wix.com/installer/install?appId=…. Clinty rewrites short links using App ID so tenants return to the OAuth callback."
           >
             <input
               id="wix-app-install-url"
