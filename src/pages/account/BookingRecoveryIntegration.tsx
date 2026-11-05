@@ -210,9 +210,9 @@ export default function BookingRecoveryIntegration({
                 <p className="text-xs text-navy-600">
                   Clinty&apos;s shared Wix Studio app posts <code className="text-xs">booking/canceled</code>{' '}
                   here once subscribed. Install via{' '}
-                  <code className="text-xs">wix.to/9PIMeWM</code>, then connect Wix Bookings so
-                  instance/site IDs route cancels to your assistant. Appointment services only; guest
-                  email required.
+                  <code className="text-xs">wix.to/9PIMeWM</code>, then paste the Instance ID in{' '}
+                  <strong>Wix Bookings</strong> and Connect so cancels route to your assistant.
+                  Appointment services only; guest email required.
                 </p>
                 {user ? (
                   <button
@@ -228,7 +228,7 @@ export default function BookingRecoveryIntegration({
                         setError('Could not build the Wix install URL.')
                         return
                       }
-                      window.location.assign(url)
+                      window.open(url, '_blank', 'noopener,noreferrer')
                     }}
                     className="inline-flex items-center text-sm font-medium border border-navy-900/15 text-navy-800 px-4 py-2 rounded-lg hover:bg-navy-50 disabled:opacity-60"
                   >

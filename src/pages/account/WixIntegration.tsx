@@ -115,14 +115,17 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
       setError('Sign in to install the Clinty Wix app.')
       return
     }
-    // Always install via the published App Market share link (https://wix.to/9PIMeWM).
-    // A stale admin App ID / override used to rewrite this to "no longer available".
+    // Open the published App Market share listing (wix.to/9PIMeWM). External
+    // /app-installer and /installer/install flows fail for this unlisted app.
     const url = buildWixInstallerUrl(CLINTY_WIX_APP_SHARE_URL, user.id, CLINTY_WIX_APP_ID)
     if (!url) {
       setError('Could not build the Wix install URL.')
       return
     }
-    window.location.assign(url)
+    window.open(url, '_blank', 'noopener,noreferrer')
+    setSuccess(
+      'Opened the Clinty Wix app install page. After you add it to your site, paste the Instance ID below, add your Service ID, then Connect.',
+    )
   }
 
   async function handleSave() {
@@ -218,9 +221,9 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
       <div className="mb-6 rounded-xl border border-navy-900/10 bg-cream p-4 space-y-3">
         <p className="text-sm font-medium text-navy-900">Clinty Wix app</p>
         <p className="text-xs text-navy-600">
-          Install once on your Wix site that has Bookings (App Market share link{' '}
-          <code className="text-xs">wix.to/9PIMeWM</code>). After redirect, paste or confirm the
-          Instance ID, add your appointment Service ID, then Connect
+          Install once on your Wix site that has Bookings via the published share link{' '}
+          <code className="text-xs">wix.to/9PIMeWM</code>. After Add to Site, copy the app&apos;s
+          Instance ID from Wix, paste it below with your appointment Service ID, then Connect
           {platformAppConfigured
             ? ' (shared app credentials are used automatically).'
             : ' with a Wix API key + Site ID if the shared App Secret is not configured yet.'}{' '}
@@ -285,7 +288,7 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
           id="wix-instance-id"
           hint={
             platformAppConfigured
-              ? 'Filled after Install Clinty Wix app (preferred for cancel recovery routing).'
+              ? 'After Add to Site on wix.to/9PIMeWM: Wix site dashboard → Apps → Clinty Cancel Booking Recovery → copy Instance ID (or from the install confirmation URL’s instanceId=).'
               : 'From your Wix app install (OAuth path).'
           }
         >

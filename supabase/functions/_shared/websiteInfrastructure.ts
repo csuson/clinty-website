@@ -73,39 +73,34 @@ function normalizeAppsScriptWebAppUrl(value: unknown): string {
 export const CLINTY_WIX_APP_SHARE_URL = 'https://wix.to/9PIMeWM'
 
 /**
- * App ID for Clinty Cancel Booking Recovery (Wix Studio → View ID & keys).
+ * App ID for Clinty Cancel Booking Recovery.
  * Verified: https://wix.to/9PIMeWM → /app-market/install/1f88c5af-e254-44fb-917f-49bed77b8632
  */
 export const CLINTY_WIX_APP_ID = '1f88c5af-e254-44fb-917f-49bed77b8632'
 
-/** shareUrlId for the unlisted share link (GUID from app-market/install URL). */
-export const CLINTY_WIX_SHARE_URL_ID = CLINTY_WIX_APP_ID
-
 /**
- * Base external-install URL for the published unlisted Clinty Wix app.
- * Tenants should not use /installer/install?appId= alone — that returns
- * "couldn't find an app with this app ID" for share-link / unlisted apps.
+ * Stable App Market install page (same destination as the share link).
+ * Do not use /installer/install or /app-installer — those fail for this unlisted app.
  */
-export function buildDefaultWixInstallUrl(appId?: string | null): string {
-  const id = trim(appId) || CLINTY_WIX_APP_ID
-  const url = new URL('https://www.wix.com/app-installer')
-  url.searchParams.set('appId', id)
-  url.searchParams.set('shareUrlId', CLINTY_WIX_SHARE_URL_ID)
-  return url.toString()
+export function buildDefaultWixInstallUrl(_appId?: string | null): string {
+  return `https://www.wix.com/app-market/install/${CLINTY_WIX_APP_ID}`
 }
 
-/** Resolve install URL shown/used for the shared Clinty Wix app. */
+/** Resolve install URL for the shared Clinty Wix app (published market listing). */
 export function resolveWixAppInstallUrl(settings: {
   wix_app_id?: string | null
   wix_app_install_url?: string | null
 }): string {
   const custom = trim(settings.wix_app_install_url)
-  // Prefer the published share listing; custom overrides that still look like
-  // the old /installer/install path are ignored so tenants don't hit "app ID" errors.
-  if (custom && !/\/installer\/install/i.test(custom)) {
-    if (/wix\.to\//i.test(custom) || /app-market\/install/i.test(custom) || /app-installer/i.test(custom)) {
-      return buildDefaultWixInstallUrl(settings.wix_app_id || CLINTY_WIX_APP_ID)
-    }
+  // Ignore legacy constructed installer URLs — they return "couldn't find an app"
+  // or "couldn't load installation data" for this unlisted share-link app.
+  if (
+    custom
+    && !/\/installer\/install/i.test(custom)
+    && !/app-installer/i.test(custom)
+    && !/wix\.to\//i.test(custom)
+    && !/app-market\/install/i.test(custom)
+  ) {
     return custom
   }
   return buildDefaultWixInstallUrl(settings.wix_app_id || CLINTY_WIX_APP_ID)
