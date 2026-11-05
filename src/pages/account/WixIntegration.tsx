@@ -6,6 +6,8 @@ import { WixIcon } from '../../components/IntegrationIcons'
 import { inputClass } from '../../constants/forms'
 import {
   buildWixInstallerUrl,
+  CLINTY_WIX_APP_ID,
+  CLINTY_WIX_APP_SHARE_URL,
   takePendingWixInstanceId,
 } from '../../constants/wix'
 import { useAuth } from '../../context/AuthContext'
@@ -37,8 +39,6 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
   const [timezone, setTimezone] = useState('America/Los_Angeles')
   const [platformAppConfigured, setPlatformAppConfigured] = useState(false)
   const [platformInstallAvailable, setPlatformInstallAvailable] = useState(false)
-  const [platformInstallUrl, setPlatformInstallUrl] = useState<string | null>(null)
-  const [platformAppId, setPlatformAppId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -62,8 +62,6 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
         setPlatformInstallAvailable(
           Boolean(recovery.wix_install_available || recovery.wix_app_install_url || recovery.wix_app_id),
         )
-        setPlatformInstallUrl(recovery.wix_app_install_url ?? null)
-        setPlatformAppId(recovery.wix_app_id ?? null)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load Wix connection')
@@ -113,11 +111,13 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
       : { status: 'disconnected' as const, statusLabel: 'Not connected' }
 
   function handleInstallApp() {
-    if (!user || (!platformInstallUrl && !platformAppId)) {
-      setError('Clinty Wix app is not configured yet. Ask an admin to add the Wix install link or App ID.')
+    if (!user) {
+      setError('Sign in to install the Clinty Wix app.')
       return
     }
-    const url = buildWixInstallerUrl(platformInstallUrl || '', user.id, platformAppId)
+    // Always install via the published App Market share link (https://wix.to/9PIMeWM).
+    // A stale admin App ID / override used to rewrite this to "no longer available".
+    const url = buildWixInstallerUrl(CLINTY_WIX_APP_SHARE_URL, user.id, CLINTY_WIX_APP_ID)
     if (!url) {
       setError('Could not build the Wix install URL.')
       return
@@ -215,32 +215,26 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
       {error ? <p className="text-sm text-red-700 mb-4">{error}</p> : null}
       {success ? <p className="text-sm text-emerald-800 mb-4">{success}</p> : null}
 
-      {platformInstallAvailable ? (
-        <div className="mb-6 rounded-xl border border-navy-900/10 bg-cream p-4 space-y-3">
-          <p className="text-sm font-medium text-navy-900">Clinty Wix app</p>
-          <p className="text-xs text-navy-600">
-            Install once on your Wix site that has Bookings. After redirect, paste or confirm the
-            Instance ID, add your appointment Service ID, then Connect
-            {platformAppConfigured
-              ? ' (shared app credentials are used automatically).'
-              : ' with a Wix API key + Site ID if the shared App Secret is not configured yet.'}{' '}
-            Cancel webhooks use the shared gateway — you do not create your own Wix app.
-          </p>
-          <button
-            type="button"
-            onClick={handleInstallApp}
-            disabled={working || (!platformInstallUrl && !platformAppId)}
-            className="inline-flex items-center text-sm font-medium bg-navy-900 text-cream px-4 py-2 rounded-lg hover:bg-navy-800 transition-colors disabled:opacity-60"
-          >
-            Install Clinty Wix app
-          </button>
-        </div>
-      ) : (
-        <p className="text-xs text-amber-800 mb-4">
-          Shared Clinty Wix app is not configured yet. You can still connect with a Wix API key + Site
-          ID, or ask an admin to add the Studio install link / App ID under Booking recovery gateways.
+      <div className="mb-6 rounded-xl border border-navy-900/10 bg-cream p-4 space-y-3">
+        <p className="text-sm font-medium text-navy-900">Clinty Wix app</p>
+        <p className="text-xs text-navy-600">
+          Install once on your Wix site that has Bookings (App Market share link{' '}
+          <code className="text-xs">wix.to/9PIMeWM</code>). After redirect, paste or confirm the
+          Instance ID, add your appointment Service ID, then Connect
+          {platformAppConfigured
+            ? ' (shared app credentials are used automatically).'
+            : ' with a Wix API key + Site ID if the shared App Secret is not configured yet.'}{' '}
+          Cancel webhooks use the shared gateway — you do not create your own Wix app.
         </p>
-      )}
+        <button
+          type="button"
+          onClick={handleInstallApp}
+          disabled={working}
+          className="inline-flex items-center text-sm font-medium bg-navy-900 text-cream px-4 py-2 rounded-lg hover:bg-navy-800 transition-colors disabled:opacity-60"
+        >
+          Install Clinty Wix app
+        </button>
+      </div>
 
       <div className="space-y-3">
         <FormField

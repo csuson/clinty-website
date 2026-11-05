@@ -69,6 +69,20 @@ function normalizeAppsScriptWebAppUrl(value: unknown): string {
   return url
 }
 
+/** Published Clinty Cancel Booking Recovery share install link (App Market). */
+export const CLINTY_WIX_APP_SHARE_URL = 'https://wix.to/9PIMeWM'
+
+/**
+ * App ID for the published share link.
+ * Verified: https://wix.to/9PIMeWM → /app-market/install/1f88c5af-e254-44fb-917f-49bed77b8632
+ */
+export const CLINTY_WIX_APP_ID = '1f88c5af-e254-44fb-917f-49bed77b8632'
+
+/** Known wix.to short-code → App ID (share links drop query params on redirect). */
+const WIX_SHARE_CODE_APP_IDS: Record<string, string> = {
+  '9PIMeWM': CLINTY_WIX_APP_ID,
+}
+
 /** Default Wix installer base when no custom URL is stored. */
 export function buildDefaultWixInstallUrl(appId: string): string {
   const id = trim(appId)
@@ -76,14 +90,49 @@ export function buildDefaultWixInstallUrl(appId: string): string {
   return `https://www.wix.com/installer/install?appId=${encodeURIComponent(id)}`
 }
 
-/** Resolve installer URL: custom override, else default from app id. */
+/**
+ * Expand share / market links to the installer URL with the published App ID.
+ * Prefer the share-code App ID over a stale admin App ID so Install never hits
+ * "this app is no longer available" for the live Clinty listing.
+ */
+export function expandWixInstallUrl(rawUrl: string, fallbackAppId?: string | null): string {
+  const raw = trim(rawUrl)
+  if (!raw) {
+    return buildDefaultWixInstallUrl(fallbackAppId || CLINTY_WIX_APP_ID)
+  }
+  try {
+    const url = new URL(raw)
+    const host = url.hostname.replace(/^www\./, '').toLowerCase()
+
+    const market = url.pathname.match(/\/app-market\/install\/([0-9a-f-]{36})/i)
+    if (market) return buildDefaultWixInstallUrl(market[1])
+
+    if (host === 'wix.com' && url.pathname.includes('/installer/install')) {
+      const appId =
+        url.searchParams.get('appId') || url.searchParams.get('appid') || fallbackAppId || CLINTY_WIX_APP_ID
+      return buildDefaultWixInstallUrl(String(appId))
+    }
+
+    if (host === 'wix.to') {
+      const code = url.pathname.replace(/^\/+|\/+$/g, '').split('/')[0] || ''
+      const fromShare = WIX_SHARE_CODE_APP_IDS[code] || ''
+      return buildDefaultWixInstallUrl(fromShare || fallbackAppId || CLINTY_WIX_APP_ID)
+    }
+  } catch {
+    // fall through
+  }
+  return raw
+}
+
+/** Resolve installer URL: custom override, else published share link, else app id. */
 export function resolveWixAppInstallUrl(settings: {
   wix_app_id?: string | null
   wix_app_install_url?: string | null
 }): string {
   const custom = trim(settings.wix_app_install_url)
-  if (custom) return custom
-  return buildDefaultWixInstallUrl(settings.wix_app_id ?? '')
+  if (custom) return expandWixInstallUrl(custom, settings.wix_app_id)
+  // Prefer the published App Market share link so Install always targets the live listing.
+  return expandWixInstallUrl(CLINTY_WIX_APP_SHARE_URL, settings.wix_app_id || CLINTY_WIX_APP_ID)
 }
 
 export function loadWebsiteSettingsFromEdgeEnv(): WebsiteSettings {

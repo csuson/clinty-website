@@ -1,9 +1,28 @@
 export const WIX_OAUTH_STATE_KEY = 'wix_app_install_state'
 export const WIX_PENDING_INSTANCE_KEY = 'wix_pending_instance_id'
 
+/** Published Clinty Cancel Booking Recovery share install link (App Market). */
+export const CLINTY_WIX_APP_SHARE_URL = 'https://wix.to/9PIMeWM'
+
+/**
+ * App ID for the published share link above.
+ * Verified: https://wix.to/9PIMeWM → /app-market/install/1f88c5af-e254-44fb-917f-49bed77b8632
+ */
+export const CLINTY_WIX_APP_ID = '1f88c5af-e254-44fb-917f-49bed77b8632'
+
+/** Known wix.to short-code → App ID (share links drop query params on redirect). */
+export const WIX_SHARE_CODE_APP_IDS: Record<string, string> = {
+  '9PIMeWM': CLINTY_WIX_APP_ID,
+}
+
 export function getWixRedirectUri(): string {
   if (typeof window === 'undefined') return ''
   return `${window.location.origin}/account/integrations/wix/callback`
+}
+
+function appIdFromWixSharePath(pathname: string): string {
+  const code = pathname.replace(/^\/+|\/+$/g, '').split('/')[0] || ''
+  return (WIX_SHARE_CODE_APP_IDS[code] || '').trim()
 }
 
 /**
@@ -16,8 +35,9 @@ export function normalizeWixInstallBaseUrl(
 ): string {
   const raw = installBaseUrl.trim()
   if (!raw) {
-    const id = (fallbackAppId || '').trim()
-    return id ? `https://www.wix.com/installer/install?appId=${encodeURIComponent(id)}` : ''
+    // Always target the published App Market listing — a stale admin App ID is what
+    // produced "this app is no longer available" when the share link was missing.
+    return `https://www.wix.com/installer/install?appId=${encodeURIComponent(CLINTY_WIX_APP_ID)}`
   }
 
   try {
@@ -38,9 +58,10 @@ export function normalizeWixInstallBaseUrl(
       }
     }
 
-    // https://wix.to/… short share link — expand via known app id when available.
+    // https://wix.to/… short share link — expand via known share code first so a
+    // stale admin App ID cannot rewrite the published listing to "no longer available".
     if (host === 'wix.to') {
-      const id = (fallbackAppId || '').trim()
+      const id = (appIdFromWixSharePath(url.pathname) || fallbackAppId || CLINTY_WIX_APP_ID).trim()
       if (id) {
         return `https://www.wix.com/installer/install?appId=${encodeURIComponent(id)}`
       }

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import IntegrationPanel from '../../components/IntegrationPanel'
 import { GoogleCalendarIcon } from '../../components/IntegrationIcons'
-import { buildWixInstallerUrl } from '../../constants/wix'
+import {
+  buildWixInstallerUrl,
+  CLINTY_WIX_APP_ID,
+  CLINTY_WIX_APP_SHARE_URL,
+} from '../../constants/wix'
 import { useAuth } from '../../context/AuthContext'
 import {
   disableBookingRecovery,
@@ -202,55 +206,54 @@ export default function BookingRecoveryIntegration({
                   Copy
                 </button>
               </div>
-              {data.wix_install_available || data.wix_app_configured || data.wix_app_install_url ? (
-                <div className="space-y-2">
-                  <p className="text-xs text-navy-600">
-                    Clinty&apos;s shared Wix Studio app posts <code className="text-xs">booking/canceled</code>{' '}
-                    here once subscribed. Install the app on your site, then connect Wix Bookings so
-                    instance/site IDs route cancels to your assistant. Appointment services only; guest
-                    email required.
-                  </p>
-                  {(data.wix_app_install_url || data.wix_app_id) && user ? (
-                    <button
-                      type="button"
-                      disabled={working}
-                      onClick={() => {
-                        const url = buildWixInstallerUrl(
-                          data.wix_app_install_url || '',
-                          user.id,
-                          data.wix_app_id,
-                        )
-                        if (!url) {
-                          setError('Could not build the Wix install URL.')
-                          return
-                        }
-                        window.location.assign(url)
-                      }}
-                      className="inline-flex items-center text-sm font-medium border border-navy-900/15 text-navy-800 px-4 py-2 rounded-lg hover:bg-navy-50 disabled:opacity-60"
-                    >
-                      Install Clinty Wix app
-                    </button>
-                  ) : null}
-                  {!connection?.wix_instance_id && !connection?.wix_site_id ? (
-                    <p className="text-xs text-amber-800">
-                      No Wix routing ID yet — open <strong>Wix Bookings</strong> above to finish connect
-                      after install.
-                    </p>
-                  ) : null}
-                  {!data.has_wix_webhook_public_key ? (
-                    <p className="text-xs text-amber-800">
-                      Admin note: paste the Wix webhook public key in Admin → Booking recovery gateways
-                      (and on the gateway as WIX_WEBHOOK_PUBLIC_KEY) so JWT verification is enabled.
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
+              <div className="space-y-2">
                 <p className="text-xs text-navy-600">
-                  An admin must configure the shared Clinty Wix Studio app (App ID + Secret + webhook
-                  public key). Until then you can still connect Wix with an API key; routing uses site
-                  ID. Appointment services only; guest email required on the booking.
+                  Clinty&apos;s shared Wix Studio app posts <code className="text-xs">booking/canceled</code>{' '}
+                  here once subscribed. Install via{' '}
+                  <code className="text-xs">wix.to/9PIMeWM</code>, then connect Wix Bookings so
+                  instance/site IDs route cancels to your assistant. Appointment services only; guest
+                  email required.
                 </p>
-              )}
+                {user ? (
+                  <button
+                    type="button"
+                    disabled={working}
+                    onClick={() => {
+                      const url = buildWixInstallerUrl(
+                        CLINTY_WIX_APP_SHARE_URL,
+                        user.id,
+                        CLINTY_WIX_APP_ID,
+                      )
+                      if (!url) {
+                        setError('Could not build the Wix install URL.')
+                        return
+                      }
+                      window.location.assign(url)
+                    }}
+                    className="inline-flex items-center text-sm font-medium border border-navy-900/15 text-navy-800 px-4 py-2 rounded-lg hover:bg-navy-50 disabled:opacity-60"
+                  >
+                    Install Clinty Wix app
+                  </button>
+                ) : null}
+                {!connection?.wix_instance_id && !connection?.wix_site_id ? (
+                  <p className="text-xs text-amber-800">
+                    No Wix routing ID yet — open <strong>Wix Bookings</strong> above to finish connect
+                    after install.
+                  </p>
+                ) : null}
+                {!data.has_wix_webhook_public_key ? (
+                  <p className="text-xs text-amber-800">
+                    Admin note: paste the Wix webhook public key in Admin → Booking recovery gateways
+                    (and on the gateway as WIX_WEBHOOK_PUBLIC_KEY) so JWT verification is enabled.
+                  </p>
+                ) : null}
+                {!data.wix_app_configured ? (
+                  <p className="text-xs text-navy-600">
+                    Shared App Secret is not configured yet — you can still connect Wix with an API key;
+                    routing uses site ID until OAuth credentials are set in Admin.
+                  </p>
+                ) : null}
+              </div>
             </div>
           ) : null}
 

@@ -219,13 +219,13 @@ export default function AdminBookingRecoveryGatewayPanel({
           <FormField
             label="Wix App ID"
             id="wix-app-id"
-            hint="Wix Studio → Custom Apps → Develop → OAuth → App ID"
+            hint="Wix Studio → Custom Apps → Develop → OAuth → App ID. Published listing uses 1f88c5af-e254-44fb-917f-49bed77b8632 (https://wix.to/9PIMeWM)."
           >
             <input
               id="wix-app-id"
               value={form.wix_app_id}
               onChange={(event) => updateField('wix_app_id', event.target.value)}
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              placeholder="1f88c5af-e254-44fb-917f-49bed77b8632"
               className={inputClass}
               disabled={saving}
             />
@@ -276,14 +276,14 @@ export default function AdminBookingRecoveryGatewayPanel({
           <FormField
             label="Wix install URL override (optional)"
             id="wix-app-install-url"
-            hint="Share install link (e.g. https://wix.to/…) or leave empty to use https://www.wix.com/installer/install?appId=…. Clinty rewrites short links using App ID so tenants return to the OAuth callback."
+            hint="Published share link: https://wix.to/9PIMeWM (Clinty Cancel Booking Recovery). Leave empty to use that share link. Short links are expanded to the installer so redirectUrl/state survive."
           >
             <input
               id="wix-app-install-url"
               type="url"
               value={form.wix_app_install_url}
               onChange={(event) => updateField('wix_app_install_url', event.target.value)}
-              placeholder="https://www.wix.com/installer/install?appId=…"
+              placeholder="https://wix.to/9PIMeWM"
               className={inputClass}
               disabled={saving}
             />
