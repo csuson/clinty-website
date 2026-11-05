@@ -215,10 +215,10 @@ function findService(rows: WixServiceRow[], serviceId: string): WixServiceRow | 
   return rows.find((svc) => String(svc?.id ?? svc?.serviceId ?? '').trim() === serviceId)
 }
 
-function appointmentTypeError(serviceId: string, typ: string): string {
+function unsupportedServiceTypeError(serviceId: string, typ: string): string {
   return (
     `Service ${serviceId} is type ${typ}. ` +
-    'Clinty calendar tools only support APPOINTMENT services (not CLASS/COURSE).'
+    'Clinty supports APPOINTMENT, CLASS, and COURSE Wix Bookings services.'
   )
 }
 
@@ -319,6 +319,7 @@ async function validateWix(input: {
     const payload = await services.json().catch(() => ({}))
     const rows = servicesFromPayload(payload)
     const wanted = input.serviceId.trim()
+    const supportedTypes = new Set(['APPOINTMENT', 'CLASS', 'COURSE'])
     if (wanted) {
       const match = findService(rows, wanted)
       if (!match) {
@@ -328,22 +329,22 @@ async function validateWix(input: {
         }
       }
       const typ = String(match.type ?? match.serviceType ?? '').trim().toUpperCase()
-      if (typ && typ !== 'APPOINTMENT') {
-        return { ok: false, error: appointmentTypeError(wanted, typ) }
+      if (typ && !supportedTypes.has(typ)) {
+        return { ok: false, error: unsupportedServiceTypeError(wanted, typ) }
       }
       return { ok: true }
     }
 
-    // Blank service ID = all appointment services on the site.
+    // Blank service ID = all bookable services on the site.
     const typed = rows
       .map((svc) => String(svc?.type ?? svc?.serviceType ?? '').trim().toUpperCase())
       .filter(Boolean)
-    const appointments = typed.filter((typ) => typ === 'APPOINTMENT')
-    if (typed.length > 0 && appointments.length === 0) {
+    const bookable = typed.filter((typ) => supportedTypes.has(typ))
+    if (typed.length > 0 && bookable.length === 0) {
       return {
         ok: false,
         error:
-          'This Wix site has Bookings services, but none are appointment-type. Add an appointment service, or set a specific Service ID.',
+          'This Wix site has Bookings services, but none are APPOINTMENT, CLASS, or COURSE. Add a bookable service, or set a specific Service ID.',
       }
     }
     return { ok: true }

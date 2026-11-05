@@ -212,7 +212,8 @@ export default function BookingRecoveryIntegration({
                   here once subscribed. Install via{' '}
                   <code className="text-xs">wix.to/9PIMeWM</code>,                   then paste the Instance ID in{' '}
                   <strong>Wix Bookings</strong> and Connect (Service ID optional — blank uses all
-                  appointment services) so cancels route to your assistant. Guest email required.
+                  appointments, classes, and courses) so cancels route to your assistant. Guest email
+                  required.
                 </p>
                 {user ? (
                   <button

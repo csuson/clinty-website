@@ -613,7 +613,7 @@ export default function AdminAgentSettingsForm({
             <ReadOnlyField label="Instance ID" value={wixToken.instance_id} />
             <ReadOnlyField
               label="Service ID"
-              value={wixToken.service_id?.trim() ? wixToken.service_id : '(all appointment services)'}
+              value={wixToken.service_id?.trim() ? wixToken.service_id : '(all bookable services)'}
             />
             <ReadOnlyField label="Timezone" value={wixToken.timezone} />
             <ReadOnlyField label="Resource ID" value={wixToken.resource_id} />

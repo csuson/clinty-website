@@ -124,7 +124,7 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
     }
     window.open(url, '_blank', 'noopener,noreferrer')
     setSuccess(
-      'Opened the Clinty Wix app install page. After you add it to your site, paste the Instance ID below, then Connect. Leave Service ID blank to use all appointment services.',
+      'Opened the Clinty Wix app install page. After you add it to your site, paste the Instance ID below, then Connect. Leave Service ID blank to use all bookable services (appointments, classes, courses).',
     )
   }
 
@@ -269,14 +269,14 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
         <FormField
           label="Service ID (optional)"
           id="wix-service-id"
-          hint="Leave blank to book across all appointment-type services on this Wix site. To limit to one service: Booking → Services → open an appointment (not class/course) → copy the UUID after /bookings/services/form/ in the URL."
+          hint="Leave blank to book across all appointment, class, and course services on this Wix site. To limit to one service: Booking → Services → open the service → copy the UUID after /bookings/services/form/ in the URL."
         >
           <input
             id="wix-service-id"
             className={inputClass}
             value={serviceId}
             onChange={(e) => setServiceId(e.target.value)}
-            placeholder="All appointment services (recommended)"
+            placeholder="All bookable services (recommended)"
             disabled={working}
           />
         </FormField>
