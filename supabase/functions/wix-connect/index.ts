@@ -6,7 +6,10 @@ import {
 } from '../_shared/bookingRecoveryInfrastructure.ts'
 import { notifyEmailAssistantRuntimeReload } from '../_shared/emailAssistant.ts'
 import { corsPreflightResponse, getCorsHeaders } from '../_shared/cors.ts'
-import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
+import {
+  CLINTY_WIX_APP_ID,
+  loadWebsiteSettings,
+} from '../_shared/websiteInfrastructure.ts'
 
 let corsHeaders: Record<string, string> = {}
 
@@ -59,14 +62,14 @@ Deno.serve(async (req) => {
 
     // Shared Clinty Wix Studio app (admin website_infrastructure) — tenants only need instance_id.
     const platform = await loadWebsiteSettings(admin)
-    const platformAppId = platform.wix_app_id.trim()
+    const platformAppId = platform.wix_app_id.trim() || CLINTY_WIX_APP_ID
     const platformAppSecret = platform.wix_app_secret.trim()
 
     const resolvedSite = siteId || String(existing?.site_id ?? '').trim()
     const resolvedKey = apiKeyInput || String(existing?.api_key ?? '').trim()
     const resolvedService = serviceId || String(existing?.service_id ?? '').trim()
     const resolvedAppId =
-      appId || String(existing?.app_id ?? '').trim() || platformAppId
+      appId || String(existing?.app_id ?? '').trim() || platformAppId || CLINTY_WIX_APP_ID
     const resolvedAppSecret =
       appSecretInput || String(existing?.app_secret ?? '').trim() || platformAppSecret
     const resolvedInstance = instanceId || String(existing?.instance_id ?? '').trim()
@@ -81,8 +84,14 @@ Deno.serve(async (req) => {
     const usesApiKey = Boolean(resolvedKey && resolvedSite)
     const usesOauth = Boolean(resolvedAppId && resolvedAppSecret && resolvedInstance)
     if (!usesApiKey && !usesOauth) {
+      if (resolvedInstance && !resolvedAppSecret) {
+        return json({
+          error:
+            'Clinty Wix App Secret is not configured. Ask an admin to paste the App Secret (and App ID 1f88c5af-e254-44fb-917f-49bed77b8632) under Admin → Booking recovery gateways.',
+        }, 400)
+      }
       return json({
-        error: platformAppId
+        error: platformAppSecret
           ? 'Provide a service ID plus either (API key + site ID) or (Instance ID after installing the Clinty Wix app).'
           : 'Provide either (API key + site ID) or (App ID + App Secret + Instance ID), plus a service ID.',
       }, 400)
@@ -233,9 +242,22 @@ async function validateWix(input: {
         signal: AbortSignal.timeout(20_000),
       })
       if (!tokenResponse.ok) {
+        const errBody = await tokenResponse.json().catch(() => ({})) as {
+          message?: string
+          error_description?: string
+          error?: string
+        }
+        const detail =
+          errBody.message ||
+          errBody.error_description ||
+          errBody.error ||
+          `HTTP ${tokenResponse.status}`
         return {
           ok: false,
-          error: `Wix OAuth rejected credentials (HTTP ${tokenResponse.status}).`,
+          error:
+            `Wix OAuth rejected credentials (${detail}). ` +
+            'Confirm Admin App ID/Secret match the published Clinty app ' +
+            `(${input.appId || CLINTY_WIX_APP_ID}) and the Instance ID is from that install.`,
         }
       }
       const tokenPayload = await tokenResponse.json().catch(() => ({})) as {

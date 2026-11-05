@@ -1,4 +1,5 @@
 import { supabase } from '../supabase'
+import { getFunctionErrorMessage } from '../supabaseFunctions'
 import type { WixConnection } from '../../types/database'
 
 export type { WixConnection }
@@ -50,13 +51,14 @@ export async function connectWix(input: {
       timezone: input.timezone ?? 'America/Los_Angeles',
     },
   })
-  if (result.error) throw new Error(result.error.message || 'Failed to connect Wix Bookings')
+  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
   const payload = result.data as {
     error?: string
     assistant_reloaded?: boolean
     assistant_reload_error?: string
   }
-  if (payload?.error) throw new Error(payload.error)
   return {
     assistantReloaded: Boolean(payload?.assistant_reloaded),
     assistantReloadError: payload?.assistant_reload_error,
@@ -69,13 +71,14 @@ export async function disconnectWix(): Promise<{
 }> {
   const client = requireSupabase()
   const result = await client.functions.invoke('wix-disconnect', { body: {} })
-  if (result.error) throw new Error(result.error.message || 'Failed to disconnect Wix Bookings')
+  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
   const payload = result.data as {
     error?: string
     assistant_reloaded?: boolean
     assistant_reload_error?: string
   }
-  if (payload?.error) throw new Error(payload.error)
   return {
     assistantReloaded: Boolean(payload?.assistant_reloaded),
     assistantReloadError: payload?.assistant_reload_error,
