@@ -246,7 +246,7 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
         <FormField
           label="Site ID"
           id="wix-site-id"
-          hint="Wix dashboard → Settings → Site ID (required with API key; optional with app install)"
+          hint="Open your site dashboard in Wix. Copy the UUID after /dashboard/ in the browser URL (e.g. manage.wix.com/dashboard/{SITE_ID}/home). Required with an API key; optional with Clinty Wix app install."
         >
           <input
             id="wix-site-id"
@@ -260,7 +260,7 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
         <FormField
           label="API key"
           id="wix-api-key"
-          hint="Wix API Keys with Bookings permissions (alternative to Clinty Wix app)"
+          hint="Wix account menu (top right) → Account Settings → API Keys → Create API Key. Enable Wix Bookings permissions, limit the key to this site, then copy the key (shown once). Alternative to the Clinty Wix app."
         >
           <input
             id="wix-api-key"
@@ -275,7 +275,7 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
         <FormField
           label="Service ID"
           id="wix-service-id"
-          hint="Must be an appointment-type Bookings service (not class/course). Private/intro lessons are usually appointment."
+          hint="Site dashboard → Booking (or Bookings) → Services → open an appointment-type service (not class/course). Copy the UUID after /bookings/services/form/ in the URL."
         >
           <input
             id="wix-service-id"
