@@ -37,7 +37,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const siteId = typeof body.site_id === 'string' ? body.site_id.trim() : ''
     const apiKeyInput = typeof body.api_key === 'string' ? body.api_key.trim() : ''
-    const serviceId = typeof body.service_id === 'string' ? body.service_id.trim() : ''
+    const serviceIdProvided = typeof body.service_id === 'string'
+    const serviceId = serviceIdProvided ? body.service_id.trim() : ''
     const appId = typeof body.app_id === 'string' ? body.app_id.trim() : ''
     const appSecretInput = typeof body.app_secret === 'string' ? body.app_secret.trim() : ''
     const instanceId = typeof body.instance_id === 'string' ? body.instance_id.trim() : ''
@@ -67,7 +68,10 @@ Deno.serve(async (req) => {
 
     const resolvedSite = siteId || String(existing?.site_id ?? '').trim()
     const resolvedKey = apiKeyInput || String(existing?.api_key ?? '').trim()
-    const resolvedService = serviceId || String(existing?.service_id ?? '').trim()
+    // Empty string is intentional (all appointment services) — do not fall back to existing.
+    const resolvedService = serviceIdProvided
+      ? serviceId
+      : String(existing?.service_id ?? '').trim()
     const resolvedAppId =
       appId || String(existing?.app_id ?? '').trim() || platformAppId || CLINTY_WIX_APP_ID
     const resolvedAppSecret =
@@ -76,10 +80,6 @@ Deno.serve(async (req) => {
     const resolvedResource = resourceId || String(existing?.resource_id ?? '').trim()
     const resolvedLocation = locationId || String(existing?.location_id ?? '').trim()
     const resolvedTimezone = timezone || String(existing?.timezone ?? 'America/Los_Angeles')
-
-    if (!resolvedService) {
-      return json({ error: 'Provide a Wix Bookings service ID.' }, 400)
-    }
 
     // Prefer OAuth (installed Clinty app) over a leftover API key — a stale key was
     // causing "Wix API credentials rejected" even when Instance ID was valid.
@@ -94,8 +94,8 @@ Deno.serve(async (req) => {
       }
       return json({
         error: platformAppSecret
-          ? 'Provide a service ID plus either (API key + site ID) or (Instance ID after installing the Clinty Wix app).'
-          : 'Provide either (API key + site ID) or (App ID + App Secret + Instance ID), plus a service ID.',
+          ? 'Provide either (API key + site ID) or (Instance ID after installing the Clinty Wix app). Service ID is optional (blank = all appointment services).'
+          : 'Provide either (API key + site ID) or (App ID + App Secret + Instance ID). Service ID is optional (blank = all appointment services).',
       }, 400)
     }
     if (usesApiKey && resolvedKey && !resolvedSite) {
@@ -317,16 +317,34 @@ async function validateWix(input: {
     }
 
     const payload = await services.json().catch(() => ({}))
-    const match = findService(servicesFromPayload(payload), input.serviceId)
-    if (!match) {
+    const rows = servicesFromPayload(payload)
+    const wanted = input.serviceId.trim()
+    if (wanted) {
+      const match = findService(rows, wanted)
+      if (!match) {
+        return {
+          ok: false,
+          error: `Wix service ID ${wanted} was not found on this site.`,
+        }
+      }
+      const typ = String(match.type ?? match.serviceType ?? '').trim().toUpperCase()
+      if (typ && typ !== 'APPOINTMENT') {
+        return { ok: false, error: appointmentTypeError(wanted, typ) }
+      }
+      return { ok: true }
+    }
+
+    // Blank service ID = all appointment services on the site.
+    const typed = rows
+      .map((svc) => String(svc?.type ?? svc?.serviceType ?? '').trim().toUpperCase())
+      .filter(Boolean)
+    const appointments = typed.filter((typ) => typ === 'APPOINTMENT')
+    if (typed.length > 0 && appointments.length === 0) {
       return {
         ok: false,
-        error: `Wix service ID ${input.serviceId} was not found on this site.`,
+        error:
+          'This Wix site has Bookings services, but none are appointment-type. Add an appointment service, or set a specific Service ID.',
       }
-    }
-    const typ = String(match.type ?? match.serviceType ?? '').trim().toUpperCase()
-    if (typ && typ !== 'APPOINTMENT') {
-      return { ok: false, error: appointmentTypeError(input.serviceId, typ) }
     }
     return { ok: true }
   } catch (err) {

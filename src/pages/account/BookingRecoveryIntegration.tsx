@@ -210,9 +210,9 @@ export default function BookingRecoveryIntegration({
                 <p className="text-xs text-navy-600">
                   Clinty&apos;s shared Wix Studio app posts <code className="text-xs">booking/canceled</code>{' '}
                   here once subscribed. Install via{' '}
-                  <code className="text-xs">wix.to/9PIMeWM</code>, then paste the Instance ID in{' '}
-                  <strong>Wix Bookings</strong> and Connect so cancels route to your assistant.
-                  Appointment services only; guest email required.
+                  <code className="text-xs">wix.to/9PIMeWM</code>,                   then paste the Instance ID in{' '}
+                  <strong>Wix Bookings</strong> and Connect (Service ID optional — blank uses all
+                  appointment services) so cancels route to your assistant. Guest email required.
                 </p>
                 {user ? (
                   <button
