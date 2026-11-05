@@ -276,7 +276,7 @@ export default function AdminBookingRecoveryGatewayPanel({
           <FormField
             label="Wix install URL override (optional)"
             id="wix-app-install-url"
-            hint="Published share link: https://wix.to/9PIMeWM (Clinty Cancel Booking Recovery). Leave empty to use that share link. Short links are expanded to the installer so redirectUrl/state survive."
+            hint="Published share link: https://wix.to/9PIMeWM. Leave empty to use the external install flow (app-installer + shareUrlId). Do not use /installer/install?appId= for this unlisted app."
           >
             <input
               id="wix-app-install-url"
@@ -292,7 +292,7 @@ export default function AdminBookingRecoveryGatewayPanel({
           <FormField
             label="OAuth redirect URL (add in Wix Studio)"
             id="wix-redirect-uri"
-            hint="Develop → OAuth → Redirect URL. Required so Install returns instanceId to Clinty."
+            hint="Post-install callback used by the external install flow (postInstallationUrl). Also add this under Develop → OAuth → Redirect URL if using OAuth redirects."
           >
             <div className="flex flex-wrap items-center gap-2">
               <code className="text-xs break-all text-navy-800 bg-navy-900/5 px-2 py-1 rounded flex-1">
