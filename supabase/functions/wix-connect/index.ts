@@ -81,8 +81,10 @@ Deno.serve(async (req) => {
       return json({ error: 'Provide a Wix Bookings service ID.' }, 400)
     }
 
-    const usesApiKey = Boolean(resolvedKey && resolvedSite)
+    // Prefer OAuth (installed Clinty app) over a leftover API key — a stale key was
+    // causing "Wix API credentials rejected" even when Instance ID was valid.
     const usesOauth = Boolean(resolvedAppId && resolvedAppSecret && resolvedInstance)
+    const usesApiKey = !usesOauth && Boolean(resolvedKey && resolvedSite)
     if (!usesApiKey && !usesOauth) {
       if (resolvedInstance && !resolvedAppSecret) {
         return json({
@@ -96,17 +98,19 @@ Deno.serve(async (req) => {
           : 'Provide either (API key + site ID) or (App ID + App Secret + Instance ID), plus a service ID.',
       }, 400)
     }
-    if (resolvedKey && !resolvedSite) {
+    if (usesApiKey && resolvedKey && !resolvedSite) {
       return json({ error: 'Site ID is required when using a Wix API key.' }, 400)
     }
 
     const validated = await validateWix({
       siteId: resolvedSite,
-      apiKey: resolvedKey,
+      // Only send API key when OAuth is unavailable.
+      apiKey: usesOauth ? '' : resolvedKey,
       appId: resolvedAppId,
       appSecret: resolvedAppSecret,
       instanceId: resolvedInstance,
       serviceId: resolvedService,
+      authMode: usesOauth ? 'oauth' : 'api_key',
     })
     if (!validated.ok) {
       await admin.from('wix_connections').upsert({
@@ -137,7 +141,8 @@ Deno.serve(async (req) => {
 
     const { error: tokenError } = await admin.from('wix_tokens').upsert({
       user_id: user.id,
-      api_key: resolvedKey || null,
+      // Clear API key when connecting via shared app OAuth so it can't override later.
+      api_key: usesOauth ? null : resolvedKey || null,
       // Never store instance_id as site_id — agent sends site_id as wix-site-id header.
       site_id: resolvedSite || null,
       service_id: resolvedService,
@@ -167,7 +172,7 @@ Deno.serve(async (req) => {
     const assistantReload = await notifyEmailAssistantRuntimeReload(admin, user.id, {
       ...exclusive,
       calendar_provider: 'wix',
-      wix_api_key: resolvedKey,
+      wix_api_key: usesOauth ? '' : resolvedKey,
       wix_site_id: resolvedSite,
       wix_service_id: resolvedService,
       wix_app_id: resolvedAppId,
@@ -224,12 +229,16 @@ async function validateWix(input: {
   appSecret: string
   instanceId: string
   serviceId: string
+  authMode: 'oauth' | 'api_key'
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    let authHeader = input.apiKey
-    const siteId = input.siteId
+    let authHeader = input.apiKey.trim()
+    const usingOauth = input.authMode === 'oauth'
 
-    if (!authHeader && input.appId && input.appSecret && input.instanceId) {
+    if (usingOauth) {
+      if (!input.appId || !input.appSecret || !input.instanceId) {
+        return { ok: false, error: 'Missing Wix OAuth App ID, App Secret, or Instance ID.' }
+      }
       const tokenResponse = await fetch('https://www.wixapis.com/oauth2/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -278,16 +287,14 @@ async function validateWix(input: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
     }
-    if (siteId) headers['wix-site-id'] = siteId
-
-    const props = await fetch('https://www.wixapis.com/site-properties/v4/properties', {
-      headers,
-      signal: AbortSignal.timeout(20_000),
-    })
-    if (props.status === 401 || props.status === 403) {
-      return { ok: false, error: 'Wix API credentials rejected.' }
+    // API keys are account-scoped and require wix-site-id. OAuth app tokens are
+    // already bound to the instance — sending a mismatched site ID can 403.
+    if (!usingOauth && input.siteId) {
+      headers['wix-site-id'] = input.siteId
     }
 
+    // Validate against Bookings (required). Do not fail on site-properties —
+    // the Clinty cancel-recovery app may not include that permission scope.
     const services = await fetch('https://www.wixapis.com/bookings/v2/services/query', {
       method: 'POST',
       headers,
@@ -295,37 +302,33 @@ async function validateWix(input: {
       signal: AbortSignal.timeout(20_000),
     })
     if (services.status === 401 || services.status === 403) {
-      return { ok: false, error: 'Wix Bookings API credentials rejected.' }
-    }
-    if (!services.ok && !props.ok) {
       return {
         ok: false,
-        error: `Wix returned HTTP ${services.status || props.status}. Check site ID, API key permissions, and Bookings app access.`,
+        error: usingOauth
+          ? `Wix Bookings rejected the app token (HTTP ${services.status}). Check that the Clinty app has Bookings permissions and the Instance ID belongs to this site.`
+          : `Wix Bookings API credentials rejected (HTTP ${services.status}). Check the API key scopes and Site ID.`,
+      }
+    }
+    if (!services.ok) {
+      return {
+        ok: false,
+        error: `Wix Bookings returned HTTP ${services.status}. Check Site ID / Instance ID, credentials, and Bookings app access.`,
       }
     }
 
-    if (services.ok) {
-      const payload = await services.json().catch(() => ({}))
-      const match = findService(servicesFromPayload(payload), input.serviceId)
-      if (!match) {
-        return {
-          ok: false,
-          error: `Wix service ID ${input.serviceId} was not found on this site.`,
-        }
+    const payload = await services.json().catch(() => ({}))
+    const match = findService(servicesFromPayload(payload), input.serviceId)
+    if (!match) {
+      return {
+        ok: false,
+        error: `Wix service ID ${input.serviceId} was not found on this site.`,
       }
-      const typ = String(match.type ?? match.serviceType ?? '').trim().toUpperCase()
-      if (typ && typ !== 'APPOINTMENT') {
-        return { ok: false, error: appointmentTypeError(input.serviceId, typ) }
-      }
-      return { ok: true }
     }
-
-    // Credentials work via site properties but services list failed — allow connect.
-    if (props.ok) return { ok: true }
-    return {
-      ok: false,
-      error: `Wix returned HTTP ${services.status || props.status}. Check site ID, API key permissions, and Bookings app access.`,
+    const typ = String(match.type ?? match.serviceType ?? '').trim().toUpperCase()
+    if (typ && typ !== 'APPOINTMENT') {
+      return { ok: false, error: appointmentTypeError(input.serviceId, typ) }
     }
+    return { ok: true }
   } catch (err) {
     return {
       ok: false,
