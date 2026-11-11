@@ -178,6 +178,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'start') {
+      // Render free/small instances often return proxy 502 while waking; warm /health first.
+      await warmGateway(gatewayUrl)
+
       await callGateway(gatewayUrl, gatewayKey, 'POST', '/v1/login/stop', {
         user_id: user.id,
       }, { timeoutMs: 4_000, attempts: 1 }).catch(() => {})
@@ -187,7 +190,7 @@ Deno.serve(async (req) => {
         status = await callGateway(gatewayUrl, gatewayKey, 'POST', '/v1/login/start', {
           user_id: user.id,
           force: true,
-        }, { timeoutMs: 45_000, attempts: 1 })
+        }, { timeoutMs: 45_000, attempts: 3 })
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
         const timedOut = /timed out|TimeoutError|operation was aborted/i.test(message)
@@ -440,6 +443,24 @@ type CallGatewayOptions = {
   attempts?: number
 }
 
+async function warmGateway(baseUrl: string) {
+  const url = `${baseUrl.replace(/\/$/, '')}/health`
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { Connection: 'close', 'User-Agent': 'clinty-whatsapp-web-login-warmup' },
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (response.ok) return
+      if (![502, 503, 504].includes(response.status) || attempt === 4) return
+    } catch {
+      if (attempt === 4) return
+    }
+    await new Promise((resolve) => setTimeout(resolve, attempt * 1_000))
+  }
+}
+
 async function callGateway(
   baseUrl: string,
   apiKey: string,
@@ -495,7 +516,10 @@ async function callGateway(
           throw new Error(formatGatewayNotFoundError(baseUrl, path, rawBody))
         }
         if (response.status === 502 || response.status === 503 || response.status === 504) {
-          throw new Error(formatGatewayUpstreamError(baseUrl, response.status, data, path))
+          // Keep the status code in a retryable shape so cold-start proxy errors can be retried.
+          const upstream = new Error(formatGatewayUpstreamError(baseUrl, response.status, data, path))
+          ;(upstream as Error & { retryable?: boolean }).retryable = true
+          throw upstream
         }
         throw new Error(
           typeof data.error === 'string'
@@ -507,14 +531,14 @@ async function callGateway(
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
       const message = lastError.message
-      const retryable =
-        /connection closed|connection reset|broken pipe|unexpected eof|SendRequest|Gateway request failed \(502\)|Gateway request failed \(503\)|Gateway request failed \(504\)/i.test(message)
+      const retryable = Boolean((lastError as Error & { retryable?: boolean }).retryable) ||
+        /connection closed|connection reset|broken pipe|unexpected eof|SendRequest|Gateway request failed \(502\)|Gateway request failed \(503\)|Gateway request failed \(504\)|WhatsApp gateway error \(502\)|WhatsApp gateway error \(503\)|WhatsApp gateway error \(504\)/i.test(message)
 
       if (!retryable || attempt === attempts) {
         break
       }
 
-      await new Promise((resolve) => setTimeout(resolve, attempt * 500))
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1_000))
     }
   }
 
@@ -562,8 +586,8 @@ function formatGatewayUpstreamError(
 
   return (
     `WhatsApp gateway error (${status}) while ${action} at ${baseUrl}. ` +
-    'This usually means the gateway process crashed, is restarting, or your reverse proxy cannot reach it. ' +
-    'Check that the gateway service is running, port 8787 is open, and the API key matches Account → API Keys. ' +
+    'This usually means the shared gateway is waking up, restarting, or temporarily overloaded on Render. ' +
+    'Wait a few seconds and try again. If it keeps failing, check the whatsapp-web-gateway-70je service logs in Render. ' +
     (detail ? `Gateway said: ${detail}` : 'Check gateway logs for the underlying error.')
   )
 }
