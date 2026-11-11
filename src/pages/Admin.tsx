@@ -2,7 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import PageMeta from '../components/PageMeta'
 import { useAuth } from '../context/AuthContext'
-import { fetchAdminData, deleteAdminRecord, type AdminData, type AdminDeleteResource } from '../lib/admin'
+import {
+  fetchAdminData,
+  deleteAdminRecord,
+  removeAdminWhatsAppInfrastructure,
+  type AdminData,
+  type AdminDeleteResource,
+} from '../lib/admin'
 import AdminAiSettingsPanel from '../components/admin/AdminAiSettingsPanel'
 import AdminAgentSettingsTable from '../components/AdminAgentSettingsTable'
 import AdminUserPromptsTable from '../components/admin/AdminUserPromptsTable'
@@ -85,7 +91,12 @@ export default function Admin() {
     setError(null)
 
     try {
-      await deleteAdminRecord(resource, id)
+      if (resource === 'whatsapp_token') {
+        // Disconnect Baileys + clear Storage auth, then delete whatsapp_connections.
+        await removeAdminWhatsAppInfrastructure(id)
+      } else {
+        await deleteAdminRecord(resource, id)
+      }
       await loadData()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete record')
@@ -248,7 +259,16 @@ export default function Admin() {
               <AdminWhatsAppTokensTable
                 whatsappConnections={data.whatsappConnections ?? []}
                 isDeleting={(id) => isDeleting('whatsapp_token', id)}
-                onDelete={(id, label) => handleDelete('whatsapp_token', id, `WhatsApp device for ${label}`)}
+                onDelete={(id, label) =>
+                  handleDelete(
+                    'whatsapp_token',
+                    id,
+                    `WhatsApp device for ${label}`,
+                    `Remove WhatsApp gateway connection for ${label}?\n\n`
+                      + 'This deletes their connection row and disconnects the Baileys session '
+                      + '(including stored auth).',
+                  )
+                }
               />
             </Section>
 

@@ -4,6 +4,7 @@ import { SecretInput } from '../SecretField'
 import { inputClass } from '../../constants/forms'
 import {
   fetchAdminWhatsAppInfrastructure,
+  removeAdminWhatsAppInfrastructure,
   updateAdminWhatsAppInfrastructure,
   type AdminWhatsAppInfrastructure,
 } from '../../lib/admin'
@@ -61,8 +62,10 @@ export default function AdminWhatsAppInfrastructurePanel({
   const [form, setForm] = useState<InfrastructureForm>(DEFAULT_FORM)
   const [hasStoredApiKey, setHasStoredApiKey] = useState(false)
   const [usesClintyApiKey, setUsesClintyApiKey] = useState(false)
+  const [hasConnection, setHasConnection] = useState(false)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -71,6 +74,7 @@ export default function AdminWhatsAppInfrastructurePanel({
       setForm(DEFAULT_FORM)
       setHasStoredApiKey(false)
       setUsesClintyApiKey(false)
+      setHasConnection(false)
       return
     }
 
@@ -83,11 +87,13 @@ export default function AdminWhatsAppInfrastructurePanel({
       setForm(settingsToForm(settings))
       setHasStoredApiKey(settings.has_gateway_api_key)
       setUsesClintyApiKey(settings.uses_clinty_api_key)
+      setHasConnection(Boolean(settings.has_connection))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load WhatsApp infrastructure')
       setForm(DEFAULT_FORM)
       setHasStoredApiKey(false)
       setUsesClintyApiKey(false)
+      setHasConnection(false)
     } finally {
       setLoading(false)
     }
@@ -127,12 +133,50 @@ export default function AdminWhatsAppInfrastructurePanel({
       setForm(settingsToForm(updated))
       setHasStoredApiKey(updated.has_gateway_api_key)
       setUsesClintyApiKey(updated.uses_clinty_api_key)
+      setHasConnection(Boolean(updated.has_connection ?? true))
       setSuccess('WhatsApp infrastructure saved for this user.')
       onSaved?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save WhatsApp infrastructure')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleRemove() {
+    if (!selectedUserId) {
+      setError('Select a user first.')
+      return
+    }
+    const selected = users.find((user) => user.id === selectedUserId)
+    const label = selected?.email ?? selectedUserId
+    const confirmed = window.confirm(
+      `Remove WhatsApp gateway connection for ${label}?\n\n`
+        + 'This deletes their whatsapp_connections row and disconnects the Baileys session '
+        + '(including stored auth). Website-level WhatsApp defaults are unchanged.',
+    )
+    if (!confirmed) {
+      return
+    }
+
+    setRemoving(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      await removeAdminWhatsAppInfrastructure(selectedUserId)
+      setForm(DEFAULT_FORM)
+      setHasStoredApiKey(false)
+      setUsesClintyApiKey(false)
+      setHasConnection(false)
+      setSuccess('WhatsApp gateway connection removed for this user.')
+      onSaved?.()
+      // Reload so the form shows resolved website defaults again.
+      await loadSettings(selectedUserId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove WhatsApp connection')
+    } finally {
+      setRemoving(false)
     }
   }
 
@@ -153,7 +197,7 @@ export default function AdminWhatsAppInfrastructurePanel({
           value={selectedUserId}
           onChange={(event) => setSelectedUserId(event.target.value)}
           className={inputClass}
-          disabled={saving || loading}
+          disabled={saving || removing || loading}
         >
           <option value="">Select a user…</option>
           {users.map((user) => (
@@ -178,6 +222,11 @@ export default function AdminWhatsAppInfrastructurePanel({
               {success}
             </div>
           ) : null}
+          {!hasConnection ? (
+            <p className="text-sm text-navy-500">
+              No per-user WhatsApp gateway connection saved yet. Saving creates one; website defaults apply until then.
+            </p>
+          ) : null}
 
           <div className="rounded-xl border border-navy-900/5 p-4 space-y-5">
             <p className="text-sm text-navy-600">
@@ -198,7 +247,7 @@ export default function AdminWhatsAppInfrastructurePanel({
                 onChange={(event) => updateField('gateway_url', event.target.value)}
                 placeholder="https://whatsapp-web-gateway-70je.onrender.com"
                 className={inputClass}
-                disabled={saving}
+                disabled={saving || removing}
               />
             </FormField>
 
@@ -214,7 +263,7 @@ export default function AdminWhatsAppInfrastructurePanel({
               onChange={(event) => updateField('gateway_langgraph_url', event.target.value)}
               placeholder="https://your-email-assistant.onrender.com"
               className={inputClass}
-              disabled={saving}
+              disabled={saving || removing}
             />
           </FormField>
 
@@ -233,7 +282,7 @@ export default function AdminWhatsAppInfrastructurePanel({
                 onChange={(value) => updateField('gateway_api_key', value)}
                 placeholder={hasStoredApiKey ? '••••••••••••••••' : 'clinty_sk_… or gateway key'}
                 className={inputClass}
-                disabled={saving}
+                disabled={saving || removing}
               />
             </FormField>
 
@@ -244,7 +293,7 @@ export default function AdminWhatsAppInfrastructurePanel({
                 value={form.gateway_debug}
                 onChange={(event) => updateField('gateway_debug', event.target.value)}
                 className={inputClass}
-                disabled={saving}
+                disabled={saving || removing}
               />
             </FormField>
 
@@ -255,7 +304,7 @@ export default function AdminWhatsAppInfrastructurePanel({
                 value={form.gateway_auth_backend}
                 onChange={(event) => updateField('gateway_auth_backend', event.target.value)}
                 className={inputClass}
-                disabled={saving}
+                disabled={saving || removing}
               />
             </FormField>
 
@@ -266,7 +315,7 @@ export default function AdminWhatsAppInfrastructurePanel({
                 value={form.gateway_auth_bucket}
                 onChange={(event) => updateField('gateway_auth_bucket', event.target.value)}
                 className={inputClass}
-                disabled={saving}
+                disabled={saving || removing}
               />
             </FormField>
 
@@ -281,7 +330,7 @@ export default function AdminWhatsAppInfrastructurePanel({
                 value={form.gateway_auth_storage_prefix}
                 onChange={(event) => updateField('gateway_auth_storage_prefix', event.target.value)}
                 className={inputClass}
-                disabled={saving}
+                disabled={saving || removing}
               />
             </FormField>
 
@@ -292,18 +341,30 @@ export default function AdminWhatsAppInfrastructurePanel({
                 value={form.gateway_auth_dir}
                 onChange={(event) => updateField('gateway_auth_dir', event.target.value)}
                 className={inputClass}
-                disabled={saving}
+                disabled={saving || removing}
               />
             </FormField>
           </div>
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="inline-flex items-center text-sm font-medium bg-navy-900 text-cream px-4 py-2 rounded-lg hover:bg-navy-800 transition-colors disabled:opacity-60"
-          >
-            {saving ? 'Saving…' : 'Save WhatsApp infrastructure'}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={saving || removing}
+              className="inline-flex items-center text-sm font-medium bg-navy-900 text-cream px-4 py-2 rounded-lg hover:bg-navy-800 transition-colors disabled:opacity-60"
+            >
+              {saving ? 'Saving…' : 'Save WhatsApp infrastructure'}
+            </button>
+            {hasConnection ? (
+              <button
+                type="button"
+                onClick={() => void handleRemove()}
+                disabled={saving || removing}
+                className="inline-flex items-center text-sm font-medium border border-red-300 text-red-700 bg-red-50 px-4 py-2 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-60"
+              >
+                {removing ? 'Removing…' : 'Remove connection'}
+              </button>
+            ) : null}
+          </div>
         </form>
       )}
     </div>

@@ -75,11 +75,13 @@ export function resolveWhatsAppInfrastructure(
   const sharedLoginKey = trim(websiteSettings.whatsapp_web_login_api_key)
   const userApiKey = trim(options?.defaultApiKey)
   // Shared multitenant gateway auth uses the website login key (WHATSAPP_WEB_LOGIN_API_KEY).
-  // Prefer that over a per-user Clinty API key, which will 401 against the shared gateway.
-  const gatewayApiKey = storedGatewayKey
-    || (options?.preferSharedGateway && sharedGatewayUrl
-      ? (sharedLoginKey || userApiKey)
-      : (userApiKey || sharedLoginKey))
+  // Never send a personal Account → API Keys value to that gateway (401).
+  // Prefer shared login key whenever the resolved URL is the shared gateway, even if a stale
+  // per-user gateway_api_key (often a Clinty user key) is still stored on the connection row.
+  const usingSharedGateway = Boolean(sharedGatewayUrl) && gatewayUrl === sharedGatewayUrl
+  const gatewayApiKey = usingSharedGateway
+    ? (sharedLoginKey || storedGatewayKey)
+    : (storedGatewayKey || userApiKey || sharedLoginKey)
 
   const authStoragePrefix =
     trim(row?.gateway_auth_storage_prefix) ||

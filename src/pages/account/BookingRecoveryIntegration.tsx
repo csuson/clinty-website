@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import IntegrationPanel from '../../components/IntegrationPanel'
 import { GoogleCalendarIcon } from '../../components/IntegrationIcons'
+import { inputClass } from '../../constants/forms'
 import {
   buildWixInstallerUrl,
   CLINTY_WIX_APP_ID,
@@ -13,6 +14,7 @@ import {
   ensureBookingRecovery,
   fetchBookingRecoverySettings,
   rotateBookingRecoveryToken,
+  syncWixInstallInstance,
   type BookingRecoverySettingsResponse,
 } from '../../lib/bookingRecovery'
 
@@ -35,17 +37,24 @@ export default function BookingRecoveryIntegration({
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [wixInstanceDraft, setWixInstanceDraft] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       // Ensure row exists and sync langgraph_url from agent_settings on every open.
-      setData(await ensureBookingRecovery())
+      const next = await ensureBookingRecovery()
+      setData(next)
+      const existing = next.connection?.wix_instance_id?.trim()
+      if (existing) setWixInstanceDraft(existing)
     } catch (err) {
       // Fall back to get so the panel still renders when agent URL is missing.
       try {
-        setData(await fetchBookingRecoverySettings())
+        const next = await fetchBookingRecoverySettings()
+        setData(next)
+        const existing = next.connection?.wix_instance_id?.trim()
+        if (existing) setWixInstanceDraft(existing)
         setError(err instanceof Error ? err.message : 'Could not ensure recovery connection')
       } catch (getErr) {
         setError(getErr instanceof Error ? getErr.message : 'Failed to load booking recovery settings')
@@ -209,11 +218,10 @@ export default function BookingRecoveryIntegration({
               <div className="space-y-2">
                 <p className="text-xs text-navy-600">
                   Clinty&apos;s shared Wix Studio app posts <code className="text-xs">booking/canceled</code>{' '}
-                  here once subscribed. Install via{' '}
-                  <code className="text-xs">wix.to/9PIMeWM</code>,                   then paste the Instance ID in{' '}
-                  <strong>Wix Bookings</strong> and Connect (Service ID optional — blank uses all
-                  appointments, classes, and courses) so cancels route to your assistant. Guest email
-                  required.
+                  here once subscribed. Install below, then Wix → Apps → Manage Apps → Clinty →{' '}
+                  <strong>Open App</strong> (Instance ID is not listed on that page — Open App sends it
+                  to Clinty). Guest email required. For calendar booking, also Connect under{' '}
+                  <strong>Wix Bookings</strong>.
                 </p>
                 {user ? (
                   <button
@@ -230,16 +238,57 @@ export default function BookingRecoveryIntegration({
                         return
                       }
                       window.open(url, '_blank', 'noopener,noreferrer')
+                      setSuccess(
+                        'Opened the Wix install page. After Add to Site: Manage Apps → Clinty → Open App to save Instance ID here.',
+                      )
                     }}
                     className="inline-flex items-center text-sm font-medium border border-navy-900/15 text-navy-800 px-4 py-2 rounded-lg hover:bg-navy-50 disabled:opacity-60"
                   >
                     Install Clinty Wix app
                   </button>
                 ) : null}
+                <div className="flex flex-wrap gap-2 items-center pt-1">
+                  <input
+                    id="recovery-wix-instance-id"
+                    className={`${inputClass} flex-1 min-w-[12rem]`}
+                    value={wixInstanceDraft}
+                    onChange={(e) => setWixInstanceDraft(e.target.value)}
+                    placeholder="Wix Instance ID"
+                    disabled={working}
+                    aria-label="Wix Instance ID"
+                  />
+                  <button
+                    type="button"
+                    disabled={working || !wixInstanceDraft.trim()}
+                    onClick={() => {
+                      void (async () => {
+                        setWorking(true)
+                        setError(null)
+                        setSuccess(null)
+                        try {
+                          const next = await syncWixInstallInstance(wixInstanceDraft.trim())
+                          setData(next)
+                          setSuccess(
+                            `Wix instance ID saved: ${next.connection?.wix_instance_id ?? wixInstanceDraft.trim()}`,
+                          )
+                        } catch (err) {
+                          setError(
+                            err instanceof Error ? err.message : 'Could not save Wix instance ID',
+                          )
+                        } finally {
+                          setWorking(false)
+                        }
+                      })()
+                    }}
+                    className="inline-flex items-center text-sm font-medium border border-navy-900/15 text-navy-800 px-3 py-2 rounded-lg hover:bg-navy-50 disabled:opacity-60"
+                  >
+                    Save Instance ID
+                  </button>
+                </div>
                 {!connection?.wix_instance_id && !connection?.wix_site_id ? (
                   <p className="text-xs text-amber-800">
-                    No Wix routing ID yet — open <strong>Wix Bookings</strong> above to finish connect
-                    after install.
+                    No Wix routing ID yet — Install, then Manage Apps → Open App (or Connect Wix with
+                    Site ID).
                   </p>
                 ) : null}
                 {!data.has_wix_webhook_public_key ? (

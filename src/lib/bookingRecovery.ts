@@ -74,9 +74,23 @@ export async function ensureBookingRecovery(): Promise<BookingRecoverySettingsRe
 /** Persist Wix app instance ID for cancel-recovery routing (after Install, before Connect). */
 export async function syncWixInstallInstance(
   wixInstanceId: string,
+  wixSiteId?: string,
 ): Promise<BookingRecoverySettingsResponse> {
   return invokeBookingRecovery({
     action: 'sync_wix_install',
     wix_instance_id: wixInstanceId.trim(),
+    ...(wixSiteId?.trim() ? { wix_site_id: wixSiteId.trim() } : {}),
   })
+}
+
+/**
+ * Verify Wix Open App `instance` query param (HMAC) and save instanceId for cancel recovery.
+ */
+export async function syncWixSignedInstance(
+  wixSignedInstance: string,
+): Promise<BookingRecoverySettingsResponse & { wix_instance_id?: string }> {
+  return invokeBookingRecovery({
+    action: 'sync_wix_signed_instance',
+    wix_signed_instance: wixSignedInstance.trim(),
+  }) as Promise<BookingRecoverySettingsResponse & { wix_instance_id?: string }>
 }

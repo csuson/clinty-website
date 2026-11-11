@@ -3,21 +3,31 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   stashPendingWixInstanceId,
+  takePendingWixShareInstall,
   validateWixInstallState,
 } from '../../constants/wix'
-import { syncWixInstallInstance } from '../../lib/bookingRecovery'
+import {
+  syncWixInstallInstance,
+  syncWixSignedInstance,
+} from '../../lib/bookingRecovery'
 
 export default function WixCallback() {
   const { user, loading: authLoading } = useAuth()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const [message, setMessage] = useState('Finishing Wix app install…')
+  const [message, setMessage] = useState('Finishing Wix app link…')
 
   useEffect(() => {
     if (authLoading) return
 
     if (!user) {
-      navigate('/sign-in', { replace: true })
+      // ProtectedRoute normally handles this; keep query string if we land here raw.
+      navigate('/sign-in', {
+        replace: true,
+        state: {
+          from: `/account/integrations/wix/callback?${searchParams.toString()}`,
+        },
+      })
       return
     }
 
@@ -32,53 +42,105 @@ export default function WixCallback() {
       return
     }
 
+    const signedInstance = searchParams.get('instance')?.trim() || ''
     const instanceId =
       searchParams.get('instanceId') ||
       searchParams.get('instance_id') ||
       ''
+    const tenantId =
+      searchParams.get('tenantId') ||
+      searchParams.get('tenant_id') ||
+      searchParams.get('siteId') ||
+      ''
     const state = searchParams.get('state')
-
-    if (!instanceId.trim()) {
-      navigate(
-        `/account/integrations?wix_error=${encodeURIComponent(
-          'Missing instance ID from Wix. Install the Clinty app again, or paste Instance ID manually.',
-        )}`,
-        { replace: true },
-      )
-      return
-    }
-
-    if (state && !validateWixInstallState(state, user.id)) {
-      navigate(
-        `/account/integrations?wix_error=${encodeURIComponent(
-          'Invalid install state. Open Integrations and install the Clinty Wix app again.',
-        )}`,
-        { replace: true },
-      )
-      return
-    }
-
-    const trimmed = instanceId.trim()
-    setMessage('Saving Wix instance for cancel recovery…')
-    stashPendingWixInstanceId(trimmed)
+    const hadPendingShare = takePendingWixShareInstall()
 
     void (async () => {
-      try {
-        await syncWixInstallInstance(trimmed)
+      // Preferred path: Open App / external dashboard sends signed instance=.
+      if (signedInstance) {
+        setMessage('Verifying Wix install and saving Instance ID…')
+        try {
+          const result = await syncWixSignedInstance(signedInstance)
+          const saved =
+            result.wix_instance_id?.trim() ||
+            result.connection?.wix_instance_id?.trim() ||
+            ''
+          if (!saved) {
+            throw new Error('Wix did not return an instance ID.')
+          }
+          stashPendingWixInstanceId(saved)
+          navigate(
+            `/account/integrations?wix_installed=1&wix_instance_id=${encodeURIComponent(saved)}`,
+            { replace: true },
+          )
+        } catch (err) {
+          const msg =
+            err instanceof Error
+              ? err.message
+              : 'Could not verify Wix Open App link.'
+          navigate(
+            `/account/integrations?wix_error=${encodeURIComponent(msg)}`,
+            { replace: true },
+          )
+        }
+        return
+      }
+
+      if (!instanceId.trim()) {
         navigate(
-          `/account/integrations?wix_installed=1&wix_instance_id=${encodeURIComponent(trimmed)}`,
+          `/account/integrations?wix_error=${encodeURIComponent(
+            'No Instance ID from Wix. After install: Manage Apps → Clinty Cancel Booking Recovery → Open App (opens Clinty with the ID). Or ask an admin to copy it from Wix Studio → App Installations.',
+          )}`,
           { replace: true },
         )
+        return
+      }
+
+      if (state) {
+        if (!validateWixInstallState(state, user.id)) {
+          navigate(
+            `/account/integrations?wix_error=${encodeURIComponent(
+              'Invalid install state. Open Integrations and install the Clinty Wix app again.',
+            )}`,
+            { replace: true },
+          )
+          return
+        }
+      } else if (!hadPendingShare) {
+        navigate(
+          `/account/integrations?wix_error=${encodeURIComponent(
+            'Install state missing. Prefer Manage Apps → Open App on the Clinty Wix app.',
+          )}`,
+          { replace: true },
+        )
+        return
+      }
+
+      const trimmed = instanceId.trim()
+      const siteId = tenantId.trim()
+      setMessage('Saving Wix instance for cancel recovery…')
+      stashPendingWixInstanceId(trimmed)
+
+      try {
+        await syncWixInstallInstance(trimmed, siteId || undefined)
+        const qs = new URLSearchParams({
+          wix_installed: '1',
+          wix_instance_id: trimmed,
+        })
+        if (siteId) qs.set('wix_site_id', siteId)
+        navigate(`/account/integrations?${qs.toString()}`, { replace: true })
       } catch (err) {
         const msg =
           err instanceof Error
             ? err.message
             : 'Could not sync Wix instance for cancel recovery.'
-        // Still hand instance to Connect form; routing sync can retry on Connect.
-        navigate(
-          `/account/integrations?wix_installed=1&wix_instance_id=${encodeURIComponent(trimmed)}&wix_error=${encodeURIComponent(msg)}`,
-          { replace: true },
-        )
+        const qs = new URLSearchParams({
+          wix_installed: '1',
+          wix_instance_id: trimmed,
+          wix_error: msg,
+        })
+        if (siteId) qs.set('wix_site_id', siteId)
+        navigate(`/account/integrations?${qs.toString()}`, { replace: true })
       }
     })()
   }, [authLoading, user, searchParams, navigate])

@@ -276,7 +276,7 @@ export default function AdminBookingRecoveryGatewayPanel({
           <FormField
             label="Wix install URL override (optional)"
             id="wix-app-install-url"
-            hint="Published share link: https://wix.to/9PIMeWM. Leave empty to use the App Market install page. Do not use /installer/install or /app-installer for this unlisted app."
+            hint="Published share link: https://wix.to/9PIMeWM. Leave empty to use the App Market install page. Do not use /app-installer for this unlisted app (couldn't load installation data)."
           >
             <input
               id="wix-app-install-url"
@@ -290,9 +290,9 @@ export default function AdminBookingRecoveryGatewayPanel({
           </FormField>
 
           <FormField
-            label="OAuth redirect URL (add in Wix Studio)"
+            label="Wix App URL / Open App callback (required)"
             id="wix-redirect-uri"
-            hint="Develop → OAuth → Redirect URL (optional). Tenants install via the App Market share page and paste Instance ID into Clinty."
+            hint="Paste this in Wix Studio as the app’s App URL / External dashboard URL (and OAuth Redirect URL). After install, tenants use Manage Apps → Open App — Wix opens this URL with a signed instance= param. Instance IDs also appear under Manage → App Installations (developer view only)."
           >
             <div className="flex flex-wrap items-center gap-2">
               <code className="text-xs break-all text-navy-800 bg-navy-900/5 px-2 py-1 rounded flex-1">

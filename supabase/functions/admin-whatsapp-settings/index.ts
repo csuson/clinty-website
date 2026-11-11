@@ -6,6 +6,7 @@ import {  buildWhatsAppInfrastructureUpsert,
   WHATSAPP_INFRA_SELECT,
   type WhatsAppInfrastructureInput,
 } from '../_shared/whatsappInfrastructure.ts'
+import { removeWhatsAppConnection } from '../_shared/whatsappSessionCleanup.ts'
 import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
 
 let corsHeaders: Record<string, string> = {}
@@ -118,13 +119,18 @@ Deno.serve(async (req) => {
         defaultApiKey,
         postgresSchema: agentSettingsRes.data?.postgres_schema ?? null,
         agentLanggraphUrl: agentSettingsRes.data?.url ?? null,
+        preferSharedGateway: true,
       })
 
       const storedGatewayKey =
         typeof connection?.gateway_api_key === 'string' ? connection.gateway_api_key.trim() : ''
+      const sharedGatewayUrl = (websiteSettings.whatsapp_web_gateway_url || '').replace(/\/$/, '')
+      const usingSharedGateway =
+        Boolean(sharedGatewayUrl) && resolved.gatewayUrl === sharedGatewayUrl
 
       return json({
         user_id: userId,
+        has_connection: Boolean(connection),
         gateway_url: connection?.gateway_url ?? null,
         gateway_api_key: storedGatewayKey ? '••••••••' : null,
         has_gateway_api_key: Boolean(storedGatewayKey),
@@ -134,9 +140,31 @@ Deno.serve(async (req) => {
         gateway_auth_storage_prefix: connection?.gateway_auth_storage_prefix ?? null,
         gateway_auth_dir: connection?.gateway_auth_dir ?? null,
         gateway_langgraph_url: connection?.gateway_langgraph_url ?? null,
-        uses_clinty_api_key: !storedGatewayKey && Boolean(defaultApiKey),
+        uses_clinty_api_key:
+          !usingSharedGateway &&
+          !storedGatewayKey &&
+          Boolean(defaultApiKey) &&
+          resolved.gatewayApiKey === defaultApiKey,
         resolved,
       })
+    }
+
+    if (action === 'remove') {
+      const gateway = await resolveUserGateway(admin, userId, websiteSettings)
+      try {
+        await removeWhatsAppConnection(admin, userId, {
+          gatewayUrl: gateway.gatewayUrl,
+          gatewayKey: gateway.gatewayKey,
+          callGateway: (method, path, body) =>
+            callGateway(gateway.gatewayUrl, gateway.gatewayKey, method, path, body),
+        })
+      } catch (err) {
+        return json({
+          error: err instanceof Error ? err.message : 'Failed to remove WhatsApp connection',
+        }, 500)
+      }
+
+      return json({ success: true, removed: true, user_id: userId })
     }
 
     if (action === 'update') {
@@ -193,13 +221,18 @@ Deno.serve(async (req) => {
         defaultApiKey,
         postgresSchema: agentSettings?.postgres_schema ?? null,
         agentLanggraphUrl: agentSettings?.url ?? null,
+        preferSharedGateway: true,
       })
 
       const storedGatewayKey =
         typeof connection?.gateway_api_key === 'string' ? connection.gateway_api_key.trim() : ''
+      const sharedGatewayUrl = (websiteSettings.whatsapp_web_gateway_url || '').replace(/\/$/, '')
+      const usingSharedGateway =
+        Boolean(sharedGatewayUrl) && resolved.gatewayUrl === sharedGatewayUrl
 
       return json({
         user_id: userId,
+        has_connection: Boolean(connection),
         gateway_url: connection?.gateway_url ?? null,
         gateway_api_key: storedGatewayKey ? '••••••••' : null,
         has_gateway_api_key: Boolean(storedGatewayKey),
@@ -209,7 +242,11 @@ Deno.serve(async (req) => {
         gateway_auth_storage_prefix: connection?.gateway_auth_storage_prefix ?? null,
         gateway_auth_dir: connection?.gateway_auth_dir ?? null,
         gateway_langgraph_url: connection?.gateway_langgraph_url ?? null,
-        uses_clinty_api_key: !storedGatewayKey && Boolean(defaultApiKey),
+        uses_clinty_api_key:
+          !usingSharedGateway &&
+          !storedGatewayKey &&
+          Boolean(defaultApiKey) &&
+          resolved.gatewayApiKey === defaultApiKey,
         resolved,
       })
     }
@@ -243,35 +280,14 @@ Deno.serve(async (req) => {
       }
 
       if (action === 'login_disconnect') {
-        const { data: existing } = await admin
-          .from('whatsapp_connections')
-          .select(WHATSAPP_INFRA_SELECT)
-          .eq('user_id', userId)
-          .maybeSingle()
-
-        await admin.from('whatsapp_connections').upsert({
-          user_id: userId,
-          gateway_url: existing?.gateway_url ?? gateway.gatewayUrl ?? null,
-          gateway_api_key: existing?.gateway_api_key ?? null,
-          gateway_debug: existing?.gateway_debug ?? null,
-          gateway_auth_backend: existing?.gateway_auth_backend ?? null,
-          gateway_auth_bucket: existing?.gateway_auth_bucket ?? null,
-          gateway_auth_storage_prefix: existing?.gateway_auth_storage_prefix ?? null,
-          gateway_auth_dir: existing?.gateway_auth_dir ?? null,
-          gateway_langgraph_url: existing?.gateway_langgraph_url ?? gateway.langgraphUrl ?? null,
-          status: 'disconnected',
-          phone: null,
-          last_error: null,
-          connected_at: existing?.connected_at ?? new Date().toISOString(),
+        // Same teardown as Integrations disconnect / Infrastructure Remove.
+        await removeWhatsAppConnection(admin, userId, {
+          gatewayUrl: gateway.gatewayUrl,
+          gatewayKey: gateway.gatewayKey,
+          callGateway: (method, path, body) =>
+            callGateway(gateway.gatewayUrl, gateway.gatewayKey, method, path, body),
         })
-        try {
-          await callGateway(gateway.gatewayUrl, gateway.gatewayKey, 'POST', '/v1/login/disconnect', {
-            user_id: userId,
-          })
-        } catch (gatewayErr) {
-          console.warn('Admin WhatsApp gateway disconnect failed:', gatewayErr)
-        }
-        return json({ success: true, status: 'disconnected' })
+        return json({ success: true, status: 'disconnected', removed: true })
       }
 
       // login_start

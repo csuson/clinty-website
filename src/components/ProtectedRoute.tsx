@@ -14,7 +14,9 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   }
 
   if (!user) {
-    return <Navigate to="/sign-in" state={{ from: location.pathname }} replace />
+    // Preserve query string (e.g. Wix Open App ?instance=…) through sign-in.
+    const from = `${location.pathname}${location.search}`
+    return <Navigate to="/sign-in" state={{ from }} replace />
   }
 
   return children

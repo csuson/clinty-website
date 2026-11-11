@@ -23,12 +23,12 @@ export function getWixRedirectUri(): string {
 /**
  * URL for the Install button.
  *
- * Use the published App Market share listing — not /installer/install or
- * /app-installer. Those flows return "couldn't find an app" / "couldn't load
- * installation data" for this unlisted share-link app.
+ * Use the published App Market install page — not /app-installer or
+ * /installer/install. Those return "couldn't load installation data" /
+ * "couldn't find an app" for this unlisted share-link app.
  *
- * After install, the tenant pastes Instance ID into Clinty (share links do not
- * preserve postInstallationUrl / redirectUrl query params).
+ * After Add to Site, the tenant pastes Instance ID into Clinty (share / market
+ * pages do not call postInstallationUrl).
  */
 export function buildWixInstallerUrl(
   _installBaseUrl: string,
@@ -46,12 +46,17 @@ export function takePendingWixShareInstall(): boolean {
   return pending
 }
 
+/**
+ * Validate install state from a Wix OAuth redirect (if Redirect URL is configured).
+ * Exact sessionStorage match when same-tab; otherwise accept userId-prefixed state.
+ */
 export function validateWixInstallState(state: string | null, userId: string): boolean {
   if (!state) return false
+  if (!state.startsWith(`${userId}:`)) return false
   const saved = sessionStorage.getItem(WIX_OAUTH_STATE_KEY)
   sessionStorage.removeItem(WIX_OAUTH_STATE_KEY)
-  if (!saved || saved !== state) return false
-  return state.startsWith(`${userId}:`)
+  if (saved && saved !== state) return false
+  return true
 }
 
 export function stashPendingWixInstanceId(instanceId: string): void {

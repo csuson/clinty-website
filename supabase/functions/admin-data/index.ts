@@ -250,14 +250,21 @@ Deno.serve(async (req) => {
         defaultApiKey: clintyApiKey,
         postgresSchema: agentSettings?.postgres_schema ?? null,
         agentLanggraphUrl: agentSettings?.url ?? null,
+        preferSharedGateway: true,
       })
-      const effectiveGatewayApiKey = storedGatewayKey || clintyApiKey || resolved.gatewayApiKey || null
+      const sharedGatewayUrl = (websiteSettings.whatsapp_web_gateway_url || '').replace(/\/$/, '')
+      const usingSharedGateway =
+        Boolean(sharedGatewayUrl) && resolved.gatewayUrl === sharedGatewayUrl
+      const effectiveGatewayApiKey = resolved.gatewayApiKey || null
 
       return {
         ...connection,
         user_email: emailByUserId.get(connection.user_id) ?? null,
         effective_gateway_api_key: effectiveGatewayApiKey,
-        uses_clinty_api_key: !storedGatewayKey && Boolean(clintyApiKey),
+        // Personal Clinty API keys are not used for the shared multitenant gateway.
+        uses_clinty_api_key:
+          !usingSharedGateway && !storedGatewayKey && Boolean(clintyApiKey) &&
+          effectiveGatewayApiKey === clintyApiKey,
         effective_gateway_url: resolved.gatewayUrl || null,
         effective_auth_storage_prefix: resolved.authStoragePrefix,
         effective_langgraph_url: resolved.langgraphUrl || null,

@@ -11,7 +11,10 @@ import {
   takePendingWixInstanceId,
 } from '../../constants/wix'
 import { useAuth } from '../../context/AuthContext'
-import { fetchBookingRecoverySettings } from '../../lib/bookingRecovery'
+import {
+  fetchBookingRecoverySettings,
+  syncWixInstallInstance,
+} from '../../lib/bookingRecovery'
 import {
   connectWix,
   disconnectWix,
@@ -62,6 +65,10 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
         setPlatformInstallAvailable(
           Boolean(recovery.wix_install_available || recovery.wix_app_install_url || recovery.wix_app_id),
         )
+        const routedInstance = recovery.connection?.wix_instance_id?.trim()
+        const routedSite = recovery.connection?.wix_site_id?.trim()
+        if (routedInstance) setInstanceId((current) => current || routedInstance)
+        if (routedSite) setSiteId((current) => current || routedSite)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load Wix connection')
@@ -80,22 +87,27 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
     const nextInstance = (fromQuery || fromSession || '').trim()
     if (nextInstance) setInstanceId(nextInstance)
 
+    const fromSiteQuery = searchParams.get('wix_site_id')?.trim()
+    if (fromSiteQuery) setSiteId(fromSiteQuery)
+
     const wixError = searchParams.get('wix_error')
     if (wixError) setError(wixError)
     if (searchParams.get('wix_installed') === '1' && nextInstance) {
       setSuccess(
-        'Clinty Wix app installed. Confirm your appointment Service ID below, then Connect.',
+        `Clinty Wix app installed. Instance ID ${nextInstance} is saved for cancel recovery. Confirm Service ID (optional), then Connect.`,
       )
     }
 
     if (
       searchParams.has('wix_instance_id')
+      || searchParams.has('wix_site_id')
       || searchParams.has('wix_installed')
       || searchParams.has('wix_error')
       || searchParams.has('wix_connected')
     ) {
       const next = new URLSearchParams(searchParams)
       next.delete('wix_instance_id')
+      next.delete('wix_site_id')
       next.delete('wix_installed')
       next.delete('wix_error')
       next.delete('wix_connected')
@@ -115,8 +127,9 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
       setError('Sign in to install the Clinty Wix app.')
       return
     }
-    // Open the published App Market share listing (wix.to/9PIMeWM). External
-    // /app-installer and /installer/install flows fail for this unlisted app.
+    // App Market install page (share link destination). Keep this tab open so
+    // the user can paste Instance ID after Add to Site — /app-installer fails
+    // with "couldn't load installation data" for this unlisted app.
     const url = buildWixInstallerUrl(CLINTY_WIX_APP_SHARE_URL, user.id, CLINTY_WIX_APP_ID)
     if (!url) {
       setError('Could not build the Wix install URL.')
@@ -124,8 +137,29 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
     }
     window.open(url, '_blank', 'noopener,noreferrer')
     setSuccess(
-      'Opened the Clinty Wix app install page. After you add it to your site, paste the Instance ID below, then Connect. Leave Service ID blank to use all bookable services (appointments, classes, courses).',
+      'Opened the Wix install page. After Add to Site: Apps → Manage Apps → Clinty Cancel Booking Recovery → Open App (Wix opens Clinty and saves Instance ID). Instance ID is not shown on that Manage Apps page.',
     )
+  }
+
+  async function handleSaveInstanceId() {
+    const trimmed = instanceId.trim()
+    if (!trimmed) {
+      setError('Paste the Wix Instance ID first.')
+      return
+    }
+    setWorking(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      await syncWixInstallInstance(trimmed, siteId.trim() || undefined)
+      setSuccess(
+        `Instance ID saved for cancel recovery: ${trimmed}. You can Connect Wix Bookings when ready.`,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save Instance ID')
+    } finally {
+      setWorking(false)
+    }
   }
 
   async function handleSave() {
@@ -218,13 +252,14 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
       <div className="mb-6 rounded-xl border border-navy-900/10 bg-cream p-4 space-y-3">
         <p className="text-sm font-medium text-navy-900">Clinty Wix app</p>
         <p className="text-xs text-navy-600">
-          Install once on your Wix site that has Bookings via the published share link{' '}
-          <code className="text-xs">wix.to/9PIMeWM</code>. After Add to Site, copy the app&apos;s
-          Instance ID from Wix, paste it below with your appointment Service ID, then Connect
+          Install once on your Wix site that has Bookings. After Add to Site, open the app from
+          Manage Apps → <strong>Open App</strong> so Wix sends your Instance ID to Clinty (Wix does
+          not show Instance ID on the Manage Apps page)
           {platformAppConfigured
-            ? ' (shared app credentials are used automatically).'
-            : ' with a Wix API key + Site ID if the shared App Secret is not configured yet.'}{' '}
-          Cancel webhooks use the shared gateway — you do not create your own Wix app.
+            ? '. Shared app credentials are used automatically on Connect.'
+            : '. Then Connect with an API key + Site ID if the shared App Secret is not configured yet.'}{' '}
+          Cancel webhooks use the shared gateway — you do not create your own Wix app. Site ID alone
+          can also route cancels after Connect.
         </p>
         <button
           type="button"
@@ -285,18 +320,28 @@ export default function WixIntegration({ expanded, onToggle }: Props) {
           id="wix-instance-id"
           hint={
             platformAppConfigured
-              ? 'After Add to Site on wix.to/9PIMeWM: Wix site dashboard → Apps → Clinty Cancel Booking Recovery → copy Instance ID (or from the install confirmation URL’s instanceId=).'
+              ? 'Filled after Manage Apps → Open App. Or ask an admin (Wix Studio → App Installations). Manual paste only if you already have the UUID.'
               : 'From your Wix app install (OAuth path).'
           }
         >
-          <input
-            id="wix-instance-id"
-            className={inputClass}
-            value={instanceId}
-            onChange={(e) => setInstanceId(e.target.value)}
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            disabled={working}
-          />
+          <div className="flex flex-wrap gap-2">
+            <input
+              id="wix-instance-id"
+              className={`${inputClass} flex-1 min-w-[12rem]`}
+              value={instanceId}
+              onChange={(e) => setInstanceId(e.target.value)}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              disabled={working}
+            />
+            <button
+              type="button"
+              onClick={() => void handleSaveInstanceId()}
+              disabled={working || !instanceId.trim()}
+              className="inline-flex items-center text-sm font-medium border border-navy-900/15 text-navy-800 px-3 py-2 rounded-lg hover:bg-navy-50 transition-colors disabled:opacity-60"
+            >
+              Save for cancel recovery
+            </button>
+          </div>
         </FormField>
         <FormField label="Timezone" id="wix-timezone">
           <input

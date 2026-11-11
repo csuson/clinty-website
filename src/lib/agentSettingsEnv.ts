@@ -63,16 +63,28 @@ export function resolveWhatsAppEnvSettings(
   websiteSettings?: AdminWebsiteSettings | null,
   agentSettings?: Pick<AdminAgentSettings, 'postgres_schema' | 'url'> | null,
 ): WhatsAppEnvSettings {
-  const gatewayUrl =
-    whatsappConnection?.gateway_url?.trim() ||
+  const sharedGatewayUrl = websiteSettings?.whatsapp_web_gateway_url?.trim().replace(/\/$/, '') || ''
+  const gatewayUrl = (
     whatsappConnection?.effective_gateway_url?.trim() ||
-    websiteSettings?.whatsapp_web_gateway_url?.trim() ||
+    whatsappConnection?.gateway_url?.trim() ||
+    sharedGatewayUrl ||
     ''
-  const gatewayApiKey =
-    whatsappConnection?.effective_gateway_api_key?.trim() ||
-    whatsappConnection?.gateway_api_key?.trim() ||
-    websiteSettings?.whatsapp_web_login_api_key?.trim() ||
-    ''
+  ).replace(/\/$/, '')
+  const usingSharedGateway = Boolean(sharedGatewayUrl) && gatewayUrl === sharedGatewayUrl
+  // Shared multitenant gateway must use the website login key, not a personal Clinty API key.
+  const gatewayApiKey = usingSharedGateway
+    ? (
+        websiteSettings?.whatsapp_web_login_api_key?.trim() ||
+        whatsappConnection?.effective_gateway_api_key?.trim() ||
+        whatsappConnection?.gateway_api_key?.trim() ||
+        ''
+      )
+    : (
+        whatsappConnection?.effective_gateway_api_key?.trim() ||
+        whatsappConnection?.gateway_api_key?.trim() ||
+        websiteSettings?.whatsapp_web_login_api_key?.trim() ||
+        ''
+      )
   const authStoragePrefix =
     whatsappConnection?.gateway_auth_storage_prefix?.trim() ||
     whatsappConnection?.effective_auth_storage_prefix?.trim() ||

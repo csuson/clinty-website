@@ -16,6 +16,7 @@ import {
   syncBookingRecoveryLanggraphUrlFromAgent,
 } from '../_shared/bookingRecoveryInfrastructure.ts'
 import { loadWebsiteSettings, publicWixAppView } from '../_shared/websiteInfrastructure.ts'
+import { parseWixSignedInstance } from '../_shared/wixSignedInstance.ts'
 
 let corsHeaders: Record<string, string> = {}
 
@@ -184,6 +185,8 @@ Deno.serve(async (req) => {
       if (!instanceId) {
         return json({ error: 'wix_instance_id is required' }, 400)
       }
+      const siteId =
+        typeof body.wix_site_id === 'string' ? body.wix_site_id.trim() : ''
       try {
         const row = await ensureAndSync()
         if (!row) {
@@ -197,11 +200,60 @@ Deno.serve(async (req) => {
         }
         const synced = await ensureBookingRecoveryRow(admin, user.id, {
           wixInstanceId: instanceId,
+          ...(siteId ? { wixSiteId: siteId } : {}),
         })
         if (!synced) {
           return json({ error: 'Could not sync Wix instance ID' }, 500)
         }
         return json(await loadPayload(synced))
+      } catch (err) {
+        if (err instanceof BookingRecoveryRoutingConflictError) {
+          return json({ error: err.message, code: err.code }, 409)
+        }
+        throw err
+      }
+    }
+
+    // Open App / external dashboard: Wix sends ?instance=SIGNATURE.DATA
+    if (action === 'sync_wix_signed_instance') {
+      const signed =
+        typeof body.wix_signed_instance === 'string' ? body.wix_signed_instance.trim() : ''
+      if (!signed) {
+        return json({ error: 'wix_signed_instance is required' }, 400)
+      }
+      const appSecret = websiteSettings.wix_app_secret.trim()
+      if (!appSecret) {
+        return json(
+          {
+            error:
+              'Shared Wix App Secret is not configured. Ask an admin to paste it in Booking recovery gateways.',
+          },
+          400,
+        )
+      }
+      const parsed = await parseWixSignedInstance(signed, appSecret)
+      if (!parsed?.instanceId) {
+        return json({ error: 'Invalid or tampered Wix instance parameter' }, 400)
+      }
+      try {
+        const row = await ensureAndSync()
+        if (!row) {
+          return json(
+            {
+              error:
+                'Could not create booking recovery connection. Ask an admin to set your Agent Settings URL first.',
+            },
+            400,
+          )
+        }
+        const synced = await ensureBookingRecoveryRow(admin, user.id, {
+          wixInstanceId: parsed.instanceId,
+        })
+        if (!synced) {
+          return json({ error: 'Could not sync Wix instance ID' }, 500)
+        }
+        const payload = await loadPayload(synced)
+        return json({ ...payload, wix_instance_id: parsed.instanceId })
       } catch (err) {
         if (err instanceof BookingRecoveryRoutingConflictError) {
           return json({ error: err.message, code: err.code }, 409)

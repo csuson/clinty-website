@@ -5,6 +5,7 @@ import {
   resolveWhatsAppInfrastructure,
   WHATSAPP_INFRA_SELECT,
 } from '../_shared/whatsappInfrastructure.ts'
+import { removeWhatsAppConnection } from '../_shared/whatsappSessionCleanup.ts'
 import { loadWebsiteSettings } from '../_shared/websiteInfrastructure.ts'
 
 let corsHeaders: Record<string, string> = {}
@@ -109,18 +110,38 @@ Deno.serve(async (req) => {
         agentLanggraphUrl: agentSettings?.url,
         preferSharedGateway: true,
       })
-      const storedGatewayKey =
-        typeof connection?.gateway_api_key === 'string' ? connection.gateway_api_key.trim() : ''
-      const hasApiKey = Boolean(storedGatewayKey || defaultApiKey || resolved.gatewayApiKey)
+      const hasApiKey = Boolean(resolved.gatewayApiKey)
+      const sharedGatewayUrl = (websiteSettings.whatsapp_web_gateway_url || '').replace(/\/$/, '')
+      const usingSharedGateway =
+        Boolean(sharedGatewayUrl) && resolved.gatewayUrl === sharedGatewayUrl
 
       return json({
         gatewayUrl: resolved.gatewayUrl || null,
         hasApiKey,
-        usesDefaultApiKey: !storedGatewayKey && Boolean(defaultApiKey),
+        // Personal Account → API Keys are never the auth for the shared multitenant gateway.
+        usesDefaultApiKey:
+          !usingSharedGateway &&
+          Boolean(defaultApiKey) &&
+          resolved.gatewayApiKey === defaultApiKey,
       })
     }
 
     const { gatewayUrl, gatewayKey, langgraphUrl } = await resolveUserGateway(admin, user.id)
+
+    if (action === 'disconnect') {
+      // Same teardown as Admin → WhatsApp Infrastructure → Remove connection:
+      // gateway logout + Storage auth wipe, then delete whatsapp_connections.
+      // Do not require a live gateway — still delete the row if the gateway is down.
+      await removeWhatsAppConnection(admin, user.id, {
+        gatewayUrl,
+        gatewayKey,
+        callGateway: (method, path, body) =>
+          callGateway(gatewayUrl, gatewayKey, method, path, body),
+      })
+
+      return json({ success: true, removed: true })
+    }
+
     requireGateway(gatewayUrl, gatewayKey)
 
     if (action === 'status' || !action) {
@@ -227,24 +248,6 @@ Deno.serve(async (req) => {
 
     if (action === 'stop') {
       await callGateway(gatewayUrl, gatewayKey, 'POST', '/v1/login/stop', { user_id: user.id })
-      return json({ success: true })
-    }
-
-    if (action === 'disconnect') {
-      await mergeWhatsAppConnection(admin, user.id, {
-        status: 'disconnected',
-        phone: null,
-        last_error: null,
-      })
-
-      try {
-        await callGateway(gatewayUrl, gatewayKey, 'POST', '/v1/login/disconnect', {
-          user_id: user.id,
-        })
-      } catch (gatewayErr) {
-        console.warn('WhatsApp gateway disconnect failed:', gatewayErr)
-      }
-
       return json({ success: true })
     }
 
@@ -396,10 +399,13 @@ async function mergeWhatsAppConnection(
     .eq('user_id', userId)
     .maybeSingle()
 
+  // Claiming the shared website gateway clears a stale per-user gateway_api_key so runtime
+  // and admin paths stop sending personal Clinty API keys to the multitenant gateway.
+  const claimedSharedGateway = Boolean(claimOpts.claimGatewayUrl)
   const { error } = await admin.from('whatsapp_connections').upsert({
     user_id: userId,
     gateway_url: resolveStoredGatewayUrl(existing?.gateway_url, claimOpts.claimGatewayUrl),
-    gateway_api_key: existing?.gateway_api_key ?? null,
+    gateway_api_key: claimedSharedGateway ? null : (existing?.gateway_api_key ?? null),
     gateway_debug: existing?.gateway_debug ?? null,
     gateway_auth_backend: existing?.gateway_auth_backend ?? null,
     gateway_auth_bucket: existing?.gateway_auth_bucket ?? null,

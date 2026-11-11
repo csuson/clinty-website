@@ -98,6 +98,8 @@ export type AdminWhatsAppInfrastructureResolved = {
 
 export type AdminWhatsAppInfrastructure = {
   user_id: string
+  /** True when a `whatsapp_connections` row exists for this user. */
+  has_connection?: boolean
   gateway_url: string | null
   has_gateway_api_key: boolean
   gateway_debug: string | null
@@ -278,6 +280,21 @@ export async function updateAdminWhatsAppInfrastructure(
   }
 
   return result.data as AdminWhatsAppInfrastructure
+}
+
+/** Disconnect gateway session (best-effort) and delete the per-user whatsapp_connections row. */
+export async function removeAdminWhatsAppInfrastructure(userId: string): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.')
+  }
+
+  const result = await supabase.functions.invoke('admin-whatsapp-settings', {
+    body: { action: 'remove', user_id: userId },
+  })
+
+  if (result.error || (result.data && typeof result.data === 'object' && 'error' in result.data)) {
+    throw new Error(await getFunctionErrorMessage(result.error, result.data))
+  }
 }
 
 export type AdminWhatsAppLoginStatus = {
